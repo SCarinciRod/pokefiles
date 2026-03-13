@@ -2,159 +2,159 @@
 % Lore local da geracao 5
 % Formato: pokemon_lore(ID, Texto).
 :- multifile pokemon_lore/2.
-pokemon_lore(494, 'Victini é um Pokémon do tipo Psíquico/Fogo. Vive com frequência em habitat pouco documentado, com aparência amarelada e aparencia humanoide. É classificado como Pokémon mítico, cercado por relatos raros e misteriosos. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(495, 'Snivy é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(496, 'Servine é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Snivy.').
-pokemon_lore(497, 'Serperior é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e corpo serpentino. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Servine.').
-pokemon_lore(498, 'Tepig é um Pokémon do tipo Fogo. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(499, 'Pignite é um Pokémon do tipo Fogo/Lutador. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Tepig.').
-pokemon_lore(500, 'Emboar é um Pokémon do tipo Fogo/Lutador. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Pignite.').
-pokemon_lore(501, 'Oshawott é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(502, 'Dewott é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Oshawott.').
-pokemon_lore(503, 'Samurott é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência azulada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Dewott.').
-pokemon_lore(504, 'Patrat é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(505, 'Watchog é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Patrat.').
-pokemon_lore(506, 'Lillipup é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(507, 'Herdier é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Lillipup.').
-pokemon_lore(508, 'Stoutland é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Herdier.').
-pokemon_lore(509, 'Purrloin é um Pokémon do tipo Sombrio. Vive com frequência em habitat pouco documentado, com aparência arroxeada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(510, 'Liepard é um Pokémon do tipo Sombrio. Vive com frequência em habitat pouco documentado, com aparência arroxeada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Purrloin.').
-pokemon_lore(511, 'Pansage é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(512, 'Simisage é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Pansage.').
-pokemon_lore(513, 'Pansear é um Pokémon do tipo Fogo. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(514, 'Simisear é um Pokémon do tipo Fogo. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Pansear.').
-pokemon_lore(515, 'Panpour é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(516, 'Simipour é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Panpour.').
-pokemon_lore(517, 'Munna é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência rosada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(518, 'Musharna é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência rosada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Munna.').
-pokemon_lore(519, 'Pidove é um Pokémon do tipo Normal/Voador. Vive com frequência em habitat pouco documentado, com aparência acinzentada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(520, 'Tranquill é um Pokémon do tipo Normal/Voador. Vive com frequência em habitat pouco documentado, com aparência acinzentada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Pidove.').
-pokemon_lore(521, 'Unfezant é um Pokémon do tipo Normal/Voador. Vive com frequência em habitat pouco documentado, com aparência acinzentada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Tranquill.').
-pokemon_lore(522, 'Blitzle é um Pokémon do tipo Elétrico. Vive com frequência em habitat pouco documentado, com aparência escura e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(523, 'Zebstrika é um Pokémon do tipo Elétrico. Vive com frequência em habitat pouco documentado, com aparência escura e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Blitzle.').
-pokemon_lore(524, 'Roggenrola é um Pokémon do tipo Pedra. Vive com frequência em habitat pouco documentado, com aparência azulada e postura bípede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(525, 'Boldore é um Pokémon do tipo Pedra. Vive com frequência em habitat pouco documentado, com aparência azulada e forma com tentaculos. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Roggenrola.').
-pokemon_lore(526, 'Gigalith é um Pokémon do tipo Pedra. Vive com frequência em habitat pouco documentado, com aparência azulada e forma com tentaculos. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Boldore.').
-pokemon_lore(527, 'Woobat é um Pokémon do tipo Psíquico/Voador. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(528, 'Swoobat é um Pokémon do tipo Psíquico/Voador. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Woobat.').
-pokemon_lore(529, 'Drilbur é um Pokémon do tipo Terra. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(530, 'Excadrill é um Pokémon do tipo Terra/Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Drilbur.').
-pokemon_lore(531, 'Audino é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência rosada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(532, 'Timburr é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência acinzentada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(533, 'Gurdurr é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência acinzentada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Timburr.').
-pokemon_lore(534, 'Conkeldurr é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência amarronzada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Gurdurr.').
-pokemon_lore(535, 'Tympole é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(536, 'Palpitoad é um Pokémon do tipo Água/Terra. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Tympole.').
-pokemon_lore(537, 'Seismitoad é um Pokémon do tipo Água/Terra. Vive com frequência em habitat pouco documentado, com aparência azulada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Palpitoad.').
-pokemon_lore(538, 'Throh é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência avermelhada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(539, 'Sawk é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência azulada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(540, 'Sewaddle é um Pokémon do tipo Inseto/Grama. Vive com frequência em habitat pouco documentado, com aparência amarelada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(541, 'Swadloon é um Pokémon do tipo Inseto/Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Sewaddle.').
-pokemon_lore(542, 'Leavanny é um Pokémon do tipo Inseto/Grama. Vive com frequência em habitat pouco documentado, com aparência amarelada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Swadloon.').
-pokemon_lore(543, 'Venipede é um Pokémon do tipo Inseto/Veneno. Vive com frequência em habitat pouco documentado, com aparência avermelhada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(544, 'Whirlipede é um Pokémon do tipo Inseto/Veneno. Vive com frequência em habitat pouco documentado, com aparência acinzentada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Venipede.').
-pokemon_lore(545, 'Scolipede é um Pokémon do tipo Inseto/Veneno. Vive com frequência em habitat pouco documentado, com aparência avermelhada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Whirlipede.').
-pokemon_lore(546, 'Cottonee é um Pokémon do tipo Grama/Fada. Vive com frequência em habitat pouco documentado, com aparência esverdeada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(547, 'Whimsicott é um Pokémon do tipo Grama/Fada. Vive com frequência em habitat pouco documentado, com aparência esverdeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Cottonee.').
-pokemon_lore(548, 'Petilil é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(549, 'Lilligant é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Petilil.').
-pokemon_lore(550, 'Basculin Red Striped é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência esverdeada e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(551, 'Sandile é um Pokémon do tipo Terra/Sombrio. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(552, 'Krokorok é um Pokémon do tipo Terra/Sombrio. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Sandile.').
-pokemon_lore(553, 'Krookodile é um Pokémon do tipo Terra/Sombrio. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Krokorok.').
-pokemon_lore(554, 'Darumaka é um Pokémon do tipo Fogo. Vive com frequência em habitat pouco documentado, com aparência avermelhada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(555, 'Darmanitan Standard é um Pokémon do tipo Fogo. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Darumaka.').
-pokemon_lore(556, 'Maractus é um Pokémon do tipo Grama. Vive com frequência em habitat pouco documentado, com aparência esverdeada e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(557, 'Dwebble é um Pokémon do tipo Inseto/Pedra. Vive com frequência em habitat pouco documentado, com aparência avermelhada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(558, 'Crustle é um Pokémon do tipo Inseto/Pedra. Vive com frequência em habitat pouco documentado, com aparência avermelhada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Dwebble.').
-pokemon_lore(559, 'Scraggy é um Pokémon do tipo Sombrio/Lutador. Vive com frequência em habitat pouco documentado, com aparência amarelada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(560, 'Scrafty é um Pokémon do tipo Sombrio/Lutador. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Scraggy.').
-pokemon_lore(561, 'Sigilyph é um Pokémon do tipo Psíquico/Voador. Vive com frequência em habitat pouco documentado, com aparência escura e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(562, 'Yamask é um Pokémon do tipo Fantasma. Vive com frequência em habitat pouco documentado, com aparência escura e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(563, 'Cofagrigus é um Pokémon do tipo Fantasma. Vive com frequência em habitat pouco documentado, com aparência amarelada e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Yamask.').
-pokemon_lore(564, 'Tirtouga é um Pokémon do tipo Água/Pedra. Vive com frequência em habitat pouco documentado, com aparência azulada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(565, 'Carracosta é um Pokémon do tipo Água/Pedra. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Tirtouga.').
-pokemon_lore(566, 'Archen é um Pokémon do tipo Pedra/Voador. Vive com frequência em habitat pouco documentado, com aparência amarelada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(567, 'Archeops é um Pokémon do tipo Pedra/Voador. Vive com frequência em habitat pouco documentado, com aparência amarelada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Archen.').
-pokemon_lore(568, 'Trubbish é um Pokémon do tipo Veneno. Vive com frequência em habitat pouco documentado, com aparência esverdeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(569, 'Garbodor é um Pokémon do tipo Veneno. Vive com frequência em habitat pouco documentado, com aparência esverdeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Trubbish.').
-pokemon_lore(570, 'Zorua é um Pokémon do tipo Sombrio. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(571, 'Zoroark é um Pokémon do tipo Sombrio. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Zorua.').
-pokemon_lore(572, 'Minccino é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(573, 'Cinccino é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Minccino.').
-pokemon_lore(574, 'Gothita é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência arroxeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(575, 'Gothorita é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência arroxeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Gothita.').
-pokemon_lore(576, 'Gothitelle é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência arroxeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Gothorita.').
-pokemon_lore(577, 'Solosis é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência esverdeada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(578, 'Duosion é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência esverdeada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Solosis.').
-pokemon_lore(579, 'Reuniclus é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência esverdeada e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Duosion.').
-pokemon_lore(580, 'Ducklett é um Pokémon do tipo Água/Voador. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(581, 'Swanna é um Pokémon do tipo Água/Voador. Vive com frequência em habitat pouco documentado, com aparência clara e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Ducklett.').
-pokemon_lore(582, 'Vanillite é um Pokémon do tipo Gelo. Vive com frequência em habitat pouco documentado, com aparência clara e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(583, 'Vanillish é um Pokémon do tipo Gelo. Vive com frequência em habitat pouco documentado, com aparência clara e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Vanillite.').
-pokemon_lore(584, 'Vanilluxe é um Pokémon do tipo Gelo. Vive com frequência em habitat pouco documentado, com aparência clara e estrutura com multiplas cabecas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Vanillish.').
-pokemon_lore(585, 'Deerling é um Pokémon do tipo Normal/Grama. Vive com frequência em habitat pouco documentado, com aparência rosada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(586, 'Sawsbuck é um Pokémon do tipo Normal/Grama. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Deerling.').
-pokemon_lore(587, 'Emolga é um Pokémon do tipo Elétrico/Voador. Vive com frequência em habitat pouco documentado, com aparência clara e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(588, 'Karrablast é um Pokémon do tipo Inseto. Vive com frequência em habitat pouco documentado, com aparência azulada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(589, 'Escavalier é um Pokémon do tipo Inseto/Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Karrablast.').
-pokemon_lore(590, 'Foongus é um Pokémon do tipo Grama/Veneno. Vive com frequência em habitat pouco documentado, com aparência clara e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(591, 'Amoonguss é um Pokémon do tipo Grama/Veneno. Vive com frequência em habitat pouco documentado, com aparência clara e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Foongus.').
-pokemon_lore(592, 'Frillish Male é um Pokémon do tipo Água/Fantasma. Vive com frequência em habitat pouco documentado, com aparência clara e forma com tentaculos. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(593, 'Jellicent Male é um Pokémon do tipo Água/Fantasma. Vive com frequência em habitat pouco documentado, com aparência clara e forma com tentaculos. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Frillish.').
-pokemon_lore(594, 'Alomomola é um Pokémon do tipo Água. Vive com frequência em habitat pouco documentado, com aparência rosada e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(595, 'Joltik é um Pokémon do tipo Inseto/Elétrico. Vive com frequência em habitat pouco documentado, com aparência amarelada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(596, 'Galvantula é um Pokémon do tipo Inseto/Elétrico. Vive com frequência em habitat pouco documentado, com aparência amarelada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Joltik.').
-pokemon_lore(597, 'Ferroseed é um Pokémon do tipo Grama/Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(598, 'Ferrothorn é um Pokémon do tipo Grama/Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e forma com tentaculos. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Ferroseed.').
-pokemon_lore(599, 'Klink é um Pokémon do tipo Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e estrutura com multiplas cabecas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(600, 'Klang é um Pokémon do tipo Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e estrutura com multiplas cabecas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Klink.').
-pokemon_lore(601, 'Klinklang é um Pokémon do tipo Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e estrutura com multiplas cabecas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Klang.').
-pokemon_lore(602, 'Tynamo é um Pokémon do tipo Elétrico. Vive com frequência em habitat pouco documentado, com aparência clara e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(603, 'Eelektrik é um Pokémon do tipo Elétrico. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Tynamo.').
-pokemon_lore(604, 'Eelektross é um Pokémon do tipo Elétrico. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Eelektrik.').
-pokemon_lore(605, 'Elgyem é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(606, 'Beheeyem é um Pokémon do tipo Psíquico. Vive com frequência em habitat pouco documentado, com aparência amarronzada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Elgyem.').
-pokemon_lore(607, 'Litwick é um Pokémon do tipo Fantasma/Fogo. Vive com frequência em habitat pouco documentado, com aparência clara e forma amorfa. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(608, 'Lampent é um Pokémon do tipo Fantasma/Fogo. Vive com frequência em habitat pouco documentado, com aparência escura e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Litwick.').
-pokemon_lore(609, 'Chandelure é um Pokémon do tipo Fantasma/Fogo. Vive com frequência em habitat pouco documentado, com aparência escura e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Lampent.').
-pokemon_lore(610, 'Axew é um Pokémon do tipo Dragão. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(611, 'Fraxure é um Pokémon do tipo Dragão. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Axew.').
-pokemon_lore(612, 'Haxorus é um Pokémon do tipo Dragão. Vive com frequência em habitat pouco documentado, com aparência amarelada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Fraxure.').
-pokemon_lore(613, 'Cubchoo é um Pokémon do tipo Gelo. Vive com frequência em habitat pouco documentado, com aparência clara e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(614, 'Beartic é um Pokémon do tipo Gelo. Vive com frequência em habitat pouco documentado, com aparência clara e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Cubchoo.').
-pokemon_lore(615, 'Cryogonal é um Pokémon do tipo Gelo. Vive com frequência em habitat pouco documentado, com aparência azulada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(616, 'Shelmet é um Pokémon do tipo Inseto. Vive com frequência em habitat pouco documentado, com aparência avermelhada e corpo arredondado. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(617, 'Accelgor é um Pokémon do tipo Inseto. Vive com frequência em habitat pouco documentado, com aparência avermelhada e forma com bracos marcantes. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Shelmet.').
-pokemon_lore(618, 'Stunfisk é um Pokémon do tipo Terra/Elétrico. Vive com frequência em habitat pouco documentado, com aparência amarronzada e corpo de peixe. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(619, 'Mienfoo é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência amarelada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(620, 'Mienshao é um Pokémon do tipo Lutador. Vive com frequência em habitat pouco documentado, com aparência arroxeada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Mienfoo.').
-pokemon_lore(621, 'Druddigon é um Pokémon do tipo Dragão. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(622, 'Golett é um Pokémon do tipo Terra/Fantasma. Vive com frequência em habitat pouco documentado, com aparência esverdeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(623, 'Golurk é um Pokémon do tipo Terra/Fantasma. Vive com frequência em habitat pouco documentado, com aparência esverdeada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Golett.').
-pokemon_lore(624, 'Pawniard é um Pokémon do tipo Sombrio/Aço. Vive com frequência em habitat pouco documentado, com aparência avermelhada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(625, 'Bisharp é um Pokémon do tipo Sombrio/Aço. Vive com frequência em habitat pouco documentado, com aparência avermelhada e aparencia humanoide. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Pawniard.').
-pokemon_lore(626, 'Bouffalant é um Pokémon do tipo Normal. Vive com frequência em habitat pouco documentado, com aparência amarronzada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(627, 'Rufflet é um Pokémon do tipo Normal/Voador. Vive com frequência em habitat pouco documentado, com aparência clara e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(628, 'Braviary é um Pokémon do tipo Normal/Voador. Vive com frequência em habitat pouco documentado, com aparência avermelhada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Rufflet.').
-pokemon_lore(629, 'Vullaby é um Pokémon do tipo Sombrio/Voador. Vive com frequência em habitat pouco documentado, com aparência amarronzada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(630, 'Mandibuzz é um Pokémon do tipo Sombrio/Voador. Vive com frequência em habitat pouco documentado, com aparência amarronzada e corpo com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Vullaby.').
-pokemon_lore(631, 'Heatmor é um Pokémon do tipo Fogo. Vive com frequência em habitat pouco documentado, com aparência avermelhada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(632, 'Durant é um Pokémon do tipo Inseto/Aço. Vive com frequência em habitat pouco documentado, com aparência acinzentada e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(633, 'Deino é um Pokémon do tipo Sombrio/Dragão. Vive com frequência em habitat pouco documentado, com aparência azulada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(634, 'Zweilous é um Pokémon do tipo Sombrio/Dragão. Vive com frequência em habitat pouco documentado, com aparência azulada e postura quadrupede. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Deino.').
-pokemon_lore(635, 'Hydreigon é um Pokémon do tipo Sombrio/Dragão. Vive com frequência em habitat pouco documentado, com aparência azulada e postura ereta. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Zweilous.').
-pokemon_lore(636, 'Larvesta é um Pokémon do tipo Inseto/Fogo. Vive com frequência em habitat pouco documentado, com aparência clara e corpo com aspecto de armadura. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(637, 'Volcarona é um Pokémon do tipo Inseto/Fogo. Vive com frequência em habitat pouco documentado, com aparência clara e estrutura de inseto com asas. É considerado uma espécie comum de se observar na sua região. Sua linhagem evolutiva parte de Larvesta.').
-pokemon_lore(638, 'Cobalion é um Pokémon do tipo Aço/Lutador. Vive com frequência em habitat pouco documentado, com aparência azulada e postura quadrupede. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(639, 'Terrakion é um Pokémon do tipo Pedra/Lutador. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura quadrupede. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(640, 'Virizion é um Pokémon do tipo Grama/Lutador. Vive com frequência em habitat pouco documentado, com aparência esverdeada e postura quadrupede. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(641, 'Tornadus Incarnate é um Pokémon do tipo Voador. Vive com frequência em habitat pouco documentado, com aparência esverdeada e forma com bracos marcantes. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(642, 'Thundurus Incarnate é um Pokémon do tipo Elétrico/Voador. Vive com frequência em habitat pouco documentado, com aparência azulada e forma com bracos marcantes. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(643, 'Reshiram é um Pokémon do tipo Dragão/Fogo. Vive com frequência em habitat pouco documentado, com aparência clara e corpo com asas. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(644, 'Zekrom é um Pokémon do tipo Dragão/Elétrico. Vive com frequência em habitat pouco documentado, com aparência escura e postura ereta. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(645, 'Landorus Incarnate é um Pokémon do tipo Terra/Voador. Vive com frequência em habitat pouco documentado, com aparência amarronzada e forma com bracos marcantes. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(646, 'Kyurem é um Pokémon do tipo Dragão/Gelo. Vive com frequência em habitat pouco documentado, com aparência acinzentada e postura ereta. É classificado como Pokémon lendário e aparece em poucos registros confiáveis. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(647, 'Keldeo Ordinary é um Pokémon do tipo Água/Lutador. Vive com frequência em habitat pouco documentado, com aparência amarelada e postura quadrupede. É classificado como Pokémon mítico, cercado por relatos raros e misteriosos. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(648, 'Meloetta Aria é um Pokémon do tipo Normal/Psíquico. Vive com frequência em habitat pouco documentado, com aparência clara e aparencia humanoide. É classificado como Pokémon mítico, cercado por relatos raros e misteriosos. Sua linhagem evolutiva começa nesta forma.').
-pokemon_lore(649, 'Genesect é um Pokémon do tipo Inseto/Aço. Vive com frequência em habitat pouco documentado, com aparência arroxeada e aparencia humanoide. É classificado como Pokémon mítico, cercado por relatos raros e misteriosos. Sua linhagem evolutiva começa nesta forma.').
+pokemon_lore(494, 'This Pokémon brings victory. It is said that Trainers with Victini always win, regardless of the type of encounter.').
+pokemon_lore(495, 'It is very intelligent and calm. Being exposed to lots of sunlight makes its movements swifter.').
+pokemon_lore(496, 'It moves along the ground as if sliding. Its swift movements befuddle its foes, and it then attacks with a vine whip.').
+pokemon_lore(497, 'It can stop its opponents’ movements with just a glare. It takes in solar energy and boosts it internally.').
+pokemon_lore(498, 'It can deftly dodge its foe’s attacks while shooting fireballs from its nose. It roasts berries before it eats them.').
+pokemon_lore(499, 'When its internal fire flares up, its movements grow sharper and faster. When in trouble, it emits smoke.').
+pokemon_lore(500, 'It can throw a fire punch by setting its fists on fire with its fiery chin. It cares deeply about its friends.').
+pokemon_lore(501, 'It fights using the scalchop on its stomach. In response to an attack, it retaliates immediately by slashing.').
+pokemon_lore(502, 'Strict training is how it learns its flowing double-scalchop technique.').
+pokemon_lore(503, 'One swing of the sword incorporated in its armor can fell an opponent. A simple glare from one of them quiets everybody.').
+pokemon_lore(504, 'Using food stored in cheek pouches, they can keep watch for days. They use their tails to communicate with others.').
+pokemon_lore(505, 'When they see an enemy, their tails stand high, and they spit the seeds of berries stored in their cheek pouches.').
+pokemon_lore(506, 'It faces strong opponents with great courage. But, when at a disadvantage in a fight, this intelligent Pokémon flees.').
+pokemon_lore(507, 'It has black, cape-like fur that is very hard and decreases the amount of damage it receives.').
+pokemon_lore(508, 'It rescues people stranded by blizzards in the mountains. Its shaggy fur shields it from the cold.').
+pokemon_lore(509, 'They steal from people for fun, but their victims can’t help but forgive them. Their deceptively cute act is perfect.').
+pokemon_lore(510, 'These Pokémon vanish and appear unexpectedly. Many Trainers are drawn to their beautiful form and fur.').
+pokemon_lore(511, 'This Pokémon dwells deep in the forest. Eating a leaf from its head whisks weariness away as if by magic.').
+pokemon_lore(512, 'Ill tempered, it fights by swinging its barbed tail around wildly. The leaf growing on its head is very bitter.').
+pokemon_lore(513, 'When it is angered, the temperature of its head tuft reaches 600° F. It uses its tuft to roast berries.').
+pokemon_lore(514, 'It loves sweets because they become energy for the fire burning inside its body.').
+pokemon_lore(515, 'The water stored inside the tuft on its head is full of nutrients. Plants that receive its water grow large.').
+pokemon_lore(516, 'The tuft on its head holds water. When the level runs low, it replenishes the tuft by siphoning up water with its tail.').
+pokemon_lore(517, 'Munna always float in the air. People whose dreams are eaten by them forget what the dreams had been about.').
+pokemon_lore(518, 'The mist emanating from their foreheads is packed with the dreams of people and Pokémon.').
+pokemon_lore(519, 'Each follows its Trainer’s orders as best it can, but they sometimes fail to understand complicated commands.').
+pokemon_lore(520, 'It can return to its Trainer’s location regardless of the distance separating them.').
+pokemon_lore(521, 'Males swing their head plumage to threaten opponents. The females’ flying abilities surpass those of the males.').
+pokemon_lore(522, 'Its mane shines when it discharges electricity. They use their flashing manes to communicate with one another.').
+pokemon_lore(523, 'They have lightning-like movements. When Zebstrika run at full speed, the sound of thunder reverberates.').
+pokemon_lore(524, 'Its ear is hexagonal in shape. Compressed underground, its body is as hard as steel.').
+pokemon_lore(525, 'When it overflows with power, the orange crystal on its body glows. It looks for underground water in caves.').
+pokemon_lore(526, 'Compressing the energy from its internal core lets it fire off an attack capable of blowing away a mountain.').
+pokemon_lore(527, 'Its habitat is dark forests and caves. It emits ultrasonic waves from its nose to learn about its surroundings.').
+pokemon_lore(528, 'It emits sound waves of various frequencies from its nose, including some powerful enough to destroy rocks.').
+pokemon_lore(529, 'It can dig through the ground at a speed of 30 mph. It could give a car running aboveground a good race.').
+pokemon_lore(530, 'It can help in tunnel construction. Its drill has evolved into steel strong enough to bore through iron plates.').
+pokemon_lore(531, 'It touches others with the feelers on its ears, using the sound of their heartbeats to tell how they are feeling.').
+pokemon_lore(532, 'It fights by swinging a piece of lumber around. It is close to evolving when it can handle the lumber without difficulty.').
+pokemon_lore(533, 'This Pokémon is so muscular and strongly built that even a group of wrestlers could not make it budge an inch.').
+pokemon_lore(534, 'It is thought that Conkeldurr taught humans how to make concrete more than 2,000 years ago.').
+pokemon_lore(535, 'They warn others of danger by vibrating their cheeks to create a high-pitched sound.').
+pokemon_lore(536, 'When they vibrate the bumps on their heads, they can make waves in water or earthquake-like vibrations on land.').
+pokemon_lore(537, 'They shoot paralyzing liquid from their head bumps. They use vibration to hurt their opponents.').
+pokemon_lore(538, 'When it tightens its belt, it becomes stronger. Wild Throh use vines to weave their own belts.').
+pokemon_lore(539, 'The sound of Sawk punching boulders and trees can be heard all the way from the mountains where they train.').
+pokemon_lore(540, 'Leavanny dress it in clothes they made for it when it hatched. It hides its head in its hood while it is sleeping.').
+pokemon_lore(541, 'Forests where Swadloon live have superb foliage because the nutrients they make from fallen leaves nourish the plant life.').
+pokemon_lore(542, 'Upon finding a small Pokémon, it weaves clothing for it from leaves, using the cutters on its arms and sticky silk.').
+pokemon_lore(543, 'Its bite injects a potent poison, enough to paralyze large bird Pokémon that try to prey on it.').
+pokemon_lore(544, 'Protected by a hard shell, it spins its body like a wheel and crashes furiously into its enemies.').
+pokemon_lore(545, 'With quick movements, it chases down its foes, attacking relentlessly with its horns until it prevails.').
+pokemon_lore(546, 'When attacked, it escapes by shooting cotton from its body. The cotton serves as a decoy to distract the attacker.').
+pokemon_lore(547, 'Like the wind, it can slip through any gap, no matter how small. It leaves balls of white fluff behind.').
+pokemon_lore(548, 'The leaves on its head are very bitter. Eating one of these leaves is known to refresh a tired body.').
+pokemon_lore(549, 'Even veteran Trainers face a challenge in getting its beautiful flower to bloom. This Pokémon is popular with celebrities.').
+pokemon_lore(550, 'Red and blue Basculin get along so poorly, they’ll start fighting instantly. These Pokémon are very hostile.').
+pokemon_lore(551, 'They live buried in the sands of the desert. The sun-warmed sands prevent their body temperature from dropping.').
+pokemon_lore(552, 'They live in groups of a few individuals. Protective membranes shield their eyes from sandstorms.').
+pokemon_lore(553, 'They never allow prey to escape. Their jaws are so powerful, they can crush the body of an automobile.').
+pokemon_lore(554, 'When its internal fire is burning, it cannot calm down and it runs around. When the fire diminishes, it falls asleep.').
+pokemon_lore(555, 'Its internal fire burns at 2,500° F, making enough power that it can destroy a dump truck with one punch.').
+pokemon_lore(556, 'It uses an up-tempo song and dance to drive away the bird Pokémon that prey on its flower seeds.').
+pokemon_lore(557, 'This Pokémon can easily melt holes in hard rocks with a liquid secreted from its mouth.').
+pokemon_lore(558, 'Competing for territory, Crustle fight viciously. The one whose boulder is broken is the loser of the battle.').
+pokemon_lore(559, 'Its skin has a rubbery elasticity, so it can reduce damage by defensively pulling its skin up to its neck.').
+pokemon_lore(560, 'Groups of them beat up anything that enters their territory. Each can spit acidic liquid from its mouth.').
+pokemon_lore(561, 'They never vary the route they fly, because their memories of guarding an ancient city remain steadfast.').
+pokemon_lore(562, 'Each of them carries a mask that used to be its face when it was human. Sometimes they look at it and cry.').
+pokemon_lore(563, 'It has been said that they swallow those who get too close and turn them into mummies. They like to eat gold nuggets.').
+pokemon_lore(564, 'Restored from a fossil, this Pokémon can dive to depths beyond half a mile.').
+pokemon_lore(565, 'They can live both in the ocean and on land. A slap from one of them is enough to open a hole in the bottom of a tanker.').
+pokemon_lore(566, 'Said to be an ancestor of bird Pokémon, they were unable to fly and moved about by hopping from one branch to another.').
+pokemon_lore(567, 'They are intelligent and will cooperate to catch prey. From the ground, they use a running start to take flight.').
+pokemon_lore(568, 'Inhaling the gas they belch will make you sleep for a week. They prefer unsanitary places.').
+pokemon_lore(569, 'It clenches opponents with its left arm and finishes them off with foul-smelling poison gas belched from its mouth.').
+pokemon_lore(570, 'It changes into the forms of others to surprise them. Apparently, it often transforms into a silent child.').
+pokemon_lore(571, 'Bonds between these Pokémon are very strong. It protects the safety of its pack by tricking its opponents.').
+pokemon_lore(572, 'They greet one another by rubbing each other with their tails, which are always kept well groomed and clean.').
+pokemon_lore(573, 'Their white fur is coated in a special oil that makes it easy for them to deflect attacks.').
+pokemon_lore(574, 'Their ribbonlike feelers increase their psychic power. They are always staring at something.').
+pokemon_lore(575, 'They use hypnosis to control people and Pokémon. Tales of Gothorita leading people astray are told in every corner.').
+pokemon_lore(576, 'Starry skies thousands of light-years away are visible in the space distorted by their intense psychic power.').
+pokemon_lore(577, 'They drive away attackers by unleashing psychic power. They can use telepathy to talk with others.').
+pokemon_lore(578, 'Since they have two divided brains, at times they suddenly try to take two different actions at once.').
+pokemon_lore(579, 'When Reuniclus shake hands, a network forms between their brains, increasing their psychic power.').
+pokemon_lore(580, 'These bird Pokémon are excellent divers. They swim around in the water eating their favorite food--peat moss.').
+pokemon_lore(581, 'Swanna start to dance at dusk. The one dancing in the middle is the leader of the flock.').
+pokemon_lore(582, 'The temperature of their breath is -58° F. They create snow crystals and make snow fall in the areas around them.').
+pokemon_lore(583, 'Snowy mountains are this Pokémon’s habitat. During an ancient ice age, they moved to southern areas.').
+pokemon_lore(584, 'Swallowing large amounts of water, they make snow clouds inside their bodies and attack their foes with violent blizzards.').
+pokemon_lore(585, 'The color and scent of their fur changes to match the mountain grass. When they sense hostility, they hide in the grass.').
+pokemon_lore(586, 'They migrate according to the seasons. People can tell the season by looking at Sawsbuck’s horns.').
+pokemon_lore(587, 'The energy made in its cheeks’ electric pouches is stored inside its membrane and released while it is gliding.').
+pokemon_lore(588, 'These mysterious Pokémon evolve when they receive electrical stimulation while they are in the same place as Shelmet.').
+pokemon_lore(589, 'They fly around at high speed, striking with their pointed spears. Even when in trouble, they face opponents bravely.').
+pokemon_lore(590, 'It lures people in with its Poké Ball pattern, then releases poison spores. Why it resembles a Poké Ball is unknown.').
+pokemon_lore(591, 'It lures prey close by dancing and waving its arm caps, which resemble Poké Balls, in a swaying motion.').
+pokemon_lore(592, 'With its thin, veil-like arms wrapped around the body of its opponent, it sinks to the ocean floor.').
+pokemon_lore(593, 'The fate of the ships and crew that wander into Jellicent’s habitat: all sunken, all lost, all vanished.').
+pokemon_lore(594, 'The special membrane enveloping Alomomola has the ability to heal wounds.').
+pokemon_lore(595, 'Joltik that live in cities have learned a technique for sucking electricity from the outlets in houses.').
+pokemon_lore(596, 'When attacked, they create an electric barrier by spitting out many electrically charged threads.').
+pokemon_lore(597, 'When threatened, it attacks by shooting a barrage of spikes, which gives it a chance to escape by rolling away.').
+pokemon_lore(598, 'It fights by swinging around its three spiky feelers. A hit from these steel spikes can reduce a boulder to rubble.').
+pokemon_lore(599, 'The two minigears that mesh together are predetermined. Each will rebound from other minigears without meshing.').
+pokemon_lore(600, 'By changing the direction in which it rotates, it communicates its feelings to others. When angry, it rotates faster.').
+pokemon_lore(601, 'Its red core functions as an energy tank. It fires the charged energy through its spikes into an area.').
+pokemon_lore(602, 'While one alone doesn’t have much power, a chain of many Tynamo can be as powerful as lightning.').
+pokemon_lore(603, 'They coil around foes and shock them with electricity-generating organs that seem simply to be circular patterns.').
+pokemon_lore(604, 'They crawl out of the ocean using their arms. They will attack prey on shore and immediately drag it into the ocean.').
+pokemon_lore(605, 'It uses its strong psychic power to squeeze its opponent’s brain, causing unendurable headaches.').
+pokemon_lore(606, 'It can manipulate an opponent’s memory. Apparently, it communicates by flashing its three different-colored fingers.').
+pokemon_lore(607, 'Litwick shines a light that absorbs the life energy of people and Pokémon, which becomes the fuel that it burns.').
+pokemon_lore(608, 'This ominous Pokémon is feared. Through cities it wanders, searching for the spirits of the fallen.').
+pokemon_lore(609, 'It absorbs a spirit, which it then burns. By waving the flames on its arms, it puts its foes into a hypnotic trance.').
+pokemon_lore(610, 'They use their tusks to crush the berries they eat. Repeated regrowth makes their tusks strong and sharp.').
+pokemon_lore(611, 'Since a broken tusk will not grow back, they diligently sharpen their tusks on river rocks after they’ve been fighting.').
+pokemon_lore(612, 'They are kind but can be relentless when defending territory. They challenge foes with tusks that can cut steel.').
+pokemon_lore(613, 'When it is not feeling well, its mucus gets watery and the power of its Ice-type moves decreases.').
+pokemon_lore(614, 'It can make its breath freeze at will. Very able in the water, it swims around in northern seas and catches prey.').
+pokemon_lore(615, 'When its body temperature goes up, it turns into steam and vanishes. When its temperature lowers, it returns to ice.').
+pokemon_lore(616, 'When attacked, it defends itself by closing the lid of its shell. It can spit a sticky, poisonous liquid.').
+pokemon_lore(617, 'When its body dries out, it weakens. So, to prevent dehydration, it wraps itself in many layers of thin membrane.').
+pokemon_lore(618, 'Its skin is very hard, so it is unhurt even if stepped on by sumo wrestlers. It smiles when transmitting electricity.').
+pokemon_lore(619, 'In fights, they dominate with onslaughts of flowing, continuous attacks. With their sharp claws, they cut enemies.').
+pokemon_lore(620, 'It wields the fur on its arms like a whip. Its arm attacks come with such rapidity that they cannot even be seen.').
+pokemon_lore(621, 'It warms its body by absorbing sunlight with its wings. When its body temperature falls, it can no longer move.').
+pokemon_lore(622, 'The energy that burns inside it enables it to move, but no one has yet been able to identify this energy.').
+pokemon_lore(623, 'It flies across the sky at Mach speeds. Removing the seal on its chest makes its internal energy go out of control.').
+pokemon_lore(624, 'Blades comprise this Pokémon’s entire body. If battling dulls the blades, it sharpens them on stones by the river.').
+pokemon_lore(625, 'It leads a group of Pawniard. It battles to become the boss, but will be driven from the group if it loses.').
+pokemon_lore(626, 'Their fluffy fur absorbs damage, even if they strike foes with a fierce headbutt.').
+pokemon_lore(627, 'They crush berries with their talons. They bravely stand up to any opponent, no matter how strong it is.').
+pokemon_lore(628, 'They fight for their friends without any thought about danger to themselves. One can carry a car while flying.').
+pokemon_lore(629, 'Its wings are too tiny to allow it to fly. As the time approaches for it to evolve, it discards the bones it was wearing.').
+pokemon_lore(630, 'It makes a nest out of bones it finds. It grabs weakened prey in its talons and hauls it to its nest of bones.').
+pokemon_lore(631, 'It breathes through a hole in its tail while it burns with an internal fire. Durant is its prey.').
+pokemon_lore(632, 'They attack in groups, covering themselves in steel armor to protect themselves from Heatmor.').
+pokemon_lore(633, 'It tends to bite everything, and it is not a picky eater. Approaching it carelessly is dangerous.').
+pokemon_lore(634, 'After it has eaten up all the food in its territory, it moves to another area. Its two heads do not get along.').
+pokemon_lore(635, 'This brutal Pokémon travels the skies on its six wings. Anything that moves seems like a foe to it, triggering its attack.').
+pokemon_lore(636, 'This Pokémon was believed to have been born from the sun. When it evolves, its entire body is engulfed in flames.').
+pokemon_lore(637, 'When volcanic ash darkened the atmosphere, it is said that Volcarona’s fire provided a replacement for the sun.').
+pokemon_lore(638, 'This legendary Pokémon battled against humans to protect Pokémon. Its personality is calm and composed.').
+pokemon_lore(639, 'This Pokémon came to the defense of Pokémon that had lost their homes in a war among humans.').
+pokemon_lore(640, 'This Pokémon fought humans in order to protect its friends. Legends about it continue to be passed down.').
+pokemon_lore(641, 'The lower half of its body is wrapped in a cloud of energy. It zooms through the sky at 200 mph.').
+pokemon_lore(642, 'Countless charred remains mar the landscape of places through which Thundurus has passed.').
+pokemon_lore(643, 'This Pokémon appears in legends. It sends flames into the air from its tail, burning up everything around it.').
+pokemon_lore(644, 'Concealing itself in lightning clouds, it flies throughout the Unova region. It creates electricity in its tail.').
+pokemon_lore(645, 'Lands visited by Landorus grant such bountiful crops that it has been hailed as “The Guardian of the Fields.”').
+pokemon_lore(646, 'It generates a powerful, freezing energy inside itself, but its body became frozen when the energy leaked out.').
+pokemon_lore(647, 'By blasting water from its hooves, it can glide across water. It excels at using leg moves while battling.').
+pokemon_lore(648, 'Its melodies are sung with a special vocalization method that can control the feelings of those who hear it.').
+pokemon_lore(649, 'Over 300 million years ago, it was feared as the strongest of hunters. It has been modified by Team Plasma.').

@@ -145,6 +145,9 @@ answer_query(Text) :-
     ; parse_counter_level_cap_query(Text, TargetName, MaxLevel) ->
         answer_counter_level_cap_query_with_clarification(TargetName, MaxLevel),
         print_follow_up_prompt
+    ; parse_mega_count_query(Text) ->
+        answer_mega_count_query,
+        print_follow_up_prompt
     ; parse_evolution_count_query(Text, Method) ->
         answer_evolution_count_query(Method),
         print_follow_up_prompt
@@ -408,6 +411,24 @@ parse_counter_level_cap_query(Text, TargetName, MaxLevel) :-
     Levels \= [],
     last(Levels, MaxLevel).
 
+parse_mega_count_query(Text) :-
+    tokenize_for_match(Text, Tokens),
+    ( member("quantos", Tokens)
+    ; member("qtd", Tokens)
+    ; member("quantas", Tokens)
+    ),
+    ( member("mega", Tokens)
+    ; member("megas", Tokens)
+    ; contiguous_sublist(["mega", "evolucoes"], Tokens)
+    ; contiguous_sublist(["mega", "evoluções"], Tokens)
+    ; contiguous_sublist(["megas", "evolucoes"], Tokens)
+    ; contiguous_sublist(["megas", "evoluções"], Tokens)
+    ; contiguous_sublist(["evolucao", "mega"], Tokens)
+    ; contiguous_sublist(["evolução", "mega"], Tokens)
+    ; contiguous_sublist(["evolucoes", "mega"], Tokens)
+    ; contiguous_sublist(["evoluções", "mega"], Tokens)
+    ).
+
 parse_evolution_count_query(Text, Method) :-
     tokenize_for_match(Text, Tokens),
     ( member("quantos", Tokens)
@@ -529,8 +550,22 @@ parse_counter_query(Text, TargetName) :-
     ; member("stompa", Tokens)
     ; starts_with_tokens(Tokens, ["ganha", "de"])
     ; starts_with_tokens(Tokens, ["ganhar", "de"])
+    ; starts_with_tokens(Tokens, ["quem", "ganha", "de"])
+    ; starts_with_tokens(Tokens, ["quem", "vence", "de"])
+    ; starts_with_tokens(Tokens, ["quem", "ganha", "contra"])
+    ; starts_with_tokens(Tokens, ["quem", "vence", "contra"])
     ; starts_with_tokens(Tokens, ["bom", "contra"])
     ; starts_with_tokens(Tokens, ["boa", "contra"])
+    ),
+    parse_natural_pokemon_query(Text, TargetName).
+parse_counter_query(Text, TargetName) :-
+    tokenize_for_match(Text, Tokens),
+    ( starts_with_tokens(Tokens, ["counter", "de"])
+    ; starts_with_tokens(Tokens, ["counter", "do"])
+    ; starts_with_tokens(Tokens, ["counter", "da"])
+    ; starts_with_tokens(Tokens, ["counters", "de"])
+    ; starts_with_tokens(Tokens, ["counters", "do"])
+    ; starts_with_tokens(Tokens, ["counters", "da"])
     ),
     parse_natural_pokemon_query(Text, TargetName).
 parse_counter_query(Text, TargetName) :-
@@ -1415,6 +1450,16 @@ answer_evolution_count_query(Method) :-
     length(UniqueFrom, Count),
     evolution_method_label(Method, MethodLabel),
     format('Bot: Existem ~w Pokémon que evoluem por ~w.~n', [Count, MethodLabel]).
+
+answer_mega_count_query :-
+        findall(Name,
+                ( pokemon_in_scope(_, Name, _, _, _, _, _),
+                    is_mega_name(Name)
+                ),
+                NamesRaw),
+        sort(NamesRaw, Names),
+        length(Names, Count),
+        format('Bot: Existem ~w formas Mega na base atual.~n', [Count]).
 
 pokemon_reachable_by_level(PokemonID, MaxLevel) :-
     level_gate_species_id(PokemonID, SpeciesID),

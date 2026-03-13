@@ -259,80 +259,72 @@ function translateSpanishFlavorToPortuguese(text) {
 }
 
 function buildLoreText(pokemon, speciesData, generation) {
-  const portugueseFlavor =
-    pickFlavorText(speciesData, generation, 'pt-br') ||
-    pickFlavorText(speciesData, generation, 'pt');
-
-  if (portugueseFlavor) {
-    return cleanFlavorText(portugueseFlavor);
-  }
-
-  const spanishFlavor = pickFlavorText(speciesData, generation, 'es');
-  if (spanishFlavor) {
-    return translateSpanishFlavorToPortuguese(spanishFlavor);
+  const englishFlavor = pickFlavorText(speciesData, generation, 'en');
+  if (englishFlavor) {
+    return cleanFlavorText(englishFlavor);
   }
 
   const habitatMap = {
-    cave: 'cavernas',
-    forest: 'florestas',
-    grassland: 'campos abertos',
-    mountain: 'regioes montanhosas',
-    rare: 'locais raros e pouco acessiveis',
-    rough_terrain: 'terrenos acidentados',
-    sea: 'mares e oceanos',
-    urban: 'areas urbanas',
-    waters_edge: 'margens de rios e lagos',
+    cave: 'caves',
+    forest: 'forests',
+    grassland: 'open grasslands',
+    mountain: 'mountainous regions',
+    rare: 'rare and hard-to-reach places',
+    rough_terrain: 'rough terrain',
+    sea: 'seas and oceans',
+    urban: 'urban areas',
+    waters_edge: 'riverbanks and lake shores',
   };
 
   const colorMap = {
-    black: 'escura',
-    blue: 'azulada',
-    brown: 'amarronzada',
-    gray: 'acinzentada',
-    green: 'esverdeada',
-    pink: 'rosada',
-    purple: 'arroxeada',
-    red: 'avermelhada',
-    white: 'clara',
-    yellow: 'amarelada',
+    black: 'dark',
+    blue: 'bluish',
+    brown: 'brownish',
+    gray: 'grayish',
+    green: 'greenish',
+    pink: 'pinkish',
+    purple: 'purple-toned',
+    red: 'reddish',
+    white: 'light-colored',
+    yellow: 'yellowish',
   };
 
   const shapeMap = {
-    ball: 'corpo arredondado',
-    squiggle: 'corpo serpentino',
-    fish: 'corpo de peixe',
-    arms: 'forma com bracos marcantes',
-    blob: 'forma amorfa',
-    upright: 'postura ereta',
-    legs: 'postura bípede',
-    quadruped: 'postura quadrupede',
-    wings: 'corpo com asas',
-    tentacles: 'forma com tentaculos',
-    heads: 'estrutura com multiplas cabecas',
-    humanoid: 'aparencia humanoide',
-    bug_wings: 'estrutura de inseto com asas',
-    armor: 'corpo com aspecto de armadura',
+    ball: 'a rounded body',
+    squiggle: 'a serpentine body',
+    fish: 'a fish-like body',
+    arms: 'a shape with prominent arms',
+    blob: 'an amorphous shape',
+    upright: 'an upright posture',
+    legs: 'a bipedal posture',
+    quadruped: 'a quadrupedal posture',
+    wings: 'a winged body',
+    tentacles: 'a tentacled form',
+    heads: 'a structure with multiple heads',
+    humanoid: 'a humanoid appearance',
+    bug_wings: 'an insect-like body with wings',
+    armor: 'an armor-like body',
   };
 
   const typeMapPt = {
     normal: 'Normal',
-    fire: 'Fogo',
-    water: 'Água',
-    electric: 'Elétrico',
-    grass: 'Grama',
-    ice: 'Gelo',
-    fighting: 'Lutador',
-    poison: 'Veneno',
-    ground: 'Terra',
-    flying: 'Voador',
-    psychic: 'Psíquico',
-    bug: 'Inseto',
-    rock: 'Pedra',
-    ghost: 'Fantasma',
-    dragon: 'Dragão',
-    dark: 'Sombrio',
-    steel: 'Aço',
-    fairy: 'Fada',
+    fire: 'Fire',
+    water: 'Water',
+    electric: 'Electric',
+    grass: 'Grass',
+    ice: 'Ice',
+    fighting: 'Fighting',
+    poison: 'Poison',
+    ground: 'Ground',
+    flying: 'Flying',
+    psychic: 'Psychic',
+    bug: 'Bug',
+    rock: 'Rock',
+    ghost: 'Ghost',
+    dragon: 'Dragon',
+    dark: 'Dark',
+    steel: 'Steel',
+    fairy: 'Fairy',
   };
 
   const types = [...pokemon.types]
@@ -342,24 +334,24 @@ function buildLoreText(pokemon, speciesData, generation) {
 
   const typeText = types.join('/');
   const nameText = toTitleCase(sanitizeAtom(pokemon.name).replace(/_/g, ' '));
-  const habitat = mapLabel(habitatMap, speciesData.habitat?.name, 'habitat pouco documentado');
-  const color = mapLabel(colorMap, speciesData.color?.name, 'coloracao variada');
-  const shape = mapLabel(shapeMap, speciesData.shape?.name, 'estrutura corporal singular');
+  const habitat = mapLabel(habitatMap, speciesData.habitat?.name, 'poorly documented habitats');
+  const color = mapLabel(colorMap, speciesData.color?.name, 'varied coloration');
+  const shape = mapLabel(shapeMap, speciesData.shape?.name, 'a unique body structure');
 
-  let rarityText = 'É considerado uma espécie comum de se observar na sua região.';
+  let rarityText = 'It is considered a species commonly seen in its region.';
   if (speciesData.is_mythical) {
-    rarityText = 'É classificado como Pokémon mítico, cercado por relatos raros e misteriosos.';
+    rarityText = 'It is classified as a Mythical Pokémon, surrounded by rare and mysterious reports.';
   } else if (speciesData.is_legendary) {
-    rarityText = 'É classificado como Pokémon lendário e aparece em poucos registros confiáveis.';
+    rarityText = 'It is classified as a Legendary Pokémon and appears in very few reliable records.';
   } else if (speciesData.is_baby) {
-    rarityText = 'É uma forma infantil, geralmente dependente de cuidados e com comportamento mais delicado.';
+    rarityText = 'It is a baby form, usually needing more care and showing more delicate behavior.';
   }
 
   const evoText = speciesData.evolves_from_species
-    ? `Sua linhagem evolutiva parte de ${toTitleCase(String(speciesData.evolves_from_species.name).replace(/-/g, ' '))}.`
-    : 'Sua linhagem evolutiva começa nesta forma.';
+    ? `Its evolutionary line starts from ${toTitleCase(String(speciesData.evolves_from_species.name).replace(/-/g, ' '))}.`
+    : 'Its evolutionary line begins in this form.';
 
-  return `${nameText} é um Pokémon do tipo ${typeText}. Vive com frequência em ${habitat}, com aparência ${color} e ${shape}. ${rarityText} ${evoText}`;
+  return `${nameText} is a ${typeText}-type Pokémon. It is often found in ${habitat}, with a ${color} appearance and ${shape}. ${rarityText} ${evoText}`;
 }
 
 function sleep(ms) {
@@ -519,12 +511,12 @@ function detectSpecialFormKind(name) {
 function specialFormLabel(kind) {
   const labels = {
     mega: 'Mega',
-    alola: 'Regional de Alola',
-    galar: 'Regional de Galar',
-    hisui: 'Regional de Hisui',
-    paldea: 'Regional de Paldea',
+    alola: 'Alolan',
+    galar: 'Galarian',
+    hisui: 'Hisuian',
+    paldea: 'Paldean',
   };
-  return labels[kind] || 'Especial';
+  return labels[kind] || 'Special';
 }
 
 async function generateSpecialForms() {
@@ -556,7 +548,7 @@ async function generateSpecialForms() {
       stats: formatStats(pokemonData.stats),
       baseSpeciesId,
       kind,
-      loreText: `Forma ${specialFormLabel(kind)} de ${toTitleCase(loreBaseName)}.`,
+      loreText: `${toTitleCase(loreBaseName)} ${specialFormLabel(kind)} form.`,
     });
   }
 

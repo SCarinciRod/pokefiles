@@ -2,153 +2,153 @@
 % Lore local para formas especiais
 % Formato: pokemon_lore(ID, Texto).
 :- multifile pokemon_lore/2.
-pokemon_lore(10033, 'Forma Mega de Venusaur.').
-pokemon_lore(10034, 'Forma Mega de Charizard.').
-pokemon_lore(10035, 'Forma Mega de Charizard.').
-pokemon_lore(10036, 'Forma Mega de Blastoise.').
-pokemon_lore(10037, 'Forma Mega de Alakazam.').
-pokemon_lore(10038, 'Forma Mega de Gengar.').
-pokemon_lore(10039, 'Forma Mega de Kangaskhan.').
-pokemon_lore(10040, 'Forma Mega de Pinsir.').
-pokemon_lore(10041, 'Forma Mega de Gyarados.').
-pokemon_lore(10042, 'Forma Mega de Aerodactyl.').
-pokemon_lore(10043, 'Forma Mega de Mewtwo.').
-pokemon_lore(10044, 'Forma Mega de Mewtwo.').
-pokemon_lore(10045, 'Forma Mega de Ampharos.').
-pokemon_lore(10046, 'Forma Mega de Scizor.').
-pokemon_lore(10047, 'Forma Mega de Heracross.').
-pokemon_lore(10048, 'Forma Mega de Houndoom.').
-pokemon_lore(10049, 'Forma Mega de Tyranitar.').
-pokemon_lore(10050, 'Forma Mega de Blaziken.').
-pokemon_lore(10051, 'Forma Mega de Gardevoir.').
-pokemon_lore(10052, 'Forma Mega de Mawile.').
-pokemon_lore(10053, 'Forma Mega de Aggron.').
-pokemon_lore(10054, 'Forma Mega de Medicham.').
-pokemon_lore(10055, 'Forma Mega de Manectric.').
-pokemon_lore(10056, 'Forma Mega de Banette.').
-pokemon_lore(10057, 'Forma Mega de Absol.').
-pokemon_lore(10058, 'Forma Mega de Garchomp.').
-pokemon_lore(10059, 'Forma Mega de Lucario.').
-pokemon_lore(10060, 'Forma Mega de Abomasnow.').
-pokemon_lore(10062, 'Forma Mega de Latias.').
-pokemon_lore(10063, 'Forma Mega de Latios.').
-pokemon_lore(10064, 'Forma Mega de Swampert.').
-pokemon_lore(10065, 'Forma Mega de Sceptile.').
-pokemon_lore(10066, 'Forma Mega de Sableye.').
-pokemon_lore(10067, 'Forma Mega de Altaria.').
-pokemon_lore(10068, 'Forma Mega de Gallade.').
-pokemon_lore(10069, 'Forma Mega de Audino.').
-pokemon_lore(10070, 'Forma Mega de Sharpedo.').
-pokemon_lore(10071, 'Forma Mega de Slowbro.').
-pokemon_lore(10072, 'Forma Mega de Steelix.').
-pokemon_lore(10073, 'Forma Mega de Pidgeot.').
-pokemon_lore(10074, 'Forma Mega de Glalie.').
-pokemon_lore(10075, 'Forma Mega de Diancie.').
-pokemon_lore(10076, 'Forma Mega de Metagross.').
-pokemon_lore(10079, 'Forma Mega de Rayquaza.').
-pokemon_lore(10087, 'Forma Mega de Camerupt.').
-pokemon_lore(10088, 'Forma Mega de Lopunny.').
-pokemon_lore(10089, 'Forma Mega de Salamence.').
-pokemon_lore(10090, 'Forma Mega de Beedrill.').
-pokemon_lore(10091, 'Forma Regional de Alola de Rattata.').
-pokemon_lore(10092, 'Forma Regional de Alola de Raticate.').
-pokemon_lore(10093, 'Forma Regional de Alola de Raticate.').
-pokemon_lore(10100, 'Forma Regional de Alola de Raichu.').
-pokemon_lore(10101, 'Forma Regional de Alola de Sandshrew.').
-pokemon_lore(10102, 'Forma Regional de Alola de Sandslash.').
-pokemon_lore(10103, 'Forma Regional de Alola de Vulpix.').
-pokemon_lore(10104, 'Forma Regional de Alola de Ninetales.').
-pokemon_lore(10105, 'Forma Regional de Alola de Diglett.').
-pokemon_lore(10106, 'Forma Regional de Alola de Dugtrio.').
-pokemon_lore(10107, 'Forma Regional de Alola de Meowth.').
-pokemon_lore(10108, 'Forma Regional de Alola de Persian.').
-pokemon_lore(10109, 'Forma Regional de Alola de Geodude.').
-pokemon_lore(10110, 'Forma Regional de Alola de Graveler.').
-pokemon_lore(10111, 'Forma Regional de Alola de Golem.').
-pokemon_lore(10112, 'Forma Regional de Alola de Grimer.').
-pokemon_lore(10113, 'Forma Regional de Alola de Muk.').
-pokemon_lore(10114, 'Forma Regional de Alola de Exeggutor.').
-pokemon_lore(10115, 'Forma Regional de Alola de Marowak.').
-pokemon_lore(10161, 'Forma Regional de Galar de Meowth.').
-pokemon_lore(10162, 'Forma Regional de Galar de Ponyta.').
-pokemon_lore(10163, 'Forma Regional de Galar de Rapidash.').
-pokemon_lore(10164, 'Forma Regional de Galar de Slowpoke.').
-pokemon_lore(10165, 'Forma Regional de Galar de Slowbro.').
-pokemon_lore(10166, 'Forma Regional de Galar de Farfetchd.').
-pokemon_lore(10167, 'Forma Regional de Galar de Weezing.').
-pokemon_lore(10168, 'Forma Regional de Galar de Mr Mime.').
-pokemon_lore(10169, 'Forma Regional de Galar de Articuno.').
-pokemon_lore(10170, 'Forma Regional de Galar de Zapdos.').
-pokemon_lore(10171, 'Forma Regional de Galar de Moltres.').
-pokemon_lore(10172, 'Forma Regional de Galar de Slowking.').
-pokemon_lore(10173, 'Forma Regional de Galar de Corsola.').
-pokemon_lore(10174, 'Forma Regional de Galar de Zigzagoon.').
-pokemon_lore(10175, 'Forma Regional de Galar de Linoone.').
-pokemon_lore(10176, 'Forma Regional de Galar de Darumaka.').
-pokemon_lore(10179, 'Forma Regional de Galar de Yamask.').
-pokemon_lore(10180, 'Forma Regional de Galar de Stunfisk.').
-pokemon_lore(10229, 'Forma Regional de Hisui de Growlithe.').
-pokemon_lore(10230, 'Forma Regional de Hisui de Arcanine.').
-pokemon_lore(10231, 'Forma Regional de Hisui de Voltorb.').
-pokemon_lore(10232, 'Forma Regional de Hisui de Electrode.').
-pokemon_lore(10233, 'Forma Regional de Hisui de Typhlosion.').
-pokemon_lore(10234, 'Forma Regional de Hisui de Qwilfish.').
-pokemon_lore(10235, 'Forma Regional de Hisui de Sneasel.').
-pokemon_lore(10236, 'Forma Regional de Hisui de Samurott.').
-pokemon_lore(10237, 'Forma Regional de Hisui de Lilligant.').
-pokemon_lore(10238, 'Forma Regional de Hisui de Zorua.').
-pokemon_lore(10239, 'Forma Regional de Hisui de Zoroark.').
-pokemon_lore(10240, 'Forma Regional de Hisui de Braviary.').
-pokemon_lore(10241, 'Forma Regional de Hisui de Sliggoo.').
-pokemon_lore(10242, 'Forma Regional de Hisui de Goodra.').
-pokemon_lore(10243, 'Forma Regional de Hisui de Avalugg.').
-pokemon_lore(10244, 'Forma Regional de Hisui de Decidueye.').
-pokemon_lore(10253, 'Forma Regional de Paldea de Wooper.').
-pokemon_lore(10278, 'Forma Mega de Clefable.').
-pokemon_lore(10279, 'Forma Mega de Victreebel.').
-pokemon_lore(10280, 'Forma Mega de Starmie.').
-pokemon_lore(10281, 'Forma Mega de Dragonite.').
-pokemon_lore(10282, 'Forma Mega de Meganium.').
-pokemon_lore(10283, 'Forma Mega de Feraligatr.').
-pokemon_lore(10284, 'Forma Mega de Skarmory.').
-pokemon_lore(10285, 'Forma Mega de Froslass.').
-pokemon_lore(10286, 'Forma Mega de Emboar.').
-pokemon_lore(10287, 'Forma Mega de Excadrill.').
-pokemon_lore(10288, 'Forma Mega de Scolipede.').
-pokemon_lore(10289, 'Forma Mega de Scrafty.').
-pokemon_lore(10290, 'Forma Mega de Eelektross.').
-pokemon_lore(10291, 'Forma Mega de Chandelure.').
-pokemon_lore(10292, 'Forma Mega de Chesnaught.').
-pokemon_lore(10293, 'Forma Mega de Delphox.').
-pokemon_lore(10294, 'Forma Mega de Greninja.').
-pokemon_lore(10295, 'Forma Mega de Pyroar.').
-pokemon_lore(10296, 'Forma Mega de Floette.').
-pokemon_lore(10297, 'Forma Mega de Malamar.').
-pokemon_lore(10298, 'Forma Mega de Barbaracle.').
-pokemon_lore(10299, 'Forma Mega de Dragalge.').
-pokemon_lore(10300, 'Forma Mega de Hawlucha.').
-pokemon_lore(10301, 'Forma Mega de Zygarde.').
-pokemon_lore(10302, 'Forma Mega de Drampa.').
-pokemon_lore(10303, 'Forma Mega de Falinks.').
-pokemon_lore(10304, 'Forma Mega de Raichu.').
-pokemon_lore(10305, 'Forma Mega de Raichu.').
-pokemon_lore(10306, 'Forma Mega de Chimecho.').
-pokemon_lore(10307, 'Forma Mega de Absol.').
-pokemon_lore(10308, 'Forma Mega de Staraptor.').
-pokemon_lore(10309, 'Forma Mega de Garchomp.').
-pokemon_lore(10310, 'Forma Mega de Lucario.').
-pokemon_lore(10311, 'Forma Mega de Heatran.').
-pokemon_lore(10312, 'Forma Mega de Darkrai.').
-pokemon_lore(10313, 'Forma Mega de Golurk.').
-pokemon_lore(10314, 'Forma Mega de Meowstic.').
-pokemon_lore(10315, 'Forma Mega de Crabominable.').
-pokemon_lore(10316, 'Forma Mega de Golisopod.').
-pokemon_lore(10317, 'Forma Mega de Magearna.').
-pokemon_lore(10318, 'Forma Mega de Magearna.').
-pokemon_lore(10319, 'Forma Mega de Zeraora.').
-pokemon_lore(10320, 'Forma Mega de Scovillain.').
-pokemon_lore(10321, 'Forma Mega de Glimmora.').
-pokemon_lore(10322, 'Forma Mega de Tatsugiri.').
-pokemon_lore(10323, 'Forma Mega de Tatsugiri.').
-pokemon_lore(10324, 'Forma Mega de Tatsugiri.').
-pokemon_lore(10325, 'Forma Mega de Baxcalibur.').
+pokemon_lore(10033, 'Venusaur Mega form.').
+pokemon_lore(10034, 'Charizard Mega form.').
+pokemon_lore(10035, 'Charizard Mega form.').
+pokemon_lore(10036, 'Blastoise Mega form.').
+pokemon_lore(10037, 'Alakazam Mega form.').
+pokemon_lore(10038, 'Gengar Mega form.').
+pokemon_lore(10039, 'Kangaskhan Mega form.').
+pokemon_lore(10040, 'Pinsir Mega form.').
+pokemon_lore(10041, 'Gyarados Mega form.').
+pokemon_lore(10042, 'Aerodactyl Mega form.').
+pokemon_lore(10043, 'Mewtwo Mega form.').
+pokemon_lore(10044, 'Mewtwo Mega form.').
+pokemon_lore(10045, 'Ampharos Mega form.').
+pokemon_lore(10046, 'Scizor Mega form.').
+pokemon_lore(10047, 'Heracross Mega form.').
+pokemon_lore(10048, 'Houndoom Mega form.').
+pokemon_lore(10049, 'Tyranitar Mega form.').
+pokemon_lore(10050, 'Blaziken Mega form.').
+pokemon_lore(10051, 'Gardevoir Mega form.').
+pokemon_lore(10052, 'Mawile Mega form.').
+pokemon_lore(10053, 'Aggron Mega form.').
+pokemon_lore(10054, 'Medicham Mega form.').
+pokemon_lore(10055, 'Manectric Mega form.').
+pokemon_lore(10056, 'Banette Mega form.').
+pokemon_lore(10057, 'Absol Mega form.').
+pokemon_lore(10058, 'Garchomp Mega form.').
+pokemon_lore(10059, 'Lucario Mega form.').
+pokemon_lore(10060, 'Abomasnow Mega form.').
+pokemon_lore(10062, 'Latias Mega form.').
+pokemon_lore(10063, 'Latios Mega form.').
+pokemon_lore(10064, 'Swampert Mega form.').
+pokemon_lore(10065, 'Sceptile Mega form.').
+pokemon_lore(10066, 'Sableye Mega form.').
+pokemon_lore(10067, 'Altaria Mega form.').
+pokemon_lore(10068, 'Gallade Mega form.').
+pokemon_lore(10069, 'Audino Mega form.').
+pokemon_lore(10070, 'Sharpedo Mega form.').
+pokemon_lore(10071, 'Slowbro Mega form.').
+pokemon_lore(10072, 'Steelix Mega form.').
+pokemon_lore(10073, 'Pidgeot Mega form.').
+pokemon_lore(10074, 'Glalie Mega form.').
+pokemon_lore(10075, 'Diancie Mega form.').
+pokemon_lore(10076, 'Metagross Mega form.').
+pokemon_lore(10079, 'Rayquaza Mega form.').
+pokemon_lore(10087, 'Camerupt Mega form.').
+pokemon_lore(10088, 'Lopunny Mega form.').
+pokemon_lore(10089, 'Salamence Mega form.').
+pokemon_lore(10090, 'Beedrill Mega form.').
+pokemon_lore(10091, 'Rattata Alolan form.').
+pokemon_lore(10092, 'Raticate Alolan form.').
+pokemon_lore(10093, 'Raticate Alolan form.').
+pokemon_lore(10100, 'Raichu Alolan form.').
+pokemon_lore(10101, 'Sandshrew Alolan form.').
+pokemon_lore(10102, 'Sandslash Alolan form.').
+pokemon_lore(10103, 'Vulpix Alolan form.').
+pokemon_lore(10104, 'Ninetales Alolan form.').
+pokemon_lore(10105, 'Diglett Alolan form.').
+pokemon_lore(10106, 'Dugtrio Alolan form.').
+pokemon_lore(10107, 'Meowth Alolan form.').
+pokemon_lore(10108, 'Persian Alolan form.').
+pokemon_lore(10109, 'Geodude Alolan form.').
+pokemon_lore(10110, 'Graveler Alolan form.').
+pokemon_lore(10111, 'Golem Alolan form.').
+pokemon_lore(10112, 'Grimer Alolan form.').
+pokemon_lore(10113, 'Muk Alolan form.').
+pokemon_lore(10114, 'Exeggutor Alolan form.').
+pokemon_lore(10115, 'Marowak Alolan form.').
+pokemon_lore(10161, 'Meowth Galarian form.').
+pokemon_lore(10162, 'Ponyta Galarian form.').
+pokemon_lore(10163, 'Rapidash Galarian form.').
+pokemon_lore(10164, 'Slowpoke Galarian form.').
+pokemon_lore(10165, 'Slowbro Galarian form.').
+pokemon_lore(10166, 'Farfetchd Galarian form.').
+pokemon_lore(10167, 'Weezing Galarian form.').
+pokemon_lore(10168, 'Mr Mime Galarian form.').
+pokemon_lore(10169, 'Articuno Galarian form.').
+pokemon_lore(10170, 'Zapdos Galarian form.').
+pokemon_lore(10171, 'Moltres Galarian form.').
+pokemon_lore(10172, 'Slowking Galarian form.').
+pokemon_lore(10173, 'Corsola Galarian form.').
+pokemon_lore(10174, 'Zigzagoon Galarian form.').
+pokemon_lore(10175, 'Linoone Galarian form.').
+pokemon_lore(10176, 'Darumaka Galarian form.').
+pokemon_lore(10179, 'Yamask Galarian form.').
+pokemon_lore(10180, 'Stunfisk Galarian form.').
+pokemon_lore(10229, 'Growlithe Hisuian form.').
+pokemon_lore(10230, 'Arcanine Hisuian form.').
+pokemon_lore(10231, 'Voltorb Hisuian form.').
+pokemon_lore(10232, 'Electrode Hisuian form.').
+pokemon_lore(10233, 'Typhlosion Hisuian form.').
+pokemon_lore(10234, 'Qwilfish Hisuian form.').
+pokemon_lore(10235, 'Sneasel Hisuian form.').
+pokemon_lore(10236, 'Samurott Hisuian form.').
+pokemon_lore(10237, 'Lilligant Hisuian form.').
+pokemon_lore(10238, 'Zorua Hisuian form.').
+pokemon_lore(10239, 'Zoroark Hisuian form.').
+pokemon_lore(10240, 'Braviary Hisuian form.').
+pokemon_lore(10241, 'Sliggoo Hisuian form.').
+pokemon_lore(10242, 'Goodra Hisuian form.').
+pokemon_lore(10243, 'Avalugg Hisuian form.').
+pokemon_lore(10244, 'Decidueye Hisuian form.').
+pokemon_lore(10253, 'Wooper Paldean form.').
+pokemon_lore(10278, 'Clefable Mega form.').
+pokemon_lore(10279, 'Victreebel Mega form.').
+pokemon_lore(10280, 'Starmie Mega form.').
+pokemon_lore(10281, 'Dragonite Mega form.').
+pokemon_lore(10282, 'Meganium Mega form.').
+pokemon_lore(10283, 'Feraligatr Mega form.').
+pokemon_lore(10284, 'Skarmory Mega form.').
+pokemon_lore(10285, 'Froslass Mega form.').
+pokemon_lore(10286, 'Emboar Mega form.').
+pokemon_lore(10287, 'Excadrill Mega form.').
+pokemon_lore(10288, 'Scolipede Mega form.').
+pokemon_lore(10289, 'Scrafty Mega form.').
+pokemon_lore(10290, 'Eelektross Mega form.').
+pokemon_lore(10291, 'Chandelure Mega form.').
+pokemon_lore(10292, 'Chesnaught Mega form.').
+pokemon_lore(10293, 'Delphox Mega form.').
+pokemon_lore(10294, 'Greninja Mega form.').
+pokemon_lore(10295, 'Pyroar Mega form.').
+pokemon_lore(10296, 'Floette Mega form.').
+pokemon_lore(10297, 'Malamar Mega form.').
+pokemon_lore(10298, 'Barbaracle Mega form.').
+pokemon_lore(10299, 'Dragalge Mega form.').
+pokemon_lore(10300, 'Hawlucha Mega form.').
+pokemon_lore(10301, 'Zygarde Mega form.').
+pokemon_lore(10302, 'Drampa Mega form.').
+pokemon_lore(10303, 'Falinks Mega form.').
+pokemon_lore(10304, 'Raichu Mega form.').
+pokemon_lore(10305, 'Raichu Mega form.').
+pokemon_lore(10306, 'Chimecho Mega form.').
+pokemon_lore(10307, 'Absol Mega form.').
+pokemon_lore(10308, 'Staraptor Mega form.').
+pokemon_lore(10309, 'Garchomp Mega form.').
+pokemon_lore(10310, 'Lucario Mega form.').
+pokemon_lore(10311, 'Heatran Mega form.').
+pokemon_lore(10312, 'Darkrai Mega form.').
+pokemon_lore(10313, 'Golurk Mega form.').
+pokemon_lore(10314, 'Meowstic Mega form.').
+pokemon_lore(10315, 'Crabominable Mega form.').
+pokemon_lore(10316, 'Golisopod Mega form.').
+pokemon_lore(10317, 'Magearna Mega form.').
+pokemon_lore(10318, 'Magearna Mega form.').
+pokemon_lore(10319, 'Zeraora Mega form.').
+pokemon_lore(10320, 'Scovillain Mega form.').
+pokemon_lore(10321, 'Glimmora Mega form.').
+pokemon_lore(10322, 'Tatsugiri Mega form.').
+pokemon_lore(10323, 'Tatsugiri Mega form.').
+pokemon_lore(10324, 'Tatsugiri Mega form.').
+pokemon_lore(10325, 'Baxcalibur Mega form.').
