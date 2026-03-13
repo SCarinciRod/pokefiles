@@ -9,6 +9,7 @@
 :- dynamic pending_confirmation/1.
 :- dynamic pending_level_roster/3.
 :- dynamic pending_counter_preferences/1.
+:- dynamic pending_counter_level_preferences/2.
 :- dynamic pending_type_preferences/1.
 :- multifile pokemon/7.
 :- multifile pokemon_lore/2.
@@ -73,6 +74,7 @@ set_default_generation :-
     retractall(pending_confirmation(_)),
     retractall(pending_level_roster(_, _, _)),
     retractall(pending_counter_preferences(_)),
+    retractall(pending_counter_level_preferences(_, _)),
     retractall(pending_type_preferences(_)).
 
 chat_loop :-
@@ -137,7 +139,7 @@ answer_query(Text) :-
         answer_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel),
         print_follow_up_prompt
     ; parse_counter_level_cap_query(Text, TargetName, MaxLevel) ->
-        answer_counter_level_cap_query(TargetName, MaxLevel),
+        answer_counter_level_cap_query_with_clarification(TargetName, MaxLevel),
         print_follow_up_prompt
     ; parse_evolution_count_query(Text, Method) ->
         answer_evolution_count_query(Method),
@@ -222,6 +224,22 @@ handle_pending_counter_preferences(Text) :-
     ; counter_preferences_default_text(Tokens) ->
         retractall(pending_counter_preferences(_)),
         answer_counter_query(TargetName)
+    ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega", "tipo gelo" ou combinação (ex.: "sem lendários tipo gelo").')
+    ).
+
+handle_pending_counter_preferences(Text) :-
+    pending_counter_level_preferences(TargetName, MaxLevel),
+    !,
+    tokenize_for_match(Text, Tokens),
+    ( member("cancelar", Tokens) ->
+        retractall(pending_counter_level_preferences(_, _)),
+        writeln('Bot: Certo, cancelei os filtros e não apliquei sugestão de counter por nível.')
+    ; counter_preferences_from_text(Text, TypeFilters, ContextFilters) ->
+        retractall(pending_counter_level_preferences(_, _)),
+        answer_counter_level_cap_query_with_filters(TargetName, MaxLevel, TypeFilters, ContextFilters)
+    ; counter_preferences_default_text(Tokens) ->
+        retractall(pending_counter_level_preferences(_, _)),
+        answer_counter_level_cap_query(TargetName, MaxLevel)
     ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega", "tipo gelo" ou combinação (ex.: "sem lendários tipo gelo").')
     ).
 
@@ -1314,7 +1332,8 @@ answer_counter_level_cap_query(TargetIdentifier, MaxLevel) :-
         ),
         PairsRaw),
     keysort(PairsRaw, Asc),
-    reverse(Asc, Desc),
+    reverse(Asc, DescRaw),
+    dedupe_counter_pairs_by_name(DescRaw, Desc),
     take_first_n(Desc, 8, TopPairs),
     TopPairs \= [],
     !,
@@ -1324,6 +1343,40 @@ answer_counter_level_cap_query(TargetIdentifier, MaxLevel) :-
 answer_counter_level_cap_query(TargetIdentifier, MaxLevel) :-
     display_pokemon_name(TargetIdentifier, TargetLabel),
     format('Bot: Não encontrei counters válidos para ~w no recorte de nível até ~w.~n', [TargetLabel, MaxLevel]).
+
+answer_counter_level_cap_query_with_clarification(TargetIdentifier, MaxLevel) :-
+    retractall(pending_counter_level_preferences(_, _)),
+    assertz(pending_counter_level_preferences(TargetIdentifier, MaxLevel)),
+    display_pokemon_name(TargetIdentifier, TargetLabel),
+    format('Bot: Para counterar ~w até nível ~w, quer aplicar filtros antes?~n', [TargetLabel, MaxLevel]),
+    writeln('Bot: Você pode responder: "padrão", "sem lendários", "sem mega", "tipo gelo" ou combinar filtros.').
+
+answer_counter_level_cap_query_with_filters(TargetIdentifier, MaxLevel, TypeFilters, ContextFilters) :-
+    resolve_counter_target(TargetIdentifier, pokemon(_, TargetName, _, _, TargetTypes, _, TargetStatsRaw), _),
+    scale_stats_by_level(TargetStatsRaw, MaxLevel, TargetStats),
+    findall(Score-Name-AttackMult-DefenseMult,
+        ( pokemon_in_scope(_, Name, _, _, CandidateTypes, _, CandidateStatsRaw),
+          pokemon_info(Name, pokemon(CandidateID, _, _, _, _, _, _)),
+          pokemon_reachable_by_level(CandidateID, MaxLevel),
+          pokemon_matches_optional_type_filters_by_name(TypeFilters, Name),
+          scale_stats_by_level(CandidateStatsRaw, MaxLevel, CandidateStats),
+          counter_metrics(CandidateTypes, CandidateStats, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
+          AttackMult > 1.0,
+          Score is (AttackPressure * 2.5) - DefensePressure
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, DescRaw),
+    dedupe_counter_pairs_by_name(DescRaw, UniquePairs),
+    include(counter_pair_passes_filters(ContextFilters), UniquePairs, FilteredPairs),
+    take_first_n(FilteredPairs, 8, TopPairs),
+    TopPairs \= [],
+    !,
+    display_pokemon_name(TargetName, TargetLabel),
+    counter_pairs_text(TopPairs, CounterText),
+    format('Bot: Contra ~w, no cenário de nível até ~w e considerando seus filtros, boas opções são: ~w.~n', [TargetLabel, MaxLevel, CounterText]).
+answer_counter_level_cap_query_with_filters(TargetIdentifier, MaxLevel, _, _) :-
+    answer_counter_level_cap_query(TargetIdentifier, MaxLevel).
 
 answer_evolution_count_query(Method) :-
     findall(FromID,
@@ -1600,6 +1653,11 @@ answer_role_type_query(RoleKey, TypeFilters) :-
 
 pokemon_matches_optional_type_filters([], _).
 pokemon_matches_optional_type_filters(TypeFilters, PokemonTypes) :-
+    pokemon_matches_type_filters(TypeFilters, PokemonTypes).
+
+pokemon_matches_optional_type_filters_by_name([], _Name).
+pokemon_matches_optional_type_filters_by_name(TypeFilters, Name) :-
+    pokemon_info(Name, pokemon(_, _, _, _, PokemonTypes, _, _)),
     pokemon_matches_type_filters(TypeFilters, PokemonTypes).
 
 role_score(tank, Stats, Score) :-
@@ -2328,7 +2386,8 @@ recommend_counters(TargetID, TargetTypes, TargetStats, TopPairs) :-
         ),
         PairsRaw),
     keysort(PairsRaw, PairsAsc),
-    reverse(PairsAsc, PairsDesc),
+    reverse(PairsAsc, PairsDescRaw),
+    dedupe_counter_pairs_by_name(PairsDescRaw, PairsDesc),
     take_first_n(PairsDesc, 6, TopPairs).
 
 recommend_counters_from_candidates(CandidateNames, TargetID, TargetTypes, TargetStats, TopPairs) :-
@@ -2341,8 +2400,21 @@ recommend_counters_from_candidates(CandidateNames, TargetID, TargetTypes, Target
         ),
         PairsRaw),
     keysort(PairsRaw, PairsAsc),
-    reverse(PairsAsc, PairsDesc),
+    reverse(PairsAsc, PairsDescRaw),
+    dedupe_counter_pairs_by_name(PairsDescRaw, PairsDesc),
     take_first_n(PairsDesc, 6, TopPairs).
+
+dedupe_counter_pairs_by_name(Pairs, UniquePairs) :-
+    dedupe_counter_pairs_by_name(Pairs, [], Rev),
+    reverse(Rev, UniquePairs).
+
+dedupe_counter_pairs_by_name([], _Seen, []).
+dedupe_counter_pairs_by_name([Score-Name-AttackMult-DefenseMult | Rest], Seen, Acc) :-
+    ( memberchk(Name, Seen) ->
+        dedupe_counter_pairs_by_name(Rest, Seen, Acc)
+    ; dedupe_counter_pairs_by_name(Rest, [Name | Seen], Tail),
+      Acc = [Score-Name-AttackMult-DefenseMult | Tail]
+    ).
 
 total_stats_value(Stats, Total) :-
     findall(Value, member(_Stat-Value, Stats), Values),
