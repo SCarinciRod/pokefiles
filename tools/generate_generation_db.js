@@ -355,6 +355,96 @@ async function generateOneGeneration(generation) {
   console.log(`Total de pokemons: ${species.length}`);
 }
 
+function detectSpecialFormKind(name) {
+  if (/-mega(?:-|$)/.test(name)) return 'mega';
+  if (/-alola$/.test(name)) return 'alola';
+  if (/-galar$/.test(name)) return 'galar';
+  if (/-hisui$/.test(name)) return 'hisui';
+  if (/-paldea$/.test(name)) return 'paldea';
+  return null;
+}
+
+function specialFormLabel(kind) {
+  const labels = {
+    mega: 'Mega',
+    alola: 'Regional de Alola',
+    galar: 'Regional de Galar',
+    hisui: 'Regional de Hisui',
+    paldea: 'Regional de Paldea',
+  };
+  return labels[kind] || 'Especial';
+}
+
+async function generateSpecialForms() {
+  console.log('Gerando formas especiais (Mega e regionais)...');
+
+  const pokemonIndex = await getJson('https://pokeapi.co/api/v2/pokemon?limit=20000');
+  const specialEntries = (pokemonIndex.results || []).filter((entry) =>
+    Boolean(detectSpecialFormKind(entry.name))
+  );
+
+  const specialMap = new Map();
+
+  for (const entry of specialEntries) {
+    const kind = detectSpecialFormKind(entry.name);
+    if (!kind) continue;
+
+    const pokemonData = await getJson(entry.url);
+    const speciesData = await getJson(pokemonData.species.url);
+    const baseSpeciesId = speciesData.id;
+    const loreBaseName = String(speciesData.name || '').replace(/-/g, ' ');
+
+    specialMap.set(pokemonData.id, {
+      id: pokemonData.id,
+      name: sanitizeAtom(pokemonData.name),
+      height: pokemonData.height,
+      weight: pokemonData.weight,
+      types: formatTypes(pokemonData.types),
+      abilities: formatAbilities(pokemonData.abilities),
+      stats: formatStats(pokemonData.stats),
+      baseSpeciesId,
+      kind,
+      loreText: `Forma ${specialFormLabel(kind)} de ${toTitleCase(loreBaseName)}.`,
+    });
+  }
+
+  const specialList = [...specialMap.values()].sort((a, b) => a.id - b.id);
+
+  const formLines = [];
+  formLines.push('% Formas especiais locais (Mega e regionais)');
+  formLines.push('% Formato: pokemon(ID, Nome, Altura, Peso, Tipos, Habilidades, Stats).');
+  formLines.push('% Mapeamento: pokemon_form_base(FormID, BaseSpeciesID).');
+  formLines.push('% Tipo da forma: pokemon_form_kind(FormID, Kind).');
+  formLines.push(':- multifile pokemon/7.');
+  formLines.push(':- multifile pokemon_form_base/2.');
+  formLines.push(':- multifile pokemon_form_kind/2.');
+
+  const formLoreLines = [];
+  formLoreLines.push('% Lore local para formas especiais');
+  formLoreLines.push('% Formato: pokemon_lore(ID, Texto).');
+  formLoreLines.push(':- multifile pokemon_lore/2.');
+
+  for (const form of specialList) {
+    formLines.push(
+      `pokemon(${form.id}, ${form.name}, ${form.height}, ${form.weight}, ${form.types}, ${form.abilities}, ${form.stats}).`
+    );
+    formLines.push(`pokemon_form_base(${form.id}, ${form.baseSpeciesId}).`);
+    formLines.push(`pokemon_form_kind(${form.id}, ${form.kind}).`);
+    formLoreLines.push(`pokemon_lore(${form.id}, ${prologQuotedText(form.loreText)}).`);
+  }
+
+  const dbDir = path.resolve(__dirname, '..', 'db');
+  fs.mkdirSync(dbDir, { recursive: true });
+  const formsFilePath = path.join(dbDir, 'special_forms.pl');
+  const formsLoreFilePath = path.join(dbDir, 'lore_special_forms.pl');
+  fs.writeFileSync(formsFilePath, formLines.join('\n') + '\n', 'utf8');
+  fs.writeFileSync(formsLoreFilePath, formLoreLines.join('\n') + '\n', 'utf8');
+
+  console.log(`Arquivo gerado: ${formsFilePath}`);
+  console.log(`Arquivo gerado: ${formsLoreFilePath}`);
+  console.log(`Total de formas especiais: ${specialList.length}`);
+}
+
 function parseGenerationsArg(arg) {
   if (!arg || arg === 'all' || arg === 'todas') {
     return [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -383,10 +473,16 @@ async function main() {
     console.warn('[warn] TLS inseguro habilitado (POKEDEX_INSECURE_TLS=1). Use apenas em rede corporativa com inspecao SSL.');
   }
   const arg = process.argv[2] || 'all';
+  if (arg === 'mega' || arg === 'formas' || arg === 'special') {
+    await generateSpecialForms();
+    console.log('Geracao de formas especiais finalizada com sucesso.');
+    return;
+  }
   const generations = parseGenerationsArg(arg);
   for (const generation of generations) {
     await generateOneGeneration(generation);
   }
+  await generateSpecialForms();
   console.log('Geracao(oes) finalizada(s) com sucesso.');
 }
 

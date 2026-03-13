@@ -6,6 +6,8 @@
 :- dynamic active_generation/1.
 :- multifile pokemon/7.
 :- multifile pokemon_lore/2.
+:- multifile pokemon_mega_base/2.
+:- multifile pokemon_form_base/2.
 
 start :-
     load_database,
@@ -27,12 +29,32 @@ configure_text_encoding :-
 load_database :-
     expand_file_name('db/generation_*.pl', GenerationFiles),
     expand_file_name('db/lore_generation_*.pl', LoreFiles),
+    expand_file_name('db/mega_forms.pl', MegaFiles),
+    expand_file_name('db/lore_mega_forms.pl', MegaLoreFiles),
+    expand_file_name('db/special_forms.pl', SpecialFiles),
+    expand_file_name('db/lore_special_forms.pl', SpecialLoreFiles),
     ( GenerationFiles \= [] ->
         maplist(consult, GenerationFiles)
     ; consult('pokemon_db.pl')
     ),
     ( LoreFiles \= [] ->
         maplist(consult, LoreFiles)
+    ; true
+    ),
+    ( MegaFiles \= [] ->
+        maplist(consult, MegaFiles)
+    ; true
+    ),
+    ( MegaLoreFiles \= [] ->
+        maplist(consult, MegaLoreFiles)
+    ; true
+    ),
+    ( SpecialFiles \= [] ->
+        maplist(consult, SpecialFiles)
+    ; true
+    ),
+    ( SpecialLoreFiles \= [] ->
+        maplist(consult, SpecialLoreFiles)
     ; true
     ).
 
@@ -90,6 +112,9 @@ answer_query(Text) :-
     ; parse_info_by_name(Text, Name) ->
         answer_pokemon(Name),
         print_follow_up_prompt
+    ; parse_counter_query(Text, TargetName) ->
+        answer_counter_query(TargetName),
+        print_follow_up_prompt
     ; parse_type_query(Text, TypeFilters) ->
         answer_type_query(TypeFilters),
         print_follow_up_prompt
@@ -122,15 +147,24 @@ parse_info_by_number(Text, Number) :-
 parse_info_by_name(Text, Name) :-
     split_string(Text, " ", "", Tokens),
     ( starts_with_tokens(Tokens, ["info", "nome"]) ->
-        nth0(2, Tokens, Name)
+        drop_first_n(Tokens, 2, NameTokens),
+        extract_name_from_tokens(NameTokens, Name)
     ; starts_with_tokens(Tokens, ["pokemon", "nome"]) ->
-        nth0(2, Tokens, Name)
+        drop_first_n(Tokens, 2, NameTokens),
+        extract_name_from_tokens(NameTokens, Name)
     ; starts_with_tokens(Tokens, ["nome"]) ->
-        nth0(1, Tokens, Name)
+        drop_first_n(Tokens, 1, NameTokens),
+        extract_name_from_tokens(NameTokens, Name)
     ; starts_with_tokens(Tokens, ["pokemon"]) ->
-        nth0(1, Tokens, Name)
+        drop_first_n(Tokens, 1, NameTokens),
+        extract_name_from_tokens(NameTokens, Name)
     ; single_word(Tokens, Name)
     ).
+
+parse_counter_query(Text, TargetName) :-
+    split_string(Text, " ", "", Tokens),
+    append(_, ["contra" | Tail], Tokens),
+    extract_name_from_tokens(Tail, TargetName).
 
 parse_type_query(Text, TypeFilters) :-
     split_string(Text, " ", "", Tokens),
@@ -163,12 +197,56 @@ starts_with_tokens(Tokens, Prefix) :-
 starts_with_tokens(Tokens, Prefix, Rest) :-
     append(Prefix, Rest, Tokens).
 
+drop_first_n(List, N, Rest) :-
+    length(Prefix, N),
+    append(Prefix, Rest, List),
+    !.
+drop_first_n(_, _, []).
+
 single_word([Word], Word) :-
     \+ string_number(Word, _),
     \+ member(Word, ["tipo", "numero", "nome", "info", "pokemon"]).
 
 single_numeric_word([Word]) :-
     string_number(Word, _).
+
+extract_name_from_tokens(RawTokens, Name) :-
+    findall(Token,
+        ( member(Raw, RawTokens),
+          normalize_name_token(Raw, Token),
+          Token \= "",
+          \+ name_stopword(Token)
+        ),
+        NameTokens),
+    NameTokens \= [],
+    atomic_list_concat(NameTokens, '_', Name).
+
+normalize_name_token(RawToken, Normalized) :-
+    split_string(RawToken, "-_", "", Parts0),
+    include(non_empty_string, Parts0, Parts),
+    atomic_list_concat(Parts, '_', Combined0),
+    string_lower(Combined0, Normalized).
+
+name_stopword("o").
+name_stopword("a").
+name_stopword("os").
+name_stopword("as").
+name_stopword("um").
+name_stopword("uma").
+name_stopword("de").
+name_stopword("do").
+name_stopword("da").
+name_stopword("qual").
+name_stopword("que").
+name_stopword("bom").
+name_stopword("boa").
+name_stopword("melhor").
+name_stopword("eh").
+name_stopword("é").
+name_stopword("pokemon").
+name_stopword("pokémon").
+name_stopword("pokemons").
+name_stopword("pokémons").
 
 extract_number(Tokens, Number) :-
     member(Token, Tokens),
@@ -251,6 +329,13 @@ answer_pokemon(Identifier) :-
     !,
     print_lookup_hint(Identifier),
     print_pokemon_info(Pokemon).
+answer_pokemon(Identifier) :-
+    mega_base_identifier(Identifier, BaseIdentifier),
+    pokemon_info(BaseIdentifier, Pokemon),
+    !,
+    display_pokemon_name(BaseIdentifier, BaseLabel),
+    format('Bot: Ainda não tenho a ficha da forma Mega no banco local; mostrando dados do ~w base.~n', [BaseLabel]),
+    print_pokemon_info(Pokemon).
 answer_pokemon(_) :-
     writeln('Bot: Não consegui encontrar esse Pokémon.').
 
@@ -314,14 +399,89 @@ answer_status_full_query(Stat) :-
     display_stat_label(Stat, StatLabel),
     format('Bot: Não encontrei Pokémon com ~w no perfil principal.~n', [StatLabel]).
 
+answer_counter_query(TargetIdentifier) :-
+    resolve_counter_target(TargetIdentifier, pokemon(TargetID, TargetName, _, _, TargetTypes, _, _), UsedFallback),
+    recommend_counters(TargetID, TargetTypes, CounterPairs),
+    CounterPairs \= [],
+    !,
+    display_pokemon_name(TargetName, TargetLabel),
+    counter_pairs_text(CounterPairs, CounterText),
+    ( UsedFallback == true ->
+        writeln('Bot: Ainda não tenho a ficha da forma Mega no banco local, então usei a forma base para sugerir counters.')
+    ; true
+    ),
+    format('Bot: Contra ~w, uma boa estratégia é usar: ~w.~n', [TargetLabel, CounterText]),
+    writeln('Bot: Se quiser, eu também posso sugerir opções mais ofensivas ou mais defensivas.').
+answer_counter_query(TargetIdentifier) :-
+    resolve_counter_target(TargetIdentifier, pokemon(_, TargetName, _, _, _, _, _), _),
+    !,
+    display_pokemon_name(TargetName, TargetLabel),
+    format('Bot: Não encontrei counters fortes o suficiente para ~w com o filtro atual de geração.~n', [TargetLabel]).
+answer_counter_query(_) :-
+    writeln('Bot: Não consegui identificar o Pokémon alvo. Exemplo: "qual é um bom pokemon contra charizard mega x".').
+
+resolve_counter_target(TargetIdentifier, Pokemon, false) :-
+    pokemon_info(TargetIdentifier, Pokemon),
+    !.
+resolve_counter_target(TargetIdentifier, Pokemon, true) :-
+    mega_base_identifier(TargetIdentifier, BaseIdentifier),
+    pokemon_info(BaseIdentifier, Pokemon).
+
+mega_base_identifier(Identifier, BaseIdentifier) :-
+    downcase_atom(Identifier, IdentifierAtom),
+    atomic_list_concat([BaseAtom | _], '_mega_', IdentifierAtom),
+    BaseAtom \= IdentifierAtom,
+    atom_string(BaseAtom, BaseIdentifier).
+
+recommend_counters(TargetID, TargetTypes, TopPairs) :-
+    findall(Score-Name-AttackMult-DefenseMult,
+        ( pokemon_in_scope(CandidateID, Name, _, _, CandidateTypes, _, _),
+          CandidateID =\= TargetID,
+          counter_metrics(CandidateTypes, TargetTypes, AttackMult, DefenseMult),
+          AttackMult > 1.0,
+          Score is (AttackMult * 3.0) - DefenseMult
+        ),
+        PairsRaw),
+    keysort(PairsRaw, PairsAsc),
+    reverse(PairsAsc, PairsDesc),
+    take_first_n(PairsDesc, 6, TopPairs).
+
+counter_metrics(CandidateTypes, TargetTypes, AttackMult, DefenseMult) :-
+    findall(Attack,
+        ( member(CandidateType, CandidateTypes),
+          combined_multiplier(CandidateType, TargetTypes, Attack)
+        ),
+        AttackValues),
+    max_list(AttackValues, AttackMult),
+    findall(Defense,
+        ( member(TargetType, TargetTypes),
+          combined_multiplier(TargetType, CandidateTypes, Defense)
+        ),
+        DefenseValues),
+    max_list(DefenseValues, DefenseMult).
+
+counter_pairs_text(CounterPairs, Text) :-
+    maplist(counter_pair_text, CounterPairs, Items),
+    atomic_list_concat(Items, ', ', Text).
+
+counter_pair_text(_Score-Name-AttackMult-DefenseMult, Text) :-
+    display_pokemon_name(Name, NameLabel),
+    multiplier_text(AttackMult, AttackText),
+    multiplier_text(DefenseMult, DefenseText),
+    format(atom(Text), '~w (bate ~w / recebe até ~w)', [NameLabel, AttackText, DefenseText]).
+
 pokemon_info(Identifier, Pokemon) :-
     number(Identifier),
     !,
-    pokemon_in_scope(Identifier, Name, Height, Weight, Types, Abilities, Stats),
+    ( pokemon_in_scope(Identifier, Name, Height, Weight, Types, Abilities, Stats)
+    ; pokemon(Identifier, Name, Height, Weight, Types, Abilities, Stats)
+    ),
     Pokemon = pokemon(Identifier, Name, Height, Weight, Types, Abilities, Stats).
 pokemon_info(Identifier, Pokemon) :-
     downcase_atom(Identifier, Name),
-    pokemon_in_scope(ID, Name, Height, Weight, Types, Abilities, Stats),
+    ( pokemon_in_scope(ID, Name, Height, Weight, Types, Abilities, Stats)
+    ; pokemon(ID, Name, Height, Weight, Types, Abilities, Stats)
+    ),
     Pokemon = pokemon(ID, Name, Height, Weight, Types, Abilities, Stats).
 
 type_pokemon_count(Type, Count) :-
@@ -458,6 +618,14 @@ pokemon_in_scope(ID, Name, Height, Weight, Types, Abilities, Stats) :-
 active_generation_matches(_) :-
     active_generation(all),
     !.
+active_generation_matches(ID) :-
+    pokemon_form_base(ID, BaseID),
+    !,
+    active_generation_matches(BaseID).
+active_generation_matches(ID) :-
+    pokemon_mega_base(ID, BaseID),
+    !,
+    active_generation_matches(BaseID).
 active_generation_matches(ID) :-
     active_generation(Generation),
     generation_range(Generation, MinID, MaxID),
@@ -808,7 +976,9 @@ show_help :-
     writeln(' 10) tipo fogo/voador'),
     writeln(' 11) habilidade blaze'),
     writeln(' 12) status velocidade'),
-    writeln(' 13) status velocidade completo').
+    writeln(' 13) status velocidade completo'),
+    writeln(' 14) pokemon charizard mega x'),
+    writeln(' 15) qual é um bom pokemon contra charizard').
 
 print_follow_up_prompt :-
     writeln('Bot: Quer fazer outra consulta? Ex.: "pokemon pikachu", "tipo água", "habilidade blaze" ou "status ataque".').
