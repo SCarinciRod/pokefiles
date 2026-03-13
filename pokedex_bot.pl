@@ -351,6 +351,12 @@ parse_counter_level_cap_query(Text, TargetName, MaxLevel) :-
     ( member("abaixo", Tokens)
     ; member("ate", Tokens)
     ; member("até", Tokens)
+    ; member("maximo", Tokens)
+    ; member("máximo", Tokens)
+    ; member("max", Tokens)
+    ; ( (member("nivel", Tokens); member("nível", Tokens)),
+        (member("maximo", Tokens); member("máximo", Tokens); member("max", Tokens))
+      )
     ),
     parse_natural_pokemon_query(Text, TargetName),
     extract_levels_from_tokens(Tokens, Levels),
@@ -1299,6 +1305,8 @@ answer_counter_level_cap_query(TargetIdentifier, MaxLevel) :-
     scale_stats_by_level(TargetStatsRaw, MaxLevel, TargetStats),
     findall(Score-Name-AttackMult-DefenseMult,
         ( pokemon_in_scope(_, Name, _, _, CandidateTypes, _, CandidateStatsRaw),
+                    pokemon_info(Name, pokemon(CandidateID, _, _, _, _, _, _)),
+                    pokemon_reachable_by_level(CandidateID, MaxLevel),
           scale_stats_by_level(CandidateStatsRaw, MaxLevel, CandidateStats),
           counter_metrics(CandidateTypes, CandidateStats, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
           AttackMult > 1.0,
@@ -1327,6 +1335,47 @@ answer_evolution_count_query(Method) :-
     length(UniqueFrom, Count),
     evolution_method_label(Method, MethodLabel),
     format('Bot: Existem ~w Pokémon que evoluem por ~w.~n', [Count, MethodLabel]).
+
+pokemon_reachable_by_level(PokemonID, MaxLevel) :-
+    level_gate_species_id(PokemonID, SpeciesID),
+    species_min_obtain_level(SpeciesID, MinLevel),
+    MinLevel =< MaxLevel.
+
+level_gate_species_id(PokemonID, SpeciesID) :-
+    pokemon_form_base(PokemonID, BaseSpeciesID),
+    !,
+    SpeciesID = BaseSpeciesID.
+level_gate_species_id(PokemonID, SpeciesID) :-
+    pokemon_mega_base(PokemonID, BaseSpeciesID),
+    !,
+    SpeciesID = BaseSpeciesID.
+level_gate_species_id(PokemonID, PokemonID).
+
+species_min_obtain_level(SpeciesID, MinLevel) :-
+    species_min_obtain_level(SpeciesID, [], MinLevel).
+
+species_min_obtain_level(SpeciesID, _Visited, 1) :-
+    \+ pokemon_evolution(_FromID, SpeciesID, _Trigger, _MinLevel, _Condition),
+    !.
+species_min_obtain_level(SpeciesID, Visited, MinLevel) :-
+    findall(CandidateLevel,
+        ( pokemon_evolution(FromID, SpeciesID, Trigger, RawMinLevel, _Condition),
+          \+ member(FromID, Visited),
+          species_min_obtain_level(FromID, [SpeciesID | Visited], PreviousMinLevel),
+          evolution_min_required_level(Trigger, RawMinLevel, RequiredLevel),
+          CandidateLevel is max(PreviousMinLevel, RequiredLevel)
+        ),
+        CandidateLevels),
+    CandidateLevels \= [],
+    min_list(CandidateLevels, MinLevel),
+    !.
+species_min_obtain_level(_SpeciesID, _Visited, 1).
+
+evolution_min_required_level(level_up, RawMinLevel, RequiredLevel) :-
+    number(RawMinLevel),
+    !,
+    RequiredLevel = RawMinLevel.
+evolution_min_required_level(_Trigger, _RawMinLevel, 1).
 
 evolution_matches_method(Trigger, Condition, level_up) :-
     Trigger == level_up,
