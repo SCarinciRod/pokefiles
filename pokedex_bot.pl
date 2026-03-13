@@ -11,6 +11,7 @@
 :- dynamic pending_counter_preferences/1.
 :- dynamic pending_counter_level_preferences/2.
 :- dynamic pending_type_preferences/1.
+:- dynamic pending_list_preferences/1.
 :- multifile pokemon/7.
 :- multifile pokemon_lore/2.
 :- multifile pokemon_mega_base/2.
@@ -75,7 +76,8 @@ set_default_generation :-
     retractall(pending_level_roster(_, _, _)),
     retractall(pending_counter_preferences(_)),
     retractall(pending_counter_level_preferences(_, _)),
-    retractall(pending_type_preferences(_)).
+    retractall(pending_type_preferences(_)),
+    retractall(pending_list_preferences(_)).
 
 chat_loop :-
     write('Voce: '),
@@ -129,6 +131,8 @@ answer_query(Text) :-
         print_follow_up_prompt
     ; handle_pending_type_preferences(Text) ->
         print_follow_up_prompt
+    ; handle_pending_list_preferences(Text) ->
+        print_follow_up_prompt
     ; parse_info_by_number(Text, Number) ->
         answer_pokemon(Number),
         print_follow_up_prompt
@@ -145,13 +149,13 @@ answer_query(Text) :-
         answer_evolution_count_query(Method),
         print_follow_up_prompt
     ; parse_best_switch_query(Text, TargetName) ->
-        answer_best_switch_query(TargetName),
+        answer_best_switch_query_with_clarification(TargetName),
         print_follow_up_prompt
     ; parse_weak_against_type_query(Text, TypeFilters) ->
-        answer_weak_against_type_query(TypeFilters),
+        answer_weak_against_type_query_with_clarification(TypeFilters),
         print_follow_up_prompt
     ; parse_immunity_type_query(Text, TypeFilters) ->
-        answer_immunity_type_query(TypeFilters),
+        answer_immunity_type_query_with_clarification(TypeFilters),
         print_follow_up_prompt
     ; parse_role_type_query(Text, RoleKey, TypeFilters) ->
         answer_role_type_query(RoleKey, TypeFilters),
@@ -258,6 +262,29 @@ handle_pending_type_preferences(Text) :-
         answer_type_query(TypeFilters)
     ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega" ou combinação (ex.: "sem lendários sem mega").')
     ).
+
+handle_pending_list_preferences(Text) :-
+    pending_list_preferences(PendingAction),
+    !,
+    tokenize_for_match(Text, Tokens),
+    ( member("cancelar", Tokens) ->
+        retractall(pending_list_preferences(_)),
+        writeln('Bot: Certo, cancelei os filtros dessa lista.')
+    ; type_preferences_from_text(Text, ContextFilters) ->
+        retractall(pending_list_preferences(_)),
+        execute_pending_list_preferences(PendingAction, ContextFilters)
+    ; counter_preferences_default_text(Tokens) ->
+        retractall(pending_list_preferences(_)),
+        execute_pending_list_preferences(PendingAction, [])
+    ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega" ou combinação (ex.: "sem lendários sem mega").')
+    ).
+
+execute_pending_list_preferences(best_switch(TargetIdentifier), ContextFilters) :-
+    answer_best_switch_query_with_filters(TargetIdentifier, ContextFilters).
+execute_pending_list_preferences(weak_against(TypeFilters), ContextFilters) :-
+    answer_weak_against_type_query_with_filters(TypeFilters, ContextFilters).
+execute_pending_list_preferences(immunity(TypeFilters), ContextFilters) :-
+    answer_immunity_type_query_with_filters(TypeFilters, ContextFilters).
 
 type_preferences_from_text(Text, ContextFilters) :-
     tokenize_for_match(Text, Tokens),
@@ -1552,6 +1579,32 @@ answer_best_switch_query(TargetIdentifier) :-
     writeln('Bot: Não consegui identificar o alvo da análise.'),
     print_suggestion_for_identifier(best_switch, TargetIdentifier).
 
+answer_best_switch_query_with_clarification(TargetIdentifier) :-
+    retractall(pending_list_preferences(_)),
+    assertz(pending_list_preferences(best_switch(TargetIdentifier))),
+    display_pokemon_name(TargetIdentifier, TargetLabel),
+    format('Bot: Para analisar quem entra melhor contra ~w, quer aplicar filtros antes?~n', [TargetLabel]),
+    writeln('Bot: Você pode responder: "padrão", "sem lendários", "sem mega" ou combinar filtros.').
+
+answer_best_switch_query_with_filters(TargetIdentifier, ContextFilters) :-
+    resolve_counter_target(TargetIdentifier, pokemon(TargetID, TargetName, _, _, TargetTypes, _, _), UsedFallback),
+    recommend_best_switches_all(TargetID, TargetTypes, Pairs),
+    include(switch_pair_passes_filters(ContextFilters), Pairs, FilteredPairs),
+    FilteredPairs \= [],
+    !,
+    take_first_n(FilteredPairs, 6, TopPairs),
+    display_pokemon_name(TargetName, TargetLabel),
+    switch_pairs_text(TopPairs, SwitchText),
+    ( UsedFallback == true ->
+        writeln('Bot: Ainda não tenho a ficha da forma especial alvo, então usei a forma base para análise.');
+      true
+    ),
+    extract_switch_names(TopPairs, SwitchNames),
+    remember_candidate_list(SwitchNames),
+    format('Bot: Com os filtros aplicados, quem entra melhor contra ~w: ~w.~n', [TargetLabel, SwitchText]).
+answer_best_switch_query_with_filters(TargetIdentifier, _) :-
+    answer_best_switch_query(TargetIdentifier).
+
 answer_context_filter_query(Filters) :-
     last_list_candidates(Names),
     Names \= [],
@@ -1601,6 +1654,30 @@ answer_weak_against_type_query(TypeFilters) :-
     ; true
     ).
 
+answer_weak_against_type_query_with_clarification(TypeFilters) :-
+    retractall(pending_list_preferences(_)),
+    assertz(pending_list_preferences(weak_against(TypeFilters))),
+    type_filters_text(TypeFilters, FiltersText),
+    format('Bot: Para a lista de fraqueza contra ~w, quer aplicar filtros antes?~n', [FiltersText]),
+    writeln('Bot: Você pode responder: "padrão", "sem lendários", "sem mega" ou combinar filtros.').
+
+answer_weak_against_type_query_with_filters(TypeFilters, ContextFilters) :-
+    findall(Name,
+        ( pokemon_in_scope(_, Name, _, _, Types, _, _),
+          pokemon_weak_to_any(TypeFilters, Types)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names),
+    apply_context_filters(Names, ContextFilters, FilteredNames),
+    length(FilteredNames, Count),
+    type_filters_text(TypeFilters, FiltersText),
+    format('Bot: Com os filtros aplicados, encontrei ~w Pokémon fracos contra ~w.~n', [Count, FiltersText]),
+    ( Count > 0 ->
+        sample_names_text(FilteredNames, 12, SampleText),
+        format('  Exemplos: ~w~n', [SampleText])
+    ; true
+    ).
+
 pokemon_weak_to_any([], _) :- fail.
 pokemon_weak_to_any([AttackType | _], DefenseTypes) :-
     combined_multiplier(AttackType, DefenseTypes, Mult),
@@ -1621,6 +1698,30 @@ answer_immunity_type_query(TypeFilters) :-
     format('Bot: Encontrei ~w Pokémon com imunidade a ~w.~n', [Count, FiltersText]),
     ( Count > 0 ->
         sample_names_text(Names, 12, SampleText),
+        format('  Exemplos: ~w~n', [SampleText])
+    ; true
+    ).
+
+answer_immunity_type_query_with_clarification(TypeFilters) :-
+    retractall(pending_list_preferences(_)),
+    assertz(pending_list_preferences(immunity(TypeFilters))),
+    type_filters_text(TypeFilters, FiltersText),
+    format('Bot: Para a lista de imunidade a ~w, quer aplicar filtros antes?~n', [FiltersText]),
+    writeln('Bot: Você pode responder: "padrão", "sem lendários", "sem mega" ou combinar filtros.').
+
+answer_immunity_type_query_with_filters(TypeFilters, ContextFilters) :-
+    findall(Name,
+        ( pokemon_in_scope(_, Name, _, _, Types, _, _),
+          pokemon_immune_to_any(TypeFilters, Types)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names),
+    apply_context_filters(Names, ContextFilters, FilteredNames),
+    length(FilteredNames, Count),
+    type_filters_text(TypeFilters, FiltersText),
+    format('Bot: Com os filtros aplicados, encontrei ~w Pokémon com imunidade a ~w.~n', [Count, FiltersText]),
+    ( Count > 0 ->
+        sample_names_text(FilteredNames, 12, SampleText),
         format('  Exemplos: ~w~n', [SampleText])
     ; true
     ).
@@ -2150,6 +2251,10 @@ legendary_or_mythical_species_id_for_pokemon(ID) :-
     legendary_or_mythical_species_id(ID).
 
 recommend_best_switches(TargetID, TargetTypes, TopPairs) :-
+    recommend_best_switches_all(TargetID, TargetTypes, PairsAsc),
+    take_first_n(PairsAsc, 6, TopPairs).
+
+recommend_best_switches_all(TargetID, TargetTypes, PairsAsc) :-
     findall(Score-Name-DefenseMult-Bulk,
         ( pokemon_in_scope(CandidateID, Name, _, _, CandidateTypes, _, Stats),
           CandidateID =\= TargetID,
@@ -2159,7 +2264,18 @@ recommend_best_switches(TargetID, TargetTypes, TopPairs) :-
         ),
         PairsRaw),
     keysort(PairsRaw, SortedAsc),
-    take_first_n(SortedAsc, 6, TopPairs).
+    dedupe_switch_pairs_by_name(SortedAsc, PairsAsc).
+
+dedupe_switch_pairs_by_name(PairsAsc, UniqueAsc) :-
+    dedupe_switch_pairs_by_name(PairsAsc, [], UniqueAsc).
+
+dedupe_switch_pairs_by_name([], _Seen, []).
+dedupe_switch_pairs_by_name([Score-Name-DefenseMult-Bulk | Rest], Seen, Unique) :-
+    ( memberchk(Name, Seen) ->
+        dedupe_switch_pairs_by_name(Rest, Seen, Unique)
+    ; Unique = [Score-Name-DefenseMult-Bulk | Tail],
+      dedupe_switch_pairs_by_name(Rest, [Name | Seen], Tail)
+    ).
 
 defensive_pressure_from_target(TargetTypes, CandidateTypes, MaxDefenseMult) :-
     findall(Defense,
@@ -2183,6 +2299,9 @@ switch_pair_text(_Score-Name-DefenseMult-Bulk, Text) :-
     display_pokemon_name(Name, NameLabel),
     multiplier_text(DefenseMult, DefenseText),
     format(atom(Text), '~w (recebe até ~w / bulk ~w)', [NameLabel, DefenseText, Bulk]).
+
+switch_pair_passes_filters(Filters, _Score-Name-_DefenseMult-_Bulk) :-
+    name_passes_filters(Filters, Name).
 
 extract_switch_names(Pairs, Names) :-
     findall(Name,
