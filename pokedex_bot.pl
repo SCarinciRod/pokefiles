@@ -145,6 +145,30 @@ answer_query(Text) :-
     ; parse_counter_level_cap_query(Text, TargetName, MaxLevel) ->
         answer_counter_level_cap_query_with_clarification(TargetName, MaxLevel),
         print_follow_up_prompt
+    ; parse_megas_per_generation_summary_query(Text) ->
+        answer_megas_per_generation_summary_query,
+        print_follow_up_prompt
+    ; parse_pokemon_per_generation_summary_query(Text) ->
+        answer_pokemon_per_generation_summary_query,
+        print_follow_up_prompt
+    ; parse_legendary_per_generation_summary_query(Text) ->
+        answer_legendary_per_generation_summary_query,
+        print_follow_up_prompt
+    ; parse_mega_by_generation_query(Text, Generation, TypeFilters, ContextFilters) ->
+        answer_mega_by_generation_query(Generation, TypeFilters, ContextFilters),
+        print_follow_up_prompt
+    ; parse_legendary_by_generation_query(Text, Generation, TypeFilters, ContextFilters) ->
+        answer_legendary_by_generation_query(Generation, TypeFilters, ContextFilters),
+        print_follow_up_prompt
+    ; parse_legendary_by_type_query(Text, TypeFilters, ContextFilters) ->
+        answer_legendary_by_type_query(TypeFilters, ContextFilters),
+        print_follow_up_prompt
+    ; parse_generation_type_query(Text, Generation, TypeFilters, ContextFilters) ->
+        answer_generation_type_query(Generation, TypeFilters, ContextFilters),
+        print_follow_up_prompt
+    ; parse_pokemon_by_generation_query(Text, Generation, TypeFilters, ContextFilters) ->
+        answer_pokemon_by_generation_query(Generation, TypeFilters, ContextFilters),
+        print_follow_up_prompt
     ; parse_mega_count_query(Text) ->
         answer_mega_count_query,
         print_follow_up_prompt
@@ -429,6 +453,151 @@ parse_mega_count_query(Text) :-
     ; contiguous_sublist(["evoluções", "mega"], Tokens)
     ).
 
+parse_megas_per_generation_summary_query(Text) :-
+    tokenize_for_match(Text, Tokens),
+    ( member("mega", Tokens) ; member("megas", Tokens) ),
+    ( contiguous_sublist(["por", "geracao"], Tokens)
+    ; contiguous_sublist(["por", "geração"], Tokens)
+    ).
+
+parse_pokemon_per_generation_summary_query(Text) :-
+    tokenize_for_match(Text, Tokens),
+    ( member("pokemon", Tokens)
+    ; member("pokemons", Tokens)
+    ; member("pokémon", Tokens)
+    ; member("pokémons", Tokens)
+    ),
+    ( contiguous_sublist(["por", "geracao"], Tokens)
+    ; contiguous_sublist(["por", "geração"], Tokens)
+    ).
+
+parse_legendary_per_generation_summary_query(Text) :-
+    tokenize_for_match(Text, Tokens),
+    legendary_request_tokens(Tokens),
+    ( contiguous_sublist(["por", "geracao"], Tokens)
+    ; contiguous_sublist(["por", "geração"], Tokens)
+    ).
+
+parse_mega_by_generation_query(Text, Generation, TypeFilters, ContextFilters) :-
+    tokenize_for_match(Text, Tokens),
+    parse_generation_from_tokens(Tokens, Generation),
+    ( member("mega", Tokens) ; member("megas", Tokens) ),
+    ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
+    extract_context_filters(Tokens, RawContext),
+    ensure_filter_present(only_mega, RawContext, ContextFilters).
+
+parse_legendary_by_generation_query(Text, Generation, TypeFilters, ContextFilters) :-
+    tokenize_for_match(Text, Tokens),
+    parse_generation_from_tokens(Tokens, Generation),
+    legendary_request_tokens(Tokens),
+    ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
+    extract_context_filters(Tokens, RawContext),
+    ensure_filter_present(only_legendary, RawContext, ContextFilters).
+
+parse_legendary_by_type_query(Text, TypeFilters, ContextFilters) :-
+    tokenize_for_match(Text, Tokens),
+    legendary_request_tokens(Tokens),
+    extract_type_filters(Tokens, TypeFilters),
+    extract_context_filters(Tokens, RawContext),
+    ensure_filter_present(only_legendary, RawContext, ContextFilters).
+
+parse_generation_type_query(Text, Generation, TypeFilters, ContextFilters) :-
+    tokenize_for_match(Text, Tokens),
+    parse_generation_from_tokens(Tokens, Generation),
+    extract_type_filters(Tokens, TypeFilters),
+    TypeFilters \= [],
+    ( member("tipo", Tokens)
+    ; member("tipos", Tokens)
+    ; member("pokemon", Tokens)
+    ; member("pokemons", Tokens)
+    ; member("pokémon", Tokens)
+    ; member("pokémons", Tokens)
+    ; member("quais", Tokens)
+    ; member("quantos", Tokens)
+    ; member("lista", Tokens)
+    ; member("mostra", Tokens)
+    ; member("liste", Tokens)
+    ),
+    \+ legendary_request_tokens(Tokens),
+    extract_context_filters(Tokens, ContextFilters).
+
+parse_pokemon_by_generation_query(Text, Generation, TypeFilters, ContextFilters) :-
+    tokenize_for_match(Text, Tokens),
+    parse_generation_from_tokens(Tokens, Generation),
+    ( member("pokemon", Tokens)
+    ; member("pokemons", Tokens)
+    ; member("pokémon", Tokens)
+    ; member("pokémons", Tokens)
+    ; member("quais", Tokens)
+    ; member("quantos", Tokens)
+    ; member("lista", Tokens)
+    ; member("mostra", Tokens)
+    ; member("liste", Tokens)
+    ; member("tem", Tokens)
+    ; member("existem", Tokens)
+    ),
+    \+ legendary_request_tokens(Tokens),
+    \+ member("mega", Tokens),
+    \+ member("megas", Tokens),
+    ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
+    extract_context_filters(Tokens, ContextFilters).
+
+legendary_request_tokens(Tokens) :-
+    ( member("lendario", Tokens)
+    ; member("lendarios", Tokens)
+    ; member("lendário", Tokens)
+    ; member("lendários", Tokens)
+    ; member("mitico", Tokens)
+    ; member("miticos", Tokens)
+    ; member("mítico", Tokens)
+    ; member("míticos", Tokens)
+    ).
+
+parse_generation_from_tokens(Tokens, Generation) :-
+    ( append(_, [Key, Value | _], Tokens),
+      generation_keyword_token(Key),
+      token_to_generation(Value, Generation)
+    ; member(Token, Tokens),
+      token_with_generation_prefix(Token, Generation)
+    ),
+    between(1, 9, Generation).
+
+generation_keyword_token("geracao").
+generation_keyword_token("geração").
+generation_keyword_token("gen").
+
+token_to_generation(Token, Generation) :-
+    string_number(Token, Generation),
+    integer(Generation),
+    between(1, 9, Generation).
+
+token_with_generation_prefix(Token, Generation) :-
+    generation_prefix(Prefix),
+    sub_string(Token, 0, PrefixLen, _, Prefix),
+    sub_string(Token, PrefixLen, _, 0, Digits),
+    Digits \= "",
+    string_number(Digits, Generation),
+    integer(Generation),
+    between(1, 9, Generation).
+
+generation_prefix("g").
+generation_prefix("gen").
+generation_prefix("geracao").
+generation_prefix("geração").
+
+extract_context_filters(Tokens, Filters) :-
+    findall(Filter,
+        ( context_filter_token(Filter, FilterTokens),
+          contiguous_sublist(FilterTokens, Tokens)
+        ),
+        Raw),
+    sort(Raw, Filters).
+
+ensure_filter_present(Filter, Filters, Filters) :-
+    member(Filter, Filters),
+    !.
+ensure_filter_present(Filter, Filters, [Filter | Filters]).
+
 parse_evolution_count_query(Text, Method) :-
     tokenize_for_match(Text, Tokens),
     ( member("quantos", Tokens)
@@ -647,6 +816,10 @@ parse_context_filter_query(Text, Filters) :-
     Filters \= [].
 
 context_filter_token(no_mega, ["sem", "mega"]).
+context_filter_token(only_mega, ["so", "mega"]).
+context_filter_token(only_mega, ["só", "mega"]).
+context_filter_token(only_mega, ["apenas", "mega"]).
+context_filter_token(only_mega, ["somente", "mega"]).
 context_filter_token(no_legendary, ["sem", "lendario"]).
 context_filter_token(no_legendary, ["sem", "lendários"]).
 context_filter_token(no_legendary, ["sem", "lendarios"]).
@@ -659,6 +832,14 @@ context_filter_token(no_legendary, ["sem", "mitico"]).
 context_filter_token(no_legendary, ["sem", "mítico"]).
 context_filter_token(no_legendary, ["sem", "miticos"]).
 context_filter_token(no_legendary, ["sem", "míticos"]).
+context_filter_token(only_legendary, ["so", "lendario"]).
+context_filter_token(only_legendary, ["so", "lendarios"]).
+context_filter_token(only_legendary, ["só", "lendário"]).
+context_filter_token(only_legendary, ["só", "lendários"]).
+context_filter_token(only_legendary, ["apenas", "lendarios"]).
+context_filter_token(only_legendary, ["somente", "lendarios"]).
+context_filter_token(only_legendary, ["so", "miticos"]).
+context_filter_token(only_legendary, ["só", "míticos"]).
 
 parse_compare_query(Text, NameA, NameB) :-
     tokenize_for_match(Text, Tokens),
@@ -1460,6 +1641,153 @@ answer_mega_count_query :-
         sort(NamesRaw, Names),
         length(Names, Count),
         format('Bot: Existem ~w formas Mega na base atual.~n', [Count]).
+
+answer_megas_per_generation_summary_query :-
+    findall(Generation-Count,
+        ( between(1, 9, Generation),
+          collect_generation_names(Generation, [], [only_mega], Names),
+          length(Names, Count)
+        ),
+        Summary),
+    writeln('Bot: Quantidade de formas Mega por geração:'),
+    print_generation_summary(Summary).
+
+answer_pokemon_per_generation_summary_query :-
+    findall(Generation-Count,
+        ( between(1, 9, Generation),
+          collect_generation_names(Generation, [], [], Names),
+          length(Names, Count)
+        ),
+        Summary),
+    writeln('Bot: Quantidade de Pokémon por geração:'),
+    print_generation_summary(Summary).
+
+answer_legendary_per_generation_summary_query :-
+    findall(Generation-Count,
+        ( between(1, 9, Generation),
+          collect_generation_names(Generation, [], [only_legendary], Names),
+          length(Names, Count)
+        ),
+        Summary),
+    writeln('Bot: Quantidade de lendários/míticos por geração:'),
+    print_generation_summary(Summary).
+
+answer_mega_by_generation_query(Generation, TypeFilters, ContextFilters) :-
+    ensure_filter_present(only_mega, ContextFilters, EffectiveFilters),
+    collect_generation_names(Generation, TypeFilters, EffectiveFilters, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 10, SampleText),
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Encontrei ~w formas Mega ~w.~n', [Count, QueryText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_mega_by_generation_query(Generation, TypeFilters, _) :-
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Não encontrei formas Mega ~w.~n', [QueryText]).
+
+answer_legendary_by_generation_query(Generation, TypeFilters, ContextFilters) :-
+    ensure_filter_present(only_legendary, ContextFilters, EffectiveFilters),
+    collect_generation_names(Generation, TypeFilters, EffectiveFilters, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 10, SampleText),
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Encontrei ~w lendários/míticos ~w.~n', [Count, QueryText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_legendary_by_generation_query(Generation, TypeFilters, _) :-
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Não encontrei lendários/míticos ~w.~n', [QueryText]).
+
+answer_legendary_by_type_query(TypeFilters, ContextFilters) :-
+    ensure_filter_present(only_legendary, ContextFilters, EffectiveFilters),
+    collect_scoped_names(TypeFilters, EffectiveFilters, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    type_filters_text(TypeFilters, FiltersText),
+    sample_names_text(Names, 12, SampleText),
+    format('Bot: Encontrei ~w lendários/míticos do tipo ~w no recorte atual.~n', [Count, FiltersText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_legendary_by_type_query(TypeFilters, _) :-
+    type_filters_text(TypeFilters, FiltersText),
+    format('Bot: Não encontrei lendários/míticos do tipo ~w no recorte atual.~n', [FiltersText]).
+
+answer_generation_type_query(Generation, TypeFilters, ContextFilters) :-
+    collect_generation_names(Generation, TypeFilters, ContextFilters, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 12, SampleText),
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Encontrei ~w Pokémon ~w.~n', [Count, QueryText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_generation_type_query(Generation, TypeFilters, _) :-
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Não encontrei Pokémon ~w.~n', [QueryText]).
+
+answer_pokemon_by_generation_query(Generation, TypeFilters, ContextFilters) :-
+    collect_generation_names(Generation, TypeFilters, ContextFilters, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 12, SampleText),
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Existem ~w Pokémon ~w.~n', [Count, QueryText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_pokemon_by_generation_query(Generation, TypeFilters, _) :-
+    generation_type_query_text(Generation, TypeFilters, QueryText),
+    format('Bot: Não encontrei Pokémon ~w.~n', [QueryText]).
+
+collect_generation_names(Generation, TypeFilters, ContextFilters, Names) :-
+    findall(Name,
+        ( pokemon(ID, Name, _Height, _Weight, Types, _Abilities, _Stats),
+          generation_matches_id(Generation, ID),
+          pokemon_matches_optional_type_filters(TypeFilters, Types),
+          name_passes_filters(ContextFilters, Name)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names).
+
+collect_scoped_names(TypeFilters, ContextFilters, Names) :-
+    findall(Name,
+        ( pokemon_in_scope(_ID, Name, _Height, _Weight, Types, _Abilities, _Stats),
+          pokemon_matches_optional_type_filters(TypeFilters, Types),
+          name_passes_filters(ContextFilters, Name)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names).
+
+generation_matches_id(Generation, ID) :-
+    pokemon_form_base(ID, BaseID),
+    !,
+    generation_matches_id(Generation, BaseID).
+generation_matches_id(Generation, ID) :-
+    pokemon_mega_base(ID, BaseID),
+    !,
+    generation_matches_id(Generation, BaseID).
+generation_matches_id(Generation, ID) :-
+    generation_range(Generation, MinID, MaxID),
+    ID >= MinID,
+    ID =< MaxID.
+
+generation_type_query_text(Generation, [], Text) :-
+    format(atom(Text), 'da geração ~w', [Generation]).
+generation_type_query_text(Generation, TypeFilters, Text) :-
+    TypeFilters \= [],
+    type_filters_text(TypeFilters, FiltersText),
+    format(atom(Text), 'do tipo ~w na geração ~w', [FiltersText, Generation]).
+
+print_generation_summary([]).
+print_generation_summary([Generation-Count | Rest]) :-
+    format('  - Geração ~w: ~w~n', [Generation, Count]),
+    print_generation_summary(Rest).
 
 pokemon_reachable_by_level(PokemonID, MaxLevel) :-
     level_gate_species_id(PokemonID, SpeciesID),
@@ -2274,7 +2602,9 @@ apply_context_filters(Names, Filters, FilteredNames) :-
 
 name_passes_filters(Filters, Name) :-
     \+ (member(no_mega, Filters), is_mega_name(Name)),
-    \+ (member(no_legendary, Filters), is_legendary_or_mythical_name(Name)).
+    \+ (member(no_legendary, Filters), is_legendary_or_mythical_name(Name)),
+    ( \+ member(only_mega, Filters) ; is_mega_name(Name) ),
+    ( \+ member(only_legendary, Filters) ; is_legendary_or_mythical_name(Name) ).
 
 is_mega_name(Name) :-
     atom_string(Name, NameText),
@@ -3203,7 +3533,14 @@ show_help :-
     writeln(' 17) charizard ou blastoise'),
     writeln(' 18) comparacao entre alakazam e gengar'),
     writeln(' 19) habilidade static'),
-    writeln(' 20) quais de elemento fogo').
+    writeln(' 20) quais de elemento fogo'),
+    writeln(' 21) quantas megas evoluções existem'),
+    writeln(' 22) megas por geração'),
+    writeln(' 23) pokemons por geração'),
+    writeln(' 24) lendarios por geração'),
+    writeln(' 25) pokemons do tipo fogo na geração 3'),
+    writeln(' 26) megas do tipo dragão na geração 6'),
+    writeln(' 27) lendarios do tipo psíquico').
 
 print_follow_up_prompt :-
     writeln('Bot: Quer fazer outra consulta? Ex.: "pokemon pikachu", "tipo água", "habilidade blaze" ou "status ataque".').
