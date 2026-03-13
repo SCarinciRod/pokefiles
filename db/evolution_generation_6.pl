@@ -1,0 +1,53 @@
+:- encoding(utf8).
+% Evolucoes locais da geracao 6
+% Formato: pokemon_evolution(FromID, ToID, Trigger, MinLevel, Condition).
+:- multifile pokemon_evolution/5.
+pokemon_evolution(650, 651, level_up, 16, none).
+pokemon_evolution(651, 652, level_up, 36, none).
+pokemon_evolution(653, 654, level_up, 16, none).
+pokemon_evolution(654, 655, level_up, 36, none).
+pokemon_evolution(656, 657, level_up, 16, none).
+pokemon_evolution(657, 658, level_up, 36, none).
+pokemon_evolution(659, 660, level_up, 20, none).
+pokemon_evolution(661, 662, level_up, 17, none).
+pokemon_evolution(662, 663, level_up, 35, none).
+pokemon_evolution(664, 665, level_up, 9, none).
+pokemon_evolution(665, 666, level_up, 12, none).
+pokemon_evolution(667, 668, level_up, 35, none).
+pokemon_evolution(669, 670, level_up, 19, none).
+pokemon_evolution(670, 671, use_item, none, item_shiny_stone).
+pokemon_evolution(672, 673, level_up, 32, none).
+pokemon_evolution(674, 675, level_up, 32, none).
+pokemon_evolution(677, 678, level_up, 25, none).
+pokemon_evolution(679, 680, level_up, 35, none).
+pokemon_evolution(680, 681, use_item, none, item_dusk_stone).
+pokemon_evolution(682, 683, trade, none, held_sachet).
+pokemon_evolution(684, 685, trade, none, held_whipped_dream).
+pokemon_evolution(686, 687, level_up, 30, turn_upside_down).
+pokemon_evolution(688, 689, level_up, 39, none).
+pokemon_evolution(690, 691, level_up, 48, none).
+pokemon_evolution(692, 693, level_up, 37, none).
+pokemon_evolution(694, 695, use_item, none, item_sun_stone).
+pokemon_evolution(696, 697, level_up, 39, time_day).
+pokemon_evolution(698, 699, level_up, 39, time_night).
+pokemon_evolution(133, 134, use_item, none, item_water_stone).
+pokemon_evolution(133, 135, use_item, none, item_thunder_stone).
+pokemon_evolution(133, 136, use_item, none, item_fire_stone).
+pokemon_evolution(133, 196, level_up, none, time_day_and_happiness_160).
+pokemon_evolution(133, 197, level_up, none, time_night_and_happiness_160).
+pokemon_evolution(133, 470, level_up, none, location_eterna_forest).
+pokemon_evolution(133, 470, level_up, none, location_pinwheel_forest).
+pokemon_evolution(133, 470, level_up, none, location_kalos_route_20).
+pokemon_evolution(133, 470, use_item, none, item_leaf_stone).
+pokemon_evolution(133, 471, level_up, none, location_sinnoh_route_217).
+pokemon_evolution(133, 471, level_up, none, location_twist_mountain).
+pokemon_evolution(133, 471, level_up, none, location_frost_cavern).
+pokemon_evolution(133, 471, use_item, none, item_ice_stone).
+pokemon_evolution(133, 700, level_up, none, move_type_fairy_and_affection_2).
+pokemon_evolution(133, 700, level_up, none, move_type_fairy_and_happiness_160).
+pokemon_evolution(704, 705, level_up, 40, none).
+pokemon_evolution(705, 706, level_up, 50, needs_rain).
+pokemon_evolution(708, 709, trade, none, none).
+pokemon_evolution(710, 711, trade, none, none).
+pokemon_evolution(712, 713, level_up, 37, none).
+pokemon_evolution(714, 715, level_up, 48, none).

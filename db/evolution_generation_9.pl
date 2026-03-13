@@ -1,0 +1,57 @@
+:- encoding(utf8).
+% Evolucoes locais da geracao 9
+% Formato: pokemon_evolution(FromID, ToID, Trigger, MinLevel, Condition).
+:- multifile pokemon_evolution/5.
+pokemon_evolution(906, 907, level_up, 16, none).
+pokemon_evolution(907, 908, level_up, 36, none).
+pokemon_evolution(909, 910, level_up, 16, none).
+pokemon_evolution(910, 911, level_up, 36, none).
+pokemon_evolution(912, 913, level_up, 16, none).
+pokemon_evolution(913, 914, level_up, 36, none).
+pokemon_evolution(915, 916, level_up, 18, none).
+pokemon_evolution(917, 918, level_up, 15, none).
+pokemon_evolution(919, 920, level_up, 24, none).
+pokemon_evolution(921, 922, level_up, 18, none).
+pokemon_evolution(922, 923, level_up, none, none).
+pokemon_evolution(924, 925, other, 25, none).
+pokemon_evolution(926, 927, level_up, 26, none).
+pokemon_evolution(928, 929, level_up, 25, none).
+pokemon_evolution(929, 930, level_up, 35, none).
+pokemon_evolution(932, 933, level_up, 24, none).
+pokemon_evolution(933, 934, level_up, 38, none).
+pokemon_evolution(935, 936, use_item, none, item_auspicious_armor).
+pokemon_evolution(935, 937, use_item, none, item_malicious_armor).
+pokemon_evolution(938, 939, use_item, none, item_thunder_stone).
+pokemon_evolution(940, 941, level_up, 25, none).
+pokemon_evolution(942, 943, level_up, 30, none).
+pokemon_evolution(944, 945, level_up, 28, none).
+pokemon_evolution(946, 947, level_up, none, none).
+pokemon_evolution(948, 949, level_up, 30, none).
+pokemon_evolution(951, 952, use_item, none, item_fire_stone).
+pokemon_evolution(953, 954, level_up, none, none).
+pokemon_evolution(955, 956, level_up, 35, none).
+pokemon_evolution(957, 958, level_up, 24, none).
+pokemon_evolution(958, 959, level_up, 38, none).
+pokemon_evolution(960, 961, level_up, 26, none).
+pokemon_evolution(963, 964, level_up, 38, none).
+pokemon_evolution(965, 966, level_up, 40, none).
+pokemon_evolution(969, 970, level_up, 35, none).
+pokemon_evolution(971, 972, level_up, 30, time_night).
+pokemon_evolution(974, 975, use_item, none, item_ice_stone).
+pokemon_evolution(56, 57, level_up, 28, none).
+pokemon_evolution(57, 979, use_move, none, none).
+pokemon_evolution(194, 195, level_up, 20, none).
+pokemon_evolution(194, 980, level_up, 20, none).
+pokemon_evolution(203, 981, level_up, none, move_twin_beam).
+pokemon_evolution(206, 982, level_up, none, move_hyper_drill).
+pokemon_evolution(624, 625, level_up, 52, none).
+pokemon_evolution(625, 983, three_defeated_bisharp, none, none).
+pokemon_evolution(996, 997, level_up, 35, none).
+pokemon_evolution(997, 998, level_up, 54, none).
+pokemon_evolution(999, 1000, gimmmighoul_coins, none, none).
+pokemon_evolution(840, 841, use_item, none, item_tart_apple).
+pokemon_evolution(840, 842, use_item, none, item_sweet_apple).
+pokemon_evolution(840, 1011, unknown, none, none).
+pokemon_evolution(1011, 1019, unknown, none, none).
+pokemon_evolution(1012, 1013, unknown, none, none).
+pokemon_evolution(884, 1018, unknown, none, none).

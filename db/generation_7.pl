@@ -1,3 +1,4 @@
+:- encoding(utf8).
 % Base local da geracao 7
 % Formato: pokemon(ID, Nome, Altura, Peso, Tipos, Habilidades, Stats).
 :- multifile pokemon/7.

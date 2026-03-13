@@ -1,3 +1,4 @@
+:- encoding(utf8).
 % Formas especiais locais (Mega e regionais)
 % Formato: pokemon(ID, Nome, Altura, Peso, Tipos, Habilidades, Stats).
 % Mapeamento: pokemon_form_base(FormID, BaseSpeciesID).

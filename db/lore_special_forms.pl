@@ -1,3 +1,4 @@
+:- encoding(utf8).
 % Lore local para formas especiais
 % Formato: pokemon_lore(ID, Texto).
 :- multifile pokemon_lore/2.

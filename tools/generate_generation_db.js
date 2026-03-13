@@ -54,7 +54,8 @@ function formatStats(stats) {
 
 function mapLabel(map, key, fallback = 'desconhecido') {
   if (!key) return fallback;
-  return map[key] || key;
+  const normalizedKey = String(key).replace(/-/g, '_');
+  return map[normalizedKey] || map[key] || key;
 }
 
 const VERSION_PRIORITY_BY_GENERATION = {
@@ -74,6 +75,58 @@ function cleanFlavorText(text) {
     .replace(/[\n\f\r]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function extractIdFromUrl(url) {
+  const match = String(url || '').match(/\/(\d+)\/?$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function evolutionConditionAtom(detail) {
+  if (!detail || typeof detail !== 'object') return 'none';
+  const parts = [];
+  if (detail.item?.name) parts.push(`item_${detail.item.name}`);
+  if (detail.held_item?.name) parts.push(`held_${detail.held_item.name}`);
+  if (detail.known_move?.name) parts.push(`move_${detail.known_move.name}`);
+  if (detail.known_move_type?.name) parts.push(`move_type_${detail.known_move_type.name}`);
+  if (detail.location?.name) parts.push(`location_${detail.location.name}`);
+  if (detail.time_of_day) parts.push(`time_${detail.time_of_day}`);
+  if (detail.trade_species?.name) parts.push(`trade_with_${detail.trade_species.name}`);
+  if (Number.isInteger(detail.min_happiness)) parts.push(`happiness_${detail.min_happiness}`);
+  if (Number.isInteger(detail.min_affection)) parts.push(`affection_${detail.min_affection}`);
+  if (Number.isInteger(detail.min_beauty)) parts.push(`beauty_${detail.min_beauty}`);
+  if (typeof detail.needs_overworld_rain === 'boolean' && detail.needs_overworld_rain) {
+    parts.push('needs_rain');
+  }
+  if (typeof detail.turn_upside_down === 'boolean' && detail.turn_upside_down) {
+    parts.push('turn_upside_down');
+  }
+  if (parts.length === 0) return 'none';
+  return sanitizeAtom(parts.join('_and_'));
+}
+
+function collectEvolutionFacts(chainNode, factsOut) {
+  if (!chainNode || !chainNode.species) return;
+  const fromId = extractIdFromUrl(chainNode.species.url);
+  const evolvesTo = Array.isArray(chainNode.evolves_to) ? chainNode.evolves_to : [];
+
+  for (const evo of evolvesTo) {
+    const toId = extractIdFromUrl(evo?.species?.url);
+    const details = Array.isArray(evo?.evolution_details) && evo.evolution_details.length > 0
+      ? evo.evolution_details
+      : [{}];
+
+    for (const detail of details) {
+      const trigger = sanitizeAtom(detail?.trigger?.name || 'unknown');
+      const minLevel = Number.isInteger(detail?.min_level) ? detail.min_level : 'none';
+      const condition = evolutionConditionAtom(detail || {});
+      if (fromId > 0 && toId > 0) {
+        factsOut.push({ fromId, toId, trigger, minLevel, condition });
+      }
+    }
+
+    collectEvolutionFacts(evo, factsOut);
+  }
 }
 
 function stripDiacritics(text) {
@@ -100,6 +153,27 @@ function pickFlavorText(speciesData, generation, languageName) {
 
 function translateSpanishFlavorToPortuguese(text) {
   const replacements = [
+    [/\bpara acabar con\b/g, 'para acabar com'],
+    [/\ben momentos de apuro\b/g, 'em momentos de aperto'],
+    [/\bse esconde en\b/g, 'se esconde em'],
+    [/\bse protege con\b/g, 'se protege com'],
+    [/\bpara protegerse\b/g, 'para se proteger'],
+    [/\bsuele usar\b/g, 'costuma usar'],
+    [/\bsuele habitar\b/g, 'costuma habitar'],
+    [/\bsuelen pinchar\b/g, 'costumam perfurar'],
+    [/\bsi es golpeado\b/g, 'se for atingido'],
+    [/\baun asi\b/g, 'ainda assim'],
+    [/\ba presion\b/g, 'sob pressão'],
+    [/\bse dice que\b/g, 'diz-se que'],
+    [/\bdicen que\b/g, 'dizem que'],
+    [/\bde su\b/g, 'de seu'],
+    [/\bde sus\b/g, 'de seus'],
+    [/\bcon\b/g, 'com'],
+    [/\ben\b/g, 'em'],
+    [/\by\b/g, 'e'],
+    [/\bpero\b/g, 'mas'],
+    [/\bdel\b/g, 'do'],
+    [/\bal\b/g, 'ao'],
     [/\bpokemon\b/g, 'pokemon'],
     [/\bcuando\b/g, 'quando'],
     [/\buna\b/g, 'uma'],
@@ -126,6 +200,7 @@ function translateSpanishFlavorToPortuguese(text) {
     [/\bde sus\b/g, 'de suas'],
     [/\bsu\b/g, 'seu'],
     [/\bsus\b/g, 'seus'],
+    [/\bseu\b/g, 'seu'],
     [/\bcola\b/g, 'cauda'],
     [/\bllama\b/g, 'chama'],
     [/\bfuego\b/g, 'fogo'],
@@ -146,6 +221,19 @@ function translateSpanishFlavorToPortuguese(text) {
     [/\bhabita\b/g, 'habita'],
     [/\bvive\b/g, 'vive'],
     [/\bregion\b/g, 'regiao'],
+    [/\benemigo\b/g, 'inimigo'],
+    [/\bcaparazon\b/g, 'casco'],
+    [/\bpeso\b/g, 'peso'],
+    [/\baplasta\b/g, 'esmaga'],
+    [/\btiene\b/g, 'tem'],
+    [/\besta\b/g, 'está'],
+    [/\besta\b/g, 'esta'],
+    [/\bestan\b/g, 'estão'],
+    [/\bsera\b/g, 'será'],
+    [/\bestos\b/g, 'estes'],
+    [/\besta\b/g, 'esta'],
+    [/\bestas\b/g, 'estas'],
+    [/\blo\b/g, 'o'],
     [/\bmontanas\b/g, 'montanhas'],
     [/\bbosques\b/g, 'florestas'],
     [/\bcueva\b/g, 'caverna'],
@@ -160,20 +248,28 @@ function translateSpanishFlavorToPortuguese(text) {
     output = output.replace(pattern, replacement);
   }
 
-  output = output.replace(/\s+/g, ' ').trim();
+  output = output
+    .replace(/\s+,/g, ',')
+    .replace(/\s+\./g, '.')
+    .replace(/\s+/g, ' ')
+    .trim();
+
   if (output.length === 0) return output;
   return output[0].toUpperCase() + output.slice(1);
 }
 
 function buildLoreText(pokemon, speciesData, generation) {
+  const portugueseFlavor =
+    pickFlavorText(speciesData, generation, 'pt-br') ||
+    pickFlavorText(speciesData, generation, 'pt');
+
+  if (portugueseFlavor) {
+    return cleanFlavorText(portugueseFlavor);
+  }
+
   const spanishFlavor = pickFlavorText(speciesData, generation, 'es');
   if (spanishFlavor) {
     return translateSpanishFlavorToPortuguese(spanishFlavor);
-  }
-
-  const englishFlavor = pickFlavorText(speciesData, generation, 'en');
-  if (englishFlavor) {
-    return englishFlavor;
   }
 
   const habitatMap = {
@@ -218,9 +314,31 @@ function buildLoreText(pokemon, speciesData, generation) {
     armor: 'corpo com aspecto de armadura',
   };
 
+  const typeMapPt = {
+    normal: 'Normal',
+    fire: 'Fogo',
+    water: 'Água',
+    electric: 'Elétrico',
+    grass: 'Grama',
+    ice: 'Gelo',
+    fighting: 'Lutador',
+    poison: 'Veneno',
+    ground: 'Terra',
+    flying: 'Voador',
+    psychic: 'Psíquico',
+    bug: 'Inseto',
+    rock: 'Pedra',
+    ghost: 'Fantasma',
+    dragon: 'Dragão',
+    dark: 'Sombrio',
+    steel: 'Aço',
+    fairy: 'Fada',
+  };
+
   const types = [...pokemon.types]
     .sort((a, b) => a.slot - b.slot)
-    .map((t) => sanitizeAtom(t.type.name));
+    .map((t) => sanitizeAtom(t.type.name))
+    .map((t) => typeMapPt[t] || toTitleCase(t.replace(/_/g, ' ')));
 
   const typeText = types.join('/');
   const nameText = toTitleCase(sanitizeAtom(pokemon.name).replace(/_/g, ' '));
@@ -228,20 +346,20 @@ function buildLoreText(pokemon, speciesData, generation) {
   const color = mapLabel(colorMap, speciesData.color?.name, 'coloracao variada');
   const shape = mapLabel(shapeMap, speciesData.shape?.name, 'estrutura corporal singular');
 
-  let rarityText = 'E considerado uma especie comum de se observar na sua regiao.';
+  let rarityText = 'É considerado uma espécie comum de se observar na sua região.';
   if (speciesData.is_mythical) {
-    rarityText = 'E classificado como Pokemon mitico, cercado por relatos raros e misteriosos.';
+    rarityText = 'É classificado como Pokémon mítico, cercado por relatos raros e misteriosos.';
   } else if (speciesData.is_legendary) {
-    rarityText = 'E classificado como Pokemon lendario e aparece em poucos registros confiaveis.';
+    rarityText = 'É classificado como Pokémon lendário e aparece em poucos registros confiáveis.';
   } else if (speciesData.is_baby) {
-    rarityText = 'E uma forma infantil, geralmente dependente de cuidados e com comportamento mais delicado.';
+    rarityText = 'É uma forma infantil, geralmente dependente de cuidados e com comportamento mais delicado.';
   }
 
   const evoText = speciesData.evolves_from_species
     ? `Sua linhagem evolutiva parte de ${toTitleCase(String(speciesData.evolves_from_species.name).replace(/-/g, ' '))}.`
-    : 'Sua linhagem evolutiva comeca nesta forma.';
+    : 'Sua linhagem evolutiva começa nesta forma.';
 
-  return `${nameText} e um Pokemon do tipo ${typeText}. Vive com frequencia em ${habitat}, com aparencia ${color} e ${shape}. ${rarityText} ${evoText}`;
+  return `${nameText} é um Pokémon do tipo ${typeText}. Vive com frequência em ${habitat}, com aparência ${color} e ${shape}. ${rarityText} ${evoText}`;
 }
 
 function sleep(ms) {
@@ -318,14 +436,25 @@ async function generateOneGeneration(generation) {
     .sort((a, b) => a.id - b.id);
 
   const lines = [];
+  lines.push(':- encoding(utf8).');
   lines.push(`% Base local da geracao ${generation}`);
   lines.push(`% Formato: pokemon(ID, Nome, Altura, Peso, Tipos, Habilidades, Stats).`);
   lines.push(':- multifile pokemon/7.');
 
   const loreLines = [];
+  loreLines.push(':- encoding(utf8).');
   loreLines.push(`% Lore local da geracao ${generation}`);
   loreLines.push(`% Formato: pokemon_lore(ID, Texto).`);
   loreLines.push(':- multifile pokemon_lore/2.');
+
+  const evolutionLines = [];
+  evolutionLines.push(':- encoding(utf8).');
+  evolutionLines.push(`% Evolucoes locais da geracao ${generation}`);
+  evolutionLines.push(`% Formato: pokemon_evolution(FromID, ToID, Trigger, MinLevel, Condition).`);
+  evolutionLines.push(':- multifile pokemon_evolution/5.');
+
+  const evolutionCache = new Map();
+  const evolutionKeys = new Set();
 
   for (const s of species) {
     const pokemon = await getJson(`https://pokeapi.co/api/v2/pokemon/${s.id}`);
@@ -341,17 +470,40 @@ async function generateOneGeneration(generation) {
 
     lines.push(`pokemon(${id}, ${name}, ${height}, ${weight}, ${types}, ${abilities}, ${stats}).`);
     loreLines.push(`pokemon_lore(${id}, ${prologQuotedText(loreText)}).`);
+
+    const evolutionChainUrl = speciesData?.evolution_chain?.url;
+    if (evolutionChainUrl) {
+      let evolutionFacts = evolutionCache.get(evolutionChainUrl);
+      if (!evolutionFacts) {
+        const chainData = await getJson(evolutionChainUrl);
+        evolutionFacts = [];
+        collectEvolutionFacts(chainData?.chain, evolutionFacts);
+        evolutionCache.set(evolutionChainUrl, evolutionFacts);
+      }
+
+      for (const evo of evolutionFacts) {
+        const key = `${evo.fromId}-${evo.toId}-${evo.trigger}-${evo.minLevel}-${evo.condition}`;
+        if (evolutionKeys.has(key)) continue;
+        evolutionKeys.add(key);
+        evolutionLines.push(
+          `pokemon_evolution(${evo.fromId}, ${evo.toId}, ${evo.trigger}, ${evo.minLevel}, ${evo.condition}).`
+        );
+      }
+    }
   }
 
   const dbDir = path.resolve(__dirname, '..', 'db');
   fs.mkdirSync(dbDir, { recursive: true });
   const filePath = path.join(dbDir, `generation_${generation}.pl`);
   const loreFilePath = path.join(dbDir, `lore_generation_${generation}.pl`);
+  const evolutionFilePath = path.join(dbDir, `evolution_generation_${generation}.pl`);
   fs.writeFileSync(filePath, lines.join('\n') + '\n', 'utf8');
   fs.writeFileSync(loreFilePath, loreLines.join('\n') + '\n', 'utf8');
+  fs.writeFileSync(evolutionFilePath, evolutionLines.join('\n') + '\n', 'utf8');
 
   console.log(`Arquivo gerado: ${filePath}`);
   console.log(`Arquivo gerado: ${loreFilePath}`);
+  console.log(`Arquivo gerado: ${evolutionFilePath}`);
   console.log(`Total de pokemons: ${species.length}`);
 }
 
@@ -411,6 +563,7 @@ async function generateSpecialForms() {
   const specialList = [...specialMap.values()].sort((a, b) => a.id - b.id);
 
   const formLines = [];
+  formLines.push(':- encoding(utf8).');
   formLines.push('% Formas especiais locais (Mega e regionais)');
   formLines.push('% Formato: pokemon(ID, Nome, Altura, Peso, Tipos, Habilidades, Stats).');
   formLines.push('% Mapeamento: pokemon_form_base(FormID, BaseSpeciesID).');
@@ -420,6 +573,7 @@ async function generateSpecialForms() {
   formLines.push(':- multifile pokemon_form_kind/2.');
 
   const formLoreLines = [];
+  formLoreLines.push(':- encoding(utf8).');
   formLoreLines.push('% Lore local para formas especiais');
   formLoreLines.push('% Formato: pokemon_lore(ID, Texto).');
   formLoreLines.push(':- multifile pokemon_lore/2.');
