@@ -190,6 +190,9 @@ answer_query(Text) :-
     ; parse_counter_with_filters_query(Text, TargetName, ContextFilters) ->
         answer_counter_with_filters_query(TargetName, ContextFilters),
         print_follow_up_prompt
+    ; parse_counter_compound_query(Text, TargetName, TypeFilters, ContextFilters) ->
+        answer_counter_with_all_filters(TargetName, TypeFilters, ContextFilters),
+        print_follow_up_prompt
     ; parse_filtered_counter_query(Text, TypeFilters, TargetName) ->
         answer_filtered_counter_query(TypeFilters, TargetName),
         print_follow_up_prompt
@@ -413,19 +416,17 @@ parse_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel) :-
 
 parse_counter_level_cap_query(Text, TargetName, MaxLevel) :-
     tokenize_for_match(Text, Tokens),
-    ( member("counter", Tokens)
-    ; member("counteram", Tokens)
-    ; member("counterar", Tokens)
-    ; member("contra", Tokens)
-    ; member("ganham", Tokens)
-    ; member("vencem", Tokens)
-    ),
+        counter_intent_tokens(Tokens),
     ( member("abaixo", Tokens)
     ; member("ate", Tokens)
     ; member("até", Tokens)
     ; member("maximo", Tokens)
     ; member("máximo", Tokens)
     ; member("max", Tokens)
+        ; member("cap", Tokens)
+        ; member("limite", Tokens)
+        ; member("nivel", Tokens)
+        ; member("nível", Tokens)
     ; ( (member("nivel", Tokens); member("nível", Tokens)),
         (member("maximo", Tokens); member("máximo", Tokens); member("max", Tokens))
       )
@@ -709,14 +710,7 @@ parse_counter_query(Text, TargetName) :-
 parse_counter_query(Text, TargetName) :-
     tokenize_for_match(Text, Tokens),
     \+ parse_battle_pair_from_tokens(Tokens, _, _),
-    ( member("vence", Tokens)
-    ; member("vencer", Tokens)
-    ; member("counter", Tokens)
-    ; member("counters", Tokens)
-    ; member("counteram", Tokens)
-    ; member("sola", Tokens)
-    ; member("amassa", Tokens)
-    ; member("stompa", Tokens)
+    ( counter_intent_tokens(Tokens)
     ; starts_with_tokens(Tokens, ["ganha", "de"])
     ; starts_with_tokens(Tokens, ["ganhar", "de"])
     ; starts_with_tokens(Tokens, ["quem", "ganha", "de"])
@@ -739,12 +733,56 @@ parse_counter_query(Text, TargetName) :-
     parse_natural_pokemon_query(Text, TargetName).
 parse_counter_query(Text, TargetName) :-
     tokenize_for_match(Text, Tokens),
-    member("counter", Tokens),
+    ( member("counter", Tokens)
+    ; member("counters", Tokens)
+    ; member("check", Tokens)
+    ),
     ( append(_, ["de" | Tail], Tokens)
     ; append(_, ["do" | Tail], Tokens)
     ; append(_, ["da" | Tail], Tokens)
+    ; append(_, ["pro" | Tail], Tokens)
+    ; append(_, ["para" | Tail], Tokens)
     ),
     extract_name_from_tokens(Tail, TargetName).
+
+parse_counter_compound_query(Text, TargetName, TypeFilters, ContextFilters) :-
+    tokenize_for_match(Text, Tokens),
+    \+ parse_battle_pair_from_tokens(Tokens, _, _),
+    counter_intent_tokens(Tokens),
+    parse_natural_pokemon_query(Text, TargetName),
+    ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
+    extract_context_filters(Tokens, ContextFilters),
+    ( TypeFilters \= [] ; ContextFilters \= [] ).
+
+counter_intent_tokens(Tokens) :-
+    ( member("counter", Tokens)
+    ; member("counters", Tokens)
+    ; member("countera", Tokens)
+    ; member("counteram", Tokens)
+    ; member("counterar", Tokens)
+    ; member("counterando", Tokens)
+    ; member("vence", Tokens)
+    ; member("vencer", Tokens)
+    ; member("vencem", Tokens)
+    ; member("ganha", Tokens)
+    ; member("ganhar", Tokens)
+    ; member("ganham", Tokens)
+    ; member("sola", Tokens)
+    ; member("amassa", Tokens)
+    ; member("stompa", Tokens)
+    ; member("deita", Tokens)
+    ; member("janta", Tokens)
+    ; member("surra", Tokens)
+    ; member("check", Tokens)
+    ; member("checks", Tokens)
+    ; contiguous_sublist(["bom", "contra"], Tokens)
+    ; contiguous_sublist(["boa", "contra"], Tokens)
+    ; contiguous_sublist(["forte", "contra"], Tokens)
+    ; contiguous_sublist(["melhor", "contra"], Tokens)
+    ; contiguous_sublist(["vantagem", "contra"], Tokens)
+    ; contiguous_sublist(["como", "ganhar", "de"], Tokens)
+    ; contiguous_sublist(["quem", "countera"], Tokens)
+    ).
 
 parse_counter_with_filters_query(Text, TargetName, ContextFilters) :-
         tokenize_for_match(Text, Tokens),
@@ -820,6 +858,10 @@ context_filter_token(only_mega, ["so", "mega"]).
 context_filter_token(only_mega, ["só", "mega"]).
 context_filter_token(only_mega, ["apenas", "mega"]).
 context_filter_token(only_mega, ["somente", "mega"]).
+context_filter_token(only_mega, ["só", "megas"]).
+context_filter_token(only_mega, ["so", "megas"]).
+context_filter_token(only_mega, ["apenas", "megas"]).
+context_filter_token(only_mega, ["somente", "megas"]).
 context_filter_token(no_legendary, ["sem", "lendario"]).
 context_filter_token(no_legendary, ["sem", "lendários"]).
 context_filter_token(no_legendary, ["sem", "lendarios"]).
@@ -840,6 +882,10 @@ context_filter_token(only_legendary, ["apenas", "lendarios"]).
 context_filter_token(only_legendary, ["somente", "lendarios"]).
 context_filter_token(only_legendary, ["so", "miticos"]).
 context_filter_token(only_legendary, ["só", "míticos"]).
+context_filter_token(only_legendary, ["apenas", "miticos"]).
+context_filter_token(only_legendary, ["somente", "miticos"]).
+context_filter_token(only_legendary, ["so", "lendario"]).
+context_filter_token(only_legendary, ["somente", "lendario"]).
 
 parse_compare_query(Text, NameA, NameB) :-
     tokenize_for_match(Text, Tokens),
@@ -880,12 +926,20 @@ battle_intent_tokens(Tokens) :-
     ; member("simular", Tokens)
     ; member("simula", Tokens)
     ; member("embate", Tokens)
+    ; member("embates", Tokens)
     ; member("duelo", Tokens)
+    ; member("duelos", Tokens)
     ; member("batalha", Tokens)
+    ; member("batalhas", Tokens)
     ; member("luta", Tokens)
+    ; member("lutas", Tokens)
     ; member("confronto", Tokens)
+    ; member("confrontos", Tokens)
     ; member("1x1", Tokens)
+    ; member("1v1", Tokens)
     ; member("x1", Tokens)
+    ; member("manoamano", Tokens)
+    ; member("mano", Tokens)
     ; starts_with_tokens(Tokens, ["quem", "ganha"])
     ; starts_with_tokens(Tokens, ["quem", "vence"])
     ; starts_with_tokens(Tokens, ["quem", "leva"])
@@ -907,7 +961,28 @@ parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
     extract_name_from_tokens(RightTokens, NameB),
     NameA \= NameB.
 parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
+    append(LeftTokens, ["ganha", "do" | RightTokens], Tokens),
+    LeftTokens \= [],
+    RightTokens \= [],
+    extract_name_from_tokens(LeftTokens, NameA),
+    extract_name_from_tokens(RightTokens, NameB),
+    NameA \= NameB.
+parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
+    append(LeftTokens, ["ganha", "da" | RightTokens], Tokens),
+    LeftTokens \= [],
+    RightTokens \= [],
+    extract_name_from_tokens(LeftTokens, NameA),
+    extract_name_from_tokens(RightTokens, NameB),
+    NameA \= NameB.
+parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
     append(LeftTokens, ["vence" | RightTokens], Tokens),
+    LeftTokens \= [],
+    RightTokens \= [],
+    extract_name_from_tokens(LeftTokens, NameA),
+    extract_name_from_tokens(RightTokens, NameB),
+    NameA \= NameB.
+parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
+    append(LeftTokens, ["contra" | RightTokens], Tokens),
     LeftTokens \= [],
     RightTokens \= [],
     extract_name_from_tokens(LeftTokens, NameA),
@@ -926,6 +1001,7 @@ compare_separator("versus").
 compare_separator("x").
 compare_separator("ou").
 compare_separator("e").
+compare_separator("contra").
 
 split_battle_tokens(Tokens, Left, Right) :-
     append(_, ["entre" | Tail], Tokens),
