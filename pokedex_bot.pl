@@ -12,6 +12,7 @@
 :- dynamic pending_counter_level_preferences/2.
 :- dynamic pending_type_preferences/1.
 :- dynamic pending_list_preferences/1.
+:- dynamic pending_rank_focus/3.
 :- multifile pokemon/7.
 :- multifile pokemon_lore/2.
 :- multifile pokemon_mega_base/2.
@@ -106,7 +107,8 @@ set_default_generation :-
     retractall(pending_counter_preferences(_)),
     retractall(pending_counter_level_preferences(_, _)),
     retractall(pending_type_preferences(_)),
-    retractall(pending_list_preferences(_)).
+    retractall(pending_list_preferences(_)),
+    retractall(pending_rank_focus(_, _, _)).
 
 chat_loop :-
     write('Voce: '),
@@ -124,13 +126,19 @@ should_stop(Text) :-
     member(Text, ['sair', 'tchau', 'exit', 'quit']).
 
 handle(Text) :-
-    ( parse_generation_command(Text, Generation) ->
-        set_active_generation(Generation)
-    ; member(Text, ['ajuda', 'help']) ->
-        show_help
-    ; should_stop(Text) ->
-        say_response(goodbye)
-    ; answer_query(Text)
+    catch(
+        ( parse_generation_command(Text, Generation) ->
+            set_active_generation(Generation)
+        ; member(Text, ['ajuda', 'help']) ->
+            show_help
+        ; should_stop(Text) ->
+            say_response(goodbye)
+        ; answer_query(Text)
+        ),
+        Error,
+        ( print_message(error, Error),
+          writeln('Bot: Ocorreu um erro ao processar sua frase. Tente novamente com outra variação.')
+        )
     ).
 
 parse_generation_command(Text, all) :-
@@ -167,6 +175,8 @@ answer_query(Text) :-
     ; handle_pending_type_preferences(Text) ->
         print_follow_up_prompt
     ; handle_pending_list_preferences(Text) ->
+        print_follow_up_prompt
+    ; handle_pending_rank_focus(Text) ->
         print_follow_up_prompt
     ; parse_info_by_number(Text, Number) ->
         answer_pokemon(Number),
@@ -207,6 +217,15 @@ answer_query(Text) :-
     ; parse_legendary_by_type_query(Text, TypeFilters, ContextFilters) ->
         answer_legendary_by_type_query(TypeFilters, ContextFilters),
         print_follow_up_prompt
+    ; parse_ranked_metric_needs_focus_query(Text, Role, Limit, Generation) ->
+        answer_ranked_metric_needs_focus_query(Role, Limit, Generation),
+        print_follow_up_prompt
+    ; parse_ranked_metric_query_invalid_generation(Text, Metric) ->
+        answer_ranked_metric_invalid_generation(Metric),
+        print_follow_up_prompt
+    ; parse_ranked_metric_query(Text, Metric, Limit, Generation) ->
+        answer_ranked_metric_query(Metric, Limit, Generation),
+        print_follow_up_prompt
     ; parse_generation_type_query(Text, Generation, TypeFilters, ContextFilters) ->
         answer_generation_type_query(Generation, TypeFilters, ContextFilters),
         print_follow_up_prompt
@@ -218,9 +237,6 @@ answer_query(Text) :-
         print_follow_up_prompt
     ; parse_evolution_count_query(Text, Method) ->
         answer_evolution_count_query(Method),
-        print_follow_up_prompt
-    ; parse_ranked_metric_query(Text, Metric, Limit, Generation) ->
-        answer_ranked_metric_query(Metric, Limit, Generation),
         print_follow_up_prompt
     ; parse_bst_threshold_query(Text, Comparator, Threshold, Generation) ->
         answer_bst_threshold_query(Comparator, Threshold, Generation),
@@ -353,6 +369,8 @@ parse_level2_modifiers(Tokens, Generation, MaxLevel, TypeFilters, ContextFilters
 
 parse_level2_only_composed_query(Text, Mode, modifiers(Generation, MaxLevel, TypeFilters, ContextFilters)) :-
     tokenize_for_match(Text, Tokens),
+    \+ has_ranking_signal(Tokens),
+    \+ ranked_metric_from_tokens(Tokens, _),
     parse_level2_modifiers(Tokens, Generation, MaxLevel, TypeFilters, ContextFilters),
     has_any_level2_modifier(Generation, MaxLevel, TypeFilters, ContextFilters),
     \+ parse_level1_primary_intent(Text, _),
@@ -417,10 +435,11 @@ answer_level2_only_composed_query(Mode, modifiers(Generation, MaxLevel, TypeFilt
           ( Generation == none ; generation_matches_id(Generation, ID) ),
           pokemon_matches_optional_type_filters(TypeFilters, Types),
           name_passes_filters(ContextFilters, Name),
-          ( MaxLevel == none
-          ; pokemon_info(Name, pokemon(CandidateID, _, _, _, _, _, _)),
-            pokemon_reachable_by_level(CandidateID, MaxLevel)
-          )
+                    ( MaxLevel == none ->
+                                true
+                        ; pokemon_info(Name, pokemon(CandidateID, _, _, _, _, _, _)),
+                            pokemon_reachable_by_level(CandidateID, MaxLevel)
+                    )
         ),
         NamesRaw),
     sort(NamesRaw, Names),
@@ -617,6 +636,39 @@ handle_pending_list_preferences(Text) :-
         execute_pending_list_preferences(PendingAction, [])
     ; say_response(pending_type_help)
     ).
+
+handle_pending_rank_focus(Text) :-
+    pending_rank_focus(Role, Limit, Generation),
+    !,
+    tokenize_for_match(Text, Tokens),
+    ( has_cancel_token(Tokens) ->
+        retractall(pending_rank_focus(_, _, _)),
+        writeln('Bot: Certo, cancelei o ranking por foco.')
+    ; rank_focus_choice(Tokens, physical) ->
+        retractall(pending_rank_focus(_, _, _)),
+        role_focus_metric(Role, physical, Metric),
+        answer_ranked_metric_query(Metric, Limit, Generation)
+    ; rank_focus_choice(Tokens, special) ->
+        retractall(pending_rank_focus(_, _, _)),
+        role_focus_metric(Role, special, Metric),
+        answer_ranked_metric_query(Metric, Limit, Generation)
+    ; role_focus_hint(Role)
+    ).
+
+rank_focus_choice(Tokens, Focus) :-
+    member(Token, Tokens),
+    focus_choice_token(Focus, Token),
+    !.
+
+role_focus_metric(attacker, physical, physical_attack).
+role_focus_metric(attacker, special, special_attack).
+role_focus_metric(defender, physical, physical_defense).
+role_focus_metric(defender, special, special_defense).
+
+role_focus_hint(attacker) :-
+    writeln('Bot: Para atacantes, você quer ranking de ataque físico ou ataque especial?').
+role_focus_hint(defender) :-
+    writeln('Bot: Para defensores, você quer defesa física ou defesa especial?').
 
 execute_pending_list_preferences(best_switch(TargetIdentifier), ContextFilters) :-
     answer_best_switch_query_with_filters(TargetIdentifier, ContextFilters).
@@ -1170,8 +1222,8 @@ parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
     NameA \= NameB.
 parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
     battle_relation_phrase(RelationTokens),
-    append(LeftTokens, RelationTokens, LeftAndRelation),
     append(LeftAndRelation, RightTokens, Tokens),
+    append(LeftTokens, RelationTokens, LeftAndRelation),
     LeftTokens \= [],
     RightTokens \= [],
     extract_name_from_tokens(LeftTokens, NameA),
@@ -1338,12 +1390,44 @@ parse_evolution_level_query(Text, Name) :-
     level_word_tokens(Tokens),
     parse_natural_pokemon_query(Text, Name).
 
+parse_ranked_metric_needs_focus_query(Text, Role, Limit, Generation) :-
+    tokenize_for_match(Text, Tokens),
+    has_ranking_signal(Tokens),
+    rank_role_from_tokens(Tokens, Role),
+    \+ ranked_metric_from_tokens(Tokens, physical_attack),
+    \+ ranked_metric_from_tokens(Tokens, special_attack),
+    \+ ranked_metric_from_tokens(Tokens, physical_defense),
+    \+ ranked_metric_from_tokens(Tokens, special_defense),
+    ( parse_limit_from_tokens(Tokens, ParsedLimit) -> Limit = ParsedLimit ; Limit = 10 ),
+    ( parse_generation_from_tokens(Tokens, ParsedGeneration) -> Generation = ParsedGeneration ; Generation = all ).
+
 parse_ranked_metric_query(Text, Metric, Limit, Generation) :-
     tokenize_for_match(Text, Tokens),
     has_ranking_signal(Tokens),
     ranked_metric_from_tokens(Tokens, Metric),
     ( parse_limit_from_tokens(Tokens, ParsedLimit) -> Limit = ParsedLimit ; Limit = 10 ),
     ( parse_generation_from_tokens(Tokens, ParsedGeneration) -> Generation = ParsedGeneration ; Generation = all ).
+
+parse_ranked_metric_query_invalid_generation(Text, Metric) :-
+    tokenize_for_match(Text, Tokens),
+    has_ranking_signal(Tokens),
+    ranked_metric_from_tokens(Tokens, Metric),
+    has_generation_request_tokens(Tokens),
+    \+ parse_generation_from_tokens(Tokens, _).
+
+has_generation_request_tokens(Tokens) :-
+    member(Token, Tokens),
+    generation_keyword_token(Token),
+    !.
+has_generation_request_tokens(Tokens) :-
+    member(Token, Tokens),
+    generation_prefix(Token),
+    !.
+
+rank_role_from_tokens(Tokens, Role) :-
+    member(Token, Tokens),
+    rank_role_token(Role, Token),
+    !.
 
 parse_bst_threshold_query(Text, Comparator, Threshold, Generation) :-
     tokenize_for_match(Text, Tokens),
@@ -1419,66 +1503,44 @@ parse_best_team_member_vs_target_query(Text, TeamNames, TargetName) :-
     TeamNames \= [].
 
 has_ranking_signal(Tokens) :-
-    member("top", Tokens),
-    !.
-has_ranking_signal(Tokens) :-
     member(Token, Tokens),
-    ranking_intent_token(Token),
+    ranking_signal_token(Token),
     !.
 has_ranking_signal(Tokens) :-
     member("mais", Tokens),
     ranked_metric_from_tokens(Tokens, _).
 
 ranked_metric_from_tokens(Tokens, speed) :-
-    ( member("rapido", Tokens)
-    ; member("rápido", Tokens)
-    ; member("rapidos", Tokens)
-    ; member("rápidos", Tokens)
-    ; member("veloz", Tokens)
-    ; member("speed", Tokens)
-    ).
+    metric_match(Tokens, speed).
 ranked_metric_from_tokens(Tokens, defensive_bulk) :-
-    ( member("defensivo", Tokens)
-    ; member("tanque", Tokens)
-    ; member("bulk", Tokens)
-    ; member("resistente", Tokens)
-    ).
+    metric_match(Tokens, defensive_bulk).
 ranked_metric_from_tokens(Tokens, physical_attack) :-
-    ( contiguous_sublist(["ataque", "fisico"], Tokens)
-    ; contiguous_sublist(["ataque", "físico"], Tokens)
-    ; contiguous_sublist(["atk", "fisico"], Tokens)
-    ; contiguous_sublist(["atk", "físico"], Tokens)
-    ).
+    metric_match(Tokens, physical_attack).
 ranked_metric_from_tokens(Tokens, special_attack) :-
-    ( contiguous_sublist(["ataque", "especial"], Tokens)
-    ; contiguous_sublist(["sp", "atk"], Tokens)
-    ; contiguous_sublist(["special", "attack"], Tokens)
-    ).
+    metric_match(Tokens, special_attack).
+ranked_metric_from_tokens(Tokens, physical_defense) :-
+    metric_match(Tokens, physical_defense).
+ranked_metric_from_tokens(Tokens, special_defense) :-
+    metric_match(Tokens, special_defense).
 ranked_metric_from_tokens(Tokens, bst) :-
-    ( member("bst", Tokens)
-    ; contiguous_sublist(["soma", "stats"], Tokens)
-    ; contiguous_sublist(["total", "stats"], Tokens)
-    ).
+    metric_match(Tokens, bst).
 ranked_metric_from_tokens(Tokens, tallest) :-
-    ( member("altura", Tokens), (member("maior", Tokens); member("altos", Tokens); member("alto", Tokens)) ).
+    metric_match(Tokens, tallest).
 ranked_metric_from_tokens(Tokens, shortest) :-
-    member("altura", Tokens),
-    ( member("menor", Tokens)
-    ; member("baixos", Tokens)
-    ; member("baixo", Tokens)
-    ).
+    metric_match(Tokens, shortest).
 ranked_metric_from_tokens(Tokens, heaviest) :-
-    member("peso", Tokens),
-    ( member("maior", Tokens)
-    ; member("pesado", Tokens)
-    ; member("pesados", Tokens)
-    ).
+    metric_match(Tokens, heaviest).
 ranked_metric_from_tokens(Tokens, lightest) :-
-    member("peso", Tokens),
-    ( member("menor", Tokens)
-    ; member("leve", Tokens)
-    ; member("leves", Tokens)
-    ).
+    metric_match(Tokens, lightest).
+
+metric_match(Tokens, Metric) :-
+    member(Token, Tokens),
+    metric_token(Metric, Token),
+    !.
+metric_match(Tokens, Metric) :-
+    metric_phrase(Metric, PhraseTokens),
+    contiguous_sublist(PhraseTokens, Tokens),
+    !.
 
 parse_limit_from_tokens(Tokens, Limit) :-
     member("top", Tokens),
@@ -2219,6 +2281,7 @@ collect_generation_names(Generation, TypeFilters, ContextFilters, Names) :-
     findall(Name,
         ( pokemon(ID, Name, _Height, _Weight, Types, _Abilities, _Stats),
           generation_matches_id(Generation, ID),
+                    generation_name_passes_form_policy(ContextFilters, ID, Name),
           pokemon_matches_optional_type_filters(TypeFilters, Types),
           name_passes_filters(ContextFilters, Name)
         ),
@@ -2253,6 +2316,20 @@ generation_type_query_text(Generation, TypeFilters, Text) :-
     TypeFilters \= [],
     type_filters_text(TypeFilters, FiltersText),
     format(atom(Text), 'do tipo ~w na geração ~w', [FiltersText, Generation]).
+
+generation_name_passes_form_policy(ContextFilters, _ID, Name) :-
+    member(only_mega, ContextFilters),
+    !,
+    is_mega_name(Name).
+generation_name_passes_form_policy(_ContextFilters, ID, Name) :-
+    \+ is_mega_name(Name),
+    \+ is_special_form_id(ID).
+
+is_special_form_id(ID) :-
+    pokemon_form_base(ID, _),
+    !.
+is_special_form_id(ID) :-
+    pokemon_mega_base(ID, _).
 
 print_generation_summary([]).
 print_generation_summary([Generation-Count | Rest]) :-
@@ -2335,6 +2412,20 @@ answer_ranked_metric_query(Metric, _Limit, Generation) :-
     ranked_metric_label(Metric, MetricLabel),
     generation_scope_text(Generation, ScopeText),
     format('Bot: Não encontrei ranking de ~w no recorte ~w.~n', [MetricLabel, ScopeText]).
+
+answer_ranked_metric_invalid_generation(Metric) :-
+    ranked_metric_label(Metric, MetricLabel),
+    format('Bot: Entendi que você quer ranking de ~w, mas não reconheci a geração informada.~n', [MetricLabel]),
+    writeln('Bot: Use geração de 1 a 9 (ex.: "segunda geração", "geração 2", "gen quatro").').
+
+answer_ranked_metric_needs_focus_query(Role, Limit, Generation) :-
+    retractall(pending_rank_focus(_, _, _)),
+    assertz(pending_rank_focus(Role, Limit, Generation)),
+    generation_scope_text(Generation, ScopeText),
+    ( Role == attacker ->
+        format('Bot: Para atacantes no recorte ~w, quer ataque físico ou ataque especial?~n', [ScopeText])
+    ; format('Bot: Para defensores no recorte ~w, quer defesa física ou defesa especial?~n', [ScopeText])
+    ).
 
 answer_bst_threshold_query(Comparator, Threshold, Generation) :-
     findall(Name,
@@ -2520,6 +2611,8 @@ ranked_metric_pairs(Metric, Generation, OrderedPairs) :-
     findall(Value-Name,
         ( pokemon_in_scope(ID, Name, Height, Weight, _Types, _Abilities, Stats),
           generation_filter_matches(Generation, ID),
+                    \+ is_mega_name(Name),
+                    \+ is_special_form_id(ID),
           ranked_metric_value(Metric, Height, Weight, Stats, Value)
         ),
         PairsRaw),
@@ -2534,6 +2627,8 @@ ranked_metric_value(defensive_bulk, _Height, _Weight, Stats, Value) :-
     Value is HP + Def + SpDef.
 ranked_metric_value(physical_attack, _Height, _Weight, Stats, Value) :- member(attack-Value, Stats).
 ranked_metric_value(special_attack, _Height, _Weight, Stats, Value) :- member(special_attack-Value, Stats).
+ranked_metric_value(physical_defense, _Height, _Weight, Stats, Value) :- member(defense-Value, Stats).
+ranked_metric_value(special_defense, _Height, _Weight, Stats, Value) :- member(special_defense-Value, Stats).
 ranked_metric_value(bst, _Height, _Weight, Stats, Value) :- total_stats_value(Stats, Value).
 ranked_metric_value(tallest, Height, _Weight, _Stats, Height).
 ranked_metric_value(shortest, Height, _Weight, _Stats, Height).
@@ -2550,6 +2645,8 @@ ranked_metric_label(speed, 'velocidade').
 ranked_metric_label(defensive_bulk, 'bulk defensivo (HP+Def+SpDef)').
 ranked_metric_label(physical_attack, 'ataque físico').
 ranked_metric_label(special_attack, 'ataque especial').
+ranked_metric_label(physical_defense, 'defesa física').
+ranked_metric_label(special_defense, 'defesa especial').
 ranked_metric_label(bst, 'BST (soma dos status base)').
 ranked_metric_label(tallest, 'altura (maiores)').
 ranked_metric_label(shortest, 'altura (menores)').

@@ -36,6 +36,11 @@
 :- multifile coverage_intent_token/1.
 :- multifile number_word_value/2.
 :- multifile generation_number_word/2.
+:- multifile ranking_signal_token/1.
+:- multifile metric_token/2.
+:- multifile metric_phrase/2.
+:- multifile rank_role_token/2.
+:- multifile focus_choice_token/2.
 
 negation_token("sem").
 
@@ -355,6 +360,116 @@ coverage_intent_token("cobertura").
 coverage_intent_token("cobre").
 coverage_intent_token("cobrem").
 coverage_intent_token("cobrir").
+
+% Sinalizadores de ranking
+ranking_signal_token("top").
+ranking_signal_token("ranking").
+ranking_signal_token("rank").
+ranking_signal_token("rankeie").
+ranking_signal_token("rankear").
+ranking_signal_token("ordene").
+ranking_signal_token("ordenar").
+ranking_signal_token("mais").
+ranking_signal_token("maior").
+ranking_signal_token("maiores").
+ranking_signal_token("melhor").
+ranking_signal_token("melhores").
+
+% Tokens por métrica de ranking
+metric_token(speed, "rapido").
+metric_token(speed, "rápido").
+metric_token(speed, "rapidos").
+metric_token(speed, "rápidos").
+metric_token(speed, "veloz").
+metric_token(speed, "velocidade").
+metric_token(speed, "speed").
+
+metric_token(defensive_bulk, "bulk").
+metric_token(defensive_bulk, "tanque").
+metric_token(defensive_bulk, "tanques").
+metric_token(defensive_bulk, "resistente").
+metric_token(defensive_bulk, "resistentes").
+
+metric_token(physical_attack, "attack").
+metric_token(physical_attack, "atk").
+metric_phrase(physical_attack, ["ataque", "fisico"]).
+metric_phrase(physical_attack, ["ataque", "físico"]).
+metric_phrase(physical_attack, ["atk", "fisico"]).
+metric_phrase(physical_attack, ["atk", "físico"]).
+metric_phrase(physical_attack, ["atacante", "fisico"]).
+metric_phrase(physical_attack, ["atacante", "físico"]).
+metric_phrase(physical_attack, ["atacantes", "fisicos"]).
+metric_phrase(physical_attack, ["atacantes", "físicos"]).
+
+metric_token(special_attack, "spatk").
+metric_phrase(special_attack, ["ataque", "especial"]).
+metric_phrase(special_attack, ["atk", "especial"]).
+metric_phrase(special_attack, ["sp", "atk"]).
+metric_phrase(special_attack, ["sp", "attack"]).
+metric_phrase(special_attack, ["special", "attack"]).
+metric_phrase(special_attack, ["atacante", "especial"]).
+metric_phrase(special_attack, ["atacantes", "especiais"]).
+
+metric_token(physical_defense, "defesa").
+metric_phrase(physical_defense, ["defesa", "fisica"]).
+metric_phrase(physical_defense, ["defesa", "física"]).
+metric_phrase(physical_defense, ["defensor", "fisico"]).
+metric_phrase(physical_defense, ["defensor", "físico"]).
+metric_phrase(physical_defense, ["defensores", "fisicos"]).
+metric_phrase(physical_defense, ["defensores", "físicos"]).
+
+metric_token(special_defense, "spdef").
+metric_phrase(special_defense, ["defesa", "especial"]).
+metric_phrase(special_defense, ["sp", "def"]).
+metric_phrase(special_defense, ["special", "defense"]).
+metric_phrase(special_defense, ["defensor", "especial"]).
+metric_phrase(special_defense, ["defensores", "especiais"]).
+
+metric_token(bst, "bst").
+metric_phrase(bst, ["soma", "stats"]).
+metric_phrase(bst, ["total", "stats"]).
+
+metric_token(tallest, "altura").
+metric_token(shortest, "altura").
+metric_token(heaviest, "peso").
+metric_token(lightest, "peso").
+metric_phrase(tallest, ["altura", "maior"]).
+metric_phrase(tallest, ["altura", "altos"]).
+metric_phrase(tallest, ["altura", "alto"]).
+metric_phrase(shortest, ["altura", "menor"]).
+metric_phrase(shortest, ["altura", "baixo"]).
+metric_phrase(shortest, ["altura", "baixos"]).
+metric_phrase(heaviest, ["peso", "maior"]).
+metric_phrase(heaviest, ["peso", "pesado"]).
+metric_phrase(heaviest, ["peso", "pesados"]).
+metric_phrase(lightest, ["peso", "menor"]).
+metric_phrase(lightest, ["peso", "leve"]).
+metric_phrase(lightest, ["peso", "leves"]).
+
+% Papéis que exigem foco (físico/especial)
+rank_role_token(attacker, "atacante").
+rank_role_token(attacker, "atacantes").
+rank_role_token(attacker, "ofensivo").
+rank_role_token(attacker, "ofensivos").
+
+rank_role_token(defender, "defensor").
+rank_role_token(defender, "defensores").
+rank_role_token(defender, "defensivo").
+rank_role_token(defender, "defensivos").
+
+% Escolha de foco para ranking por papel
+focus_choice_token(physical, "fisico").
+focus_choice_token(physical, "físico").
+focus_choice_token(physical, "fisica").
+focus_choice_token(physical, "física").
+focus_choice_token(physical, "atk").
+focus_choice_token(physical, "attack").
+focus_choice_token(physical, "defesa").
+
+focus_choice_token(special, "especial").
+focus_choice_token(special, "sp").
+focus_choice_token(special, "spatk").
+focus_choice_token(special, "spdef").
 
 % Números por extenso (base para geração, nível e limites de ranking)
 number_word_value("zero", 0).
