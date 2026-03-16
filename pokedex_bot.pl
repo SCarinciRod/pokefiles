@@ -18,16 +18,20 @@
 :- multifile pokemon_form_base/2.
 :- multifile pokemon_evolution/5.
 
+% ============================================================
+% BOOTSTRAP E CICLO PRINCIPAL
+% ============================================================
+
 start :-
     load_database,
     set_default_generation,
-    writeln('=== Chatbot Pokedex (Prolog) ==='),
-    writeln('Digite sua pergunta ou use comandos diretos:'),
-    writeln('  - info nome pikachu'),
-    writeln('  - info numero 25'),
-    writeln('  - tipo fogo'),
-    writeln('  - geracao 1   (ou: geracao todas)'),
-    writeln('Digite "ajuda" para ver exemplos e "sair" para encerrar.'),
+    say_response(start_banner_title),
+    say_response(start_banner_hint),
+    say_response(start_banner_ex_1),
+    say_response(start_banner_ex_2),
+    say_response(start_banner_ex_3),
+    say_response(start_banner_ex_4),
+    say_response(start_banner_ex_5),
     chat_loop.
 
 configure_text_encoding :-
@@ -43,6 +47,11 @@ load_database :-
     expand_file_name('db/lore_mega_forms.pl', MegaLoreFiles),
     expand_file_name('db/special_forms.pl', SpecialFiles),
     expand_file_name('db/lore_special_forms.pl', SpecialLoreFiles),
+    expand_file_name('db/language_references.pl', LanguageRefFiles),
+    expand_file_name('db/bot_static_lexicon.pl', BotStaticLexiconFiles),
+    expand_file_name('db/bot_type_data.pl', BotTypeDataFiles),
+    expand_file_name('db/bot_ui_texts.pl', BotUITextFiles),
+    expand_file_name('db/bot_response_texts.pl', BotResponseTextFiles),
     ( GenerationFiles \= [] ->
         maplist(consult, GenerationFiles)
     ; consult('pokemon_db.pl')
@@ -66,6 +75,26 @@ load_database :-
     ; MegaLoreFiles \= [] ->
         maplist(consult, MegaLoreFiles)
     ; true
+    ),
+    ( LanguageRefFiles \= [] ->
+        maplist(consult, LanguageRefFiles)
+    ; true
+    ),
+    ( BotStaticLexiconFiles \= [] ->
+        maplist(consult, BotStaticLexiconFiles)
+    ; true
+    ),
+    ( BotTypeDataFiles \= [] ->
+        maplist(consult, BotTypeDataFiles)
+    ; true
+    ),
+    ( BotUITextFiles \= [] ->
+        maplist(consult, BotUITextFiles)
+    ; true
+    ),
+    ( BotResponseTextFiles \= [] ->
+        maplist(consult, BotResponseTextFiles)
+    ; true
     ).
 
 set_default_generation :-
@@ -84,7 +113,7 @@ chat_loop :-
     flush_output(current_output),
     read_line_to_string(user_input, InputRaw),
     ( InputRaw == end_of_file ->
-        nl, writeln('Bot: Encerrando. Ate mais!')
+        nl, say_response(goodbye_eof)
     ; normalize_space(string(Input), InputRaw),
       downcase_atom(Input, Text),
       handle(Text),
@@ -100,7 +129,7 @@ handle(Text) :-
     ; member(Text, ['ajuda', 'help']) ->
         show_help
     ; should_stop(Text) ->
-        writeln('Bot: Ate mais!')
+        say_response(goodbye)
     ; answer_query(Text)
     ).
 
@@ -109,8 +138,9 @@ parse_generation_command(Text, all) :-
 parse_generation_command(Text, Generation) :-
     split_string(Text, " ", "", [Cmd, Value]),
     member(Cmd, ["geracao", "geração"]),
-    string_number(Value, Generation),
-    integer(Generation),
+    ( string_number(Value, Generation), integer(Generation)
+    ; safe_generation_number_word(Value, Generation)
+    ),
     between(1, 9, Generation).
 
 set_active_generation(all) :-
@@ -121,6 +151,11 @@ set_active_generation(Generation) :-
     retractall(active_generation(_)),
     assertz(active_generation(Generation)),
     format('Bot: Agora estou consultando apenas a geracao ~w.~n', [Generation]).
+
+% ============================================================
+% ORQUESTRADOR DE INTENTS
+% Ordem importa: regras mais específicas antes das genéricas.
+% ============================================================
 
 answer_query(Text) :-
     ( handle_pending_confirmation(Text) ->
@@ -139,8 +174,17 @@ answer_query(Text) :-
     ; parse_info_by_name(Text, Name) ->
         answer_pokemon(Name),
         print_follow_up_prompt
+    ; parse_level1_with_modifiers_query(Text, Level1Intent, Modifiers) ->
+        answer_level1_with_modifiers(Level1Intent, Modifiers),
+        print_follow_up_prompt
+    ; parse_level2_only_composed_query(Text, Mode, Modifiers) ->
+        answer_level2_only_composed_query(Mode, Modifiers),
+        print_follow_up_prompt
     ; parse_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel) ->
         answer_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel),
+        print_follow_up_prompt
+    ; parse_counter_composed_query(Text, TargetName, Generation, TypeFilters, ContextFilters, MaxLevel) ->
+        answer_counter_composed_query(TargetName, Generation, TypeFilters, ContextFilters, MaxLevel),
         print_follow_up_prompt
     ; parse_counter_level_cap_query(Text, TargetName, MaxLevel) ->
         answer_counter_level_cap_query_with_clarification(TargetName, MaxLevel),
@@ -175,6 +219,36 @@ answer_query(Text) :-
     ; parse_evolution_count_query(Text, Method) ->
         answer_evolution_count_query(Method),
         print_follow_up_prompt
+    ; parse_ranked_metric_query(Text, Metric, Limit, Generation) ->
+        answer_ranked_metric_query(Metric, Limit, Generation),
+        print_follow_up_prompt
+    ; parse_bst_threshold_query(Text, Comparator, Threshold, Generation) ->
+        answer_bst_threshold_query(Comparator, Threshold, Generation),
+        print_follow_up_prompt
+    ; parse_evolution_structure_query(Text, Kind, Generation) ->
+        answer_evolution_structure_query(Kind, Generation),
+        print_follow_up_prompt
+    ; parse_evolution_chain_query(Text, Name) ->
+        answer_evolution_chain_query(Name),
+        print_follow_up_prompt
+    ; parse_type_coverage_query(Text, TargetType) ->
+        answer_type_coverage_query(TargetType),
+        print_follow_up_prompt
+    ; parse_double_weakness_query(Text, AttackType) ->
+        answer_double_weakness_query(AttackType),
+        print_follow_up_prompt
+    ; parse_most_immunities_query(Text, Limit) ->
+        answer_most_immunities_query(Limit),
+        print_follow_up_prompt
+    ; parse_team_coverage_query(Text) ->
+        answer_team_coverage_query,
+        print_follow_up_prompt
+    ; parse_rank_team_vs_target_query(Text, TeamNames, TargetName) ->
+        answer_rank_team_vs_target_query(TeamNames, TargetName),
+        print_follow_up_prompt
+    ; parse_best_team_member_vs_target_query(Text, TeamNames, TargetName) ->
+        answer_best_team_member_vs_target_query(TeamNames, TargetName),
+        print_follow_up_prompt
     ; parse_best_switch_query(Text, TargetName) ->
         answer_best_switch_query_with_clarification(TargetName),
         print_follow_up_prompt
@@ -204,6 +278,9 @@ answer_query(Text) :-
         print_follow_up_prompt
     ; parse_team_compare_query(Text, NameA, NameB) ->
         answer_team_compare_query(NameA, NameB),
+        print_follow_up_prompt
+    ; parse_multi_compare_query(Text, Names) ->
+        answer_multi_compare_query(Names),
         print_follow_up_prompt
     ; parse_compare_query(Text, NameA, NameB) ->
         answer_compare_query(NameA, NameB),
@@ -241,72 +318,304 @@ answer_query(Text) :-
     ; parse_natural_pokemon_query(Text, NaturalName) ->
         answer_pokemon(NaturalName),
         print_follow_up_prompt
-    ; writeln('Bot: Não entendi. Digite "ajuda" para exemplos de perguntas.'),
+        ; say_response(not_understood),
       print_follow_up_prompt
     ).
+
+% ============================================================
+% NÍVEL 1/NÍVEL 2 (INTENT BASE + MODIFICADORES)
+% ============================================================
+
+parse_level1_with_modifiers_query(Text, Intent, modifiers(Generation, MaxLevel, TypeFilters, ContextFilters)) :-
+    tokenize_for_match(Text, Tokens),
+    parse_level2_modifiers(Tokens, Generation, MaxLevel, TypeFilters, ContextFilters),
+    has_any_level2_modifier(Generation, MaxLevel, TypeFilters, ContextFilters),
+    parse_level1_primary_intent(Text, Intent).
+
+parse_level1_primary_intent(Text, info(Name)) :-
+    ( parse_info_by_name(Text, Name)
+    ; parse_natural_pokemon_query(Text, Name)
+    ).
+parse_level1_primary_intent(Text, counter(TargetName)) :-
+    parse_counter_query(Text, TargetName),
+    !.
+parse_level1_primary_intent(Text, battle(NameA, NameB)) :-
+    ( parse_battle_sim_query(Text, NameA, NameB)
+    ; parse_ambiguous_two_pokemon_query(Text, NameA, NameB)
+    ),
+    !.
+
+parse_level2_modifiers(Tokens, Generation, MaxLevel, TypeFilters, ContextFilters) :-
+    ( parse_generation_from_tokens(Tokens, Generation) -> true ; Generation = none ),
+    ( extract_modifier_max_level(Tokens, MaxLevel) -> true ; MaxLevel = none ),
+    ( extract_type_filters(Tokens, TypeFilters) -> true ; TypeFilters = [] ),
+    extract_context_filters(Tokens, ContextFilters).
+
+parse_level2_only_composed_query(Text, Mode, modifiers(Generation, MaxLevel, TypeFilters, ContextFilters)) :-
+    tokenize_for_match(Text, Tokens),
+    parse_level2_modifiers(Tokens, Generation, MaxLevel, TypeFilters, ContextFilters),
+    has_any_level2_modifier(Generation, MaxLevel, TypeFilters, ContextFilters),
+    \+ parse_level1_primary_intent(Text, _),
+    ( quantity_intent_tokens(Tokens) -> Mode = count ; Mode = list ).
+
+extract_modifier_max_level(Tokens, MaxLevel) :-
+    ( level_cap_indicator_tokens(Tokens)
+    ; has_token_with_prefix(Tokens, "lv")
+    ; has_token_with_prefix(Tokens, "nivel")
+    ; has_token_with_prefix(Tokens, "nível")
+    ),
+    extract_levels_from_tokens(Tokens, Levels),
+    Levels \= [],
+    last(Levels, MaxLevel).
+
+has_any_level2_modifier(Generation, MaxLevel, TypeFilters, ContextFilters) :-
+    Generation \= none
+    ; MaxLevel \= none
+    ; TypeFilters \= []
+    ; ContextFilters \= [].
+
+quantity_intent_tokens(Tokens) :-
+    member(Token, Tokens),
+    quantity_intent_token(Token),
+    !.
+
+list_intent_tokens(Tokens) :-
+    member(Token, Tokens),
+    list_intent_token(Token),
+    !.
+
+level_cap_indicator_tokens(Tokens) :-
+    member(Token, Tokens),
+    level_cap_indicator_token(Token),
+    !.
+
+level_word_tokens(Tokens) :-
+    member(Token, Tokens),
+    level_word_token(Token),
+    !.
+
+pokemon_noun_tokens(Tokens) :-
+    member(Token, Tokens),
+    pokemon_noun_token(Token),
+    !.
+
+mega_tokens(Tokens) :-
+    member(Token, Tokens),
+    mega_token(Token),
+    !.
+
+answer_level1_with_modifiers(info(Name), _Modifiers) :-
+    answer_pokemon(Name).
+answer_level1_with_modifiers(counter(TargetIdentifier), modifiers(Generation, MaxLevel, TypeFilters, ContextFilters)) :-
+    answer_counter_with_level2_modifiers(TargetIdentifier, Generation, MaxLevel, TypeFilters, ContextFilters).
+answer_level1_with_modifiers(battle(NameA, NameB), modifiers(Generation, MaxLevel, TypeFilters, ContextFilters)) :-
+    answer_battle_with_level2_modifiers(NameA, NameB, Generation, MaxLevel, TypeFilters, ContextFilters).
+
+answer_level2_only_composed_query(Mode, modifiers(Generation, MaxLevel, TypeFilters, ContextFilters)) :-
+    findall(Name,
+        ( pokemon(ID, Name, _Height, _Weight, Types, _Abilities, _Stats),
+          ( Generation == none ; generation_matches_id(Generation, ID) ),
+          pokemon_matches_optional_type_filters(TypeFilters, Types),
+          name_passes_filters(ContextFilters, Name),
+          ( MaxLevel == none
+          ; pokemon_info(Name, pokemon(CandidateID, _, _, _, _, _, _)),
+            pokemon_reachable_by_level(CandidateID, MaxLevel)
+          )
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names),
+    answer_level2_only_candidates(Mode, Generation, MaxLevel, TypeFilters, ContextFilters, Names).
+
+answer_level2_only_candidates(count, Generation, MaxLevel, TypeFilters, _ContextFilters, Names) :-
+    !,
+    length(Names, Count),
+    level2_modifiers_text(Generation, MaxLevel, TypeFilters, ModText),
+    format('Bot: Encontrei ~w Pokémon ~w.~n', [Count, ModText]).
+answer_level2_only_candidates(_, Generation, MaxLevel, TypeFilters, _ContextFilters, Names) :-
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 12, SampleText),
+    level2_modifiers_text(Generation, MaxLevel, TypeFilters, ModText),
+    format('Bot: Encontrei ~w Pokémon ~w.~n', [Count, ModText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_level2_only_candidates(_, Generation, MaxLevel, TypeFilters, _ContextFilters, _) :-
+    level2_modifiers_text(Generation, MaxLevel, TypeFilters, ModText),
+    format('Bot: Não encontrei Pokémon ~w.~n', [ModText]).
+
+level2_modifiers_text(Generation, MaxLevel, TypeFilters, Text) :-
+    generation_text_optional(Generation, GText),
+    level_text_optional(MaxLevel, LText),
+    type_text_optional(TypeFilters, TText),
+    atomic_list_concat([GText, LText, TText], ' ', RawText),
+    normalize_space(atom(Text), RawText).
+
+generation_text_optional(none, '').
+generation_text_optional(Generation, Text) :-
+    format(atom(Text), 'na geração ~w', [Generation]).
+
+level_text_optional(none, '').
+level_text_optional(MaxLevel, Text) :-
+    format(atom(Text), 'até nível ~w', [MaxLevel]).
+
+type_text_optional([], '').
+type_text_optional(TypeFilters, Text) :-
+    type_filters_text(TypeFilters, FiltersText),
+    format(atom(Text), 'do tipo ~w', [FiltersText]).
+
+answer_counter_with_level2_modifiers(TargetIdentifier, Generation, MaxLevel, TypeFilters, ContextFilters) :-
+    Generation \= none,
+    MaxLevel \= none,
+    !,
+    answer_counter_composed_query(TargetIdentifier, Generation, TypeFilters, ContextFilters, MaxLevel).
+answer_counter_with_level2_modifiers(TargetIdentifier, none, MaxLevel, TypeFilters, ContextFilters) :-
+    MaxLevel \= none,
+    !,
+    answer_counter_level_cap_query_with_filters(TargetIdentifier, MaxLevel, TypeFilters, ContextFilters).
+answer_counter_with_level2_modifiers(TargetIdentifier, Generation, none, TypeFilters, ContextFilters) :-
+    Generation \= none,
+    !,
+    answer_counter_generation_query(TargetIdentifier, Generation, TypeFilters, ContextFilters).
+answer_counter_with_level2_modifiers(TargetIdentifier, none, none, TypeFilters, ContextFilters) :-
+    answer_counter_with_all_filters(TargetIdentifier, TypeFilters, ContextFilters).
+
+answer_counter_generation_query(TargetIdentifier, Generation, TypeFilters, ContextFilters) :-
+    resolve_counter_target(TargetIdentifier, pokemon(TargetID, TargetName, _, _, TargetTypes, _, TargetStats), UsedFallback),
+    findall(Score-Name-AttackMult-DefenseMult,
+        ( pokemon(CandidateID, Name, _Height, _Weight, CandidateTypes, _Abilities, CandidateStats),
+          generation_matches_id(Generation, CandidateID),
+          CandidateID =\= TargetID,
+          pokemon_matches_optional_type_filters(TypeFilters, CandidateTypes),
+          name_passes_filters(ContextFilters, Name),
+          counter_metrics(CandidateTypes, CandidateStats, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
+          AttackMult > 1.0,
+          Score is (AttackPressure * 2.5) - DefensePressure
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, DescRaw),
+    dedupe_counter_pairs_by_name(DescRaw, TopUnique),
+    take_first_n(TopUnique, 8, TopPairs),
+    TopPairs \= [],
+    !,
+    display_pokemon_name(TargetName, TargetLabel),
+    counter_pairs_text(TopPairs, CounterText),
+    ( UsedFallback == true ->
+        writeln('Bot: Ainda não tenho a ficha da forma especial alvo, então usei a forma base para análise.');
+      true
+    ),
+    format('Bot: Contra ~w, na geração ~w, boas opções são: ~w.~n', [TargetLabel, Generation, CounterText]).
+answer_counter_generation_query(TargetIdentifier, Generation, TypeFilters, _ContextFilters) :-
+    display_pokemon_name(TargetIdentifier, TargetLabel),
+    type_filters_text_if_any(TypeFilters, TypeText),
+    format('Bot: Não encontrei counters para ~w na geração ~w~w.~n', [TargetLabel, Generation, TypeText]).
+
+answer_battle_with_level2_modifiers(NameA, NameB, Generation, MaxLevel, TypeFilters, ContextFilters) :-
+    pokemon_info(NameA, pokemon(IDA, NameAtomA, _, _, TypesA, _, StatsA)),
+    pokemon_info(NameB, pokemon(IDB, NameAtomB, _, _, TypesB, _, StatsB)),
+    battle_pair_passes_modifiers(IDA, NameAtomA, TypesA, Generation, TypeFilters, ContextFilters),
+    battle_pair_passes_modifiers(IDB, NameAtomB, TypesB, Generation, TypeFilters, ContextFilters),
+    !,
+    ( MaxLevel == none ->
+        StatsAUsed = StatsA,
+        StatsBUsed = StatsB,
+        MaxLabel = ''
+    ; scale_stats_by_level(StatsA, MaxLevel, StatsAUsed),
+      scale_stats_by_level(StatsB, MaxLevel, StatsBUsed),
+      format(atom(MaxLabel), ' (nível até ~w)', [MaxLevel])
+    ),
+    display_pokemon_name(NameAtomA, LabelA),
+    display_pokemon_name(NameAtomB, LabelB),
+    battle_profile(TypesA, StatsAUsed, TypesB, StatsBUsed, ProfileA),
+    battle_profile(TypesB, StatsBUsed, TypesA, StatsAUsed, ProfileB),
+    simulate_duel(ProfileA, ProfileB, WinnerSide, Turns),
+    ( WinnerSide == a -> WinnerLabel = LabelA ; WinnerLabel = LabelB ),
+    remember_candidate_list([NameAtomA, NameAtomB]),
+    profile_mode_text(ProfileA.mode, ModeAText),
+    profile_mode_text(ProfileB.mode, ModeBText),
+    multiplier_text(ProfileA.multiplier, MultAText),
+    multiplier_text(ProfileB.multiplier, MultBText),
+    ( Turns =:= 1 -> TurnWord = 'turno' ; TurnWord = 'turnos' ),
+    format('Bot: Simulação teórica 1x1 entre ~w e ~w~w:~n', [LabelA, LabelB, MaxLabel]),
+    format('  - ~w tende a atacar pelo lado ~w (~w, dano ~1f/turno).~n', [LabelA, ModeAText, MultAText, ProfileA.damage]),
+    format('  - ~w tende a atacar pelo lado ~w (~w, dano ~1f/turno).~n', [LabelB, ModeBText, MultBText, ProfileB.damage]),
+    format('  - Vencedor provável: ~w (em cerca de ~w ~w).~n', [WinnerLabel, Turns, TurnWord]),
+    writeln('Bot: Observação: é uma aproximação sem moves específicos, itens, clima e boosts.').
+answer_battle_with_level2_modifiers(NameA, NameB, _Generation, _MaxLevel, _TypeFilters, _ContextFilters) :-
+    format('Bot: Não consegui aplicar esses modificadores ao embate entre ~w e ~w.~n', [NameA, NameB]).
+
+battle_pair_passes_modifiers(ID, Name, Types, Generation, TypeFilters, ContextFilters) :-
+    ( Generation == none ; generation_matches_id(Generation, ID) ),
+    pokemon_matches_optional_type_filters(TypeFilters, Types),
+    name_passes_filters(ContextFilters, Name).
+
+% ============================================================
+% ESTADO DE CONVERSA (PENDÊNCIAS / CONFIRMAÇÕES)
+% ============================================================
 
 handle_pending_counter_preferences(Text) :-
     pending_counter_preferences(TargetName),
     !,
     tokenize_for_match(Text, Tokens),
-    ( member("cancelar", Tokens) ->
+    ( has_cancel_token(Tokens) ->
         retractall(pending_counter_preferences(_)),
-        writeln('Bot: Certo, cancelei os filtros e não apliquei nenhuma sugestão de counter.')
+        say_response(pending_counter_cancel)
     ; counter_preferences_from_text(Text, TypeFilters, ContextFilters) ->
         retractall(pending_counter_preferences(_)),
         answer_counter_with_all_filters(TargetName, TypeFilters, ContextFilters)
     ; counter_preferences_default_text(Tokens) ->
         retractall(pending_counter_preferences(_)),
         answer_counter_query(TargetName)
-    ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega", "tipo gelo" ou combinação (ex.: "sem lendários tipo gelo").')
+    ; say_response(pending_counter_help)
     ).
 
 handle_pending_counter_preferences(Text) :-
     pending_counter_level_preferences(TargetName, MaxLevel),
     !,
     tokenize_for_match(Text, Tokens),
-    ( member("cancelar", Tokens) ->
+    ( has_cancel_token(Tokens) ->
         retractall(pending_counter_level_preferences(_, _)),
-        writeln('Bot: Certo, cancelei os filtros e não apliquei sugestão de counter por nível.')
+        say_response(pending_counter_level_cancel)
     ; counter_preferences_from_text(Text, TypeFilters, ContextFilters) ->
         retractall(pending_counter_level_preferences(_, _)),
         answer_counter_level_cap_query_with_filters(TargetName, MaxLevel, TypeFilters, ContextFilters)
     ; counter_preferences_default_text(Tokens) ->
         retractall(pending_counter_level_preferences(_, _)),
         answer_counter_level_cap_query(TargetName, MaxLevel)
-    ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega", "tipo gelo" ou combinação (ex.: "sem lendários tipo gelo").')
+    ; say_response(pending_counter_help)
     ).
 
 handle_pending_type_preferences(Text) :-
     pending_type_preferences(TypeFilters),
     !,
     tokenize_for_match(Text, Tokens),
-    ( member("cancelar", Tokens) ->
+    ( has_cancel_token(Tokens) ->
         retractall(pending_type_preferences(_)),
-        writeln('Bot: Certo, cancelei os filtros de tipo.')
+        say_response(pending_type_cancel)
     ; type_preferences_from_text(Text, ContextFilters) ->
         retractall(pending_type_preferences(_)),
         answer_type_query_with_context_filters(TypeFilters, ContextFilters)
     ; counter_preferences_default_text(Tokens) ->
         retractall(pending_type_preferences(_)),
         answer_type_query(TypeFilters)
-    ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega" ou combinação (ex.: "sem lendários sem mega").')
+    ; say_response(pending_type_help)
     ).
 
 handle_pending_list_preferences(Text) :-
     pending_list_preferences(PendingAction),
     !,
     tokenize_for_match(Text, Tokens),
-    ( member("cancelar", Tokens) ->
+    ( has_cancel_token(Tokens) ->
         retractall(pending_list_preferences(_)),
-        writeln('Bot: Certo, cancelei os filtros dessa lista.')
+        say_response(pending_list_cancel)
     ; type_preferences_from_text(Text, ContextFilters) ->
         retractall(pending_list_preferences(_)),
         execute_pending_list_preferences(PendingAction, ContextFilters)
     ; counter_preferences_default_text(Tokens) ->
         retractall(pending_list_preferences(_)),
         execute_pending_list_preferences(PendingAction, [])
-    ; writeln('Bot: Responda com: "padrão", "sem lendários", "sem mega" ou combinação (ex.: "sem lendários sem mega").')
+    ; say_response(pending_type_help)
     ).
 
 execute_pending_list_preferences(best_switch(TargetIdentifier), ContextFilters) :-
@@ -327,13 +636,9 @@ type_preferences_from_text(Text, ContextFilters) :-
     ContextFilters \= [].
 
 counter_preferences_default_text(Tokens) :-
-    member("padrao", Tokens)
-    ; member("padrão", Tokens)
-    ; member("qualquer", Tokens)
-    ; member("tanto", Tokens)
-    ; member("sim", Tokens)
-    ; member("nao", Tokens)
-    ; member("não", Tokens).
+    ( member(Token, Tokens), default_choice_token(Token) )
+    ; is_yes_response_tokens(Tokens)
+    ; is_no_response_tokens(Tokens).
 
 handle_pending_confirmation(Text) :-
     pending_confirmation(Action),
@@ -349,23 +654,26 @@ handle_pending_confirmation(Text) :-
 
 is_yes_response(Text) :-
     tokenize_for_match(Text, Tokens),
-    ( member("sim", Tokens)
-    ; member("s", Tokens)
-    ; member("ok", Tokens)
-    ; member("okay", Tokens)
-    ; member("confirmo", Tokens)
-    ; member("yes", Tokens)
-    ; member("y", Tokens)
-    ).
+    is_yes_response_tokens(Tokens).
 
 is_no_response(Text) :-
     tokenize_for_match(Text, Tokens),
-    ( member("nao", Tokens)
-    ; member("não", Tokens)
-    ; member("n", Tokens)
-    ; member("no", Tokens)
-    ; member("negativo", Tokens)
-    ).
+    is_no_response_tokens(Tokens).
+
+is_yes_response_tokens(Tokens) :-
+    member(Token, Tokens),
+    yes_response_token(Token),
+    !.
+
+is_no_response_tokens(Tokens) :-
+    member(Token, Tokens),
+    no_response_token(Token),
+    !.
+
+has_cancel_token(Tokens) :-
+    member(Token, Tokens),
+    cancel_token(Token),
+    !.
 
 execute_pending_confirmation(info(Name)) :-
     answer_pokemon(Name).
@@ -395,11 +703,13 @@ handle_pending_level_roster(Text) :-
     ; writeln('Bot: Ainda não identifiquei sua lista. Envie os nomes separados por vírgula (ex.: "golem, graveler, sandslash") ou digite "cancelar".')
     ).
 
+% ============================================================
+% PARSERS DE LINGUAGEM NATURAL
+% ============================================================
+
 parse_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel) :-
     tokenize_for_match(Text, Tokens),
-    ( member("lv", Tokens)
-    ; member("nivel", Tokens)
-    ; member("nível", Tokens)
+    ( level_word_tokens(Tokens)
     ; has_token_with_prefix(Tokens, "lv")
     ; has_token_with_prefix(Tokens, "nivel")
     ; has_token_with_prefix(Tokens, "nível")
@@ -416,32 +726,27 @@ parse_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel) :-
 
 parse_counter_level_cap_query(Text, TargetName, MaxLevel) :-
     tokenize_for_match(Text, Tokens),
-        counter_intent_tokens(Tokens),
-    ( member("abaixo", Tokens)
-    ; member("ate", Tokens)
-    ; member("até", Tokens)
-    ; member("maximo", Tokens)
-    ; member("máximo", Tokens)
-    ; member("max", Tokens)
-        ; member("cap", Tokens)
-        ; member("limite", Tokens)
-        ; member("nivel", Tokens)
-        ; member("nível", Tokens)
-    ; ( (member("nivel", Tokens); member("nível", Tokens)),
-        (member("maximo", Tokens); member("máximo", Tokens); member("max", Tokens))
-      )
-    ),
+    counter_intent_tokens(Tokens),
+    level_cap_indicator_tokens(Tokens),
     parse_natural_pokemon_query(Text, TargetName),
     extract_levels_from_tokens(Tokens, Levels),
     Levels \= [],
     last(Levels, MaxLevel).
 
+parse_counter_composed_query(Text, TargetName, Generation, TypeFilters, ContextFilters, MaxLevel) :-
+    tokenize_for_match(Text, Tokens),
+    counter_intent_tokens(Tokens),
+    parse_natural_pokemon_query(Text, TargetName),
+    parse_generation_from_tokens(Tokens, Generation),
+    extract_levels_from_tokens(Tokens, Levels),
+    Levels \= [],
+    last(Levels, MaxLevel),
+    ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
+    extract_context_filters(Tokens, ContextFilters).
+
 parse_mega_count_query(Text) :-
     tokenize_for_match(Text, Tokens),
-    ( member("quantos", Tokens)
-    ; member("qtd", Tokens)
-    ; member("quantas", Tokens)
-    ),
+    quantity_intent_tokens(Tokens),
     ( member("mega", Tokens)
     ; member("megas", Tokens)
     ; contiguous_sublist(["mega", "evolucoes"], Tokens)
@@ -463,11 +768,7 @@ parse_megas_per_generation_summary_query(Text) :-
 
 parse_pokemon_per_generation_summary_query(Text) :-
     tokenize_for_match(Text, Tokens),
-    ( member("pokemon", Tokens)
-    ; member("pokemons", Tokens)
-    ; member("pokémon", Tokens)
-    ; member("pokémons", Tokens)
-    ),
+    pokemon_noun_tokens(Tokens),
     ( contiguous_sublist(["por", "geracao"], Tokens)
     ; contiguous_sublist(["por", "geração"], Tokens)
     ).
@@ -482,7 +783,7 @@ parse_legendary_per_generation_summary_query(Text) :-
 parse_mega_by_generation_query(Text, Generation, TypeFilters, ContextFilters) :-
     tokenize_for_match(Text, Tokens),
     parse_generation_from_tokens(Tokens, Generation),
-    ( member("mega", Tokens) ; member("megas", Tokens) ),
+    mega_tokens(Tokens),
     ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
     extract_context_filters(Tokens, RawContext),
     ensure_filter_present(only_mega, RawContext, ContextFilters).
@@ -509,15 +810,9 @@ parse_generation_type_query(Text, Generation, TypeFilters, ContextFilters) :-
     TypeFilters \= [],
     ( member("tipo", Tokens)
     ; member("tipos", Tokens)
-    ; member("pokemon", Tokens)
-    ; member("pokemons", Tokens)
-    ; member("pokémon", Tokens)
-    ; member("pokémons", Tokens)
-    ; member("quais", Tokens)
-    ; member("quantos", Tokens)
-    ; member("lista", Tokens)
-    ; member("mostra", Tokens)
-    ; member("liste", Tokens)
+    ; pokemon_noun_tokens(Tokens)
+    ; quantity_intent_tokens(Tokens)
+    ; list_intent_tokens(Tokens)
     ),
     \+ legendary_request_tokens(Tokens),
     extract_context_filters(Tokens, ContextFilters).
@@ -525,51 +820,41 @@ parse_generation_type_query(Text, Generation, TypeFilters, ContextFilters) :-
 parse_pokemon_by_generation_query(Text, Generation, TypeFilters, ContextFilters) :-
     tokenize_for_match(Text, Tokens),
     parse_generation_from_tokens(Tokens, Generation),
-    ( member("pokemon", Tokens)
-    ; member("pokemons", Tokens)
-    ; member("pokémon", Tokens)
-    ; member("pokémons", Tokens)
-    ; member("quais", Tokens)
-    ; member("quantos", Tokens)
-    ; member("lista", Tokens)
-    ; member("mostra", Tokens)
-    ; member("liste", Tokens)
-    ; member("tem", Tokens)
-    ; member("existem", Tokens)
+    ( pokemon_noun_tokens(Tokens)
+    ; quantity_intent_tokens(Tokens)
+    ; list_intent_tokens(Tokens)
     ),
     \+ legendary_request_tokens(Tokens),
-    \+ member("mega", Tokens),
-    \+ member("megas", Tokens),
+    \+ mega_tokens(Tokens),
     ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
     extract_context_filters(Tokens, ContextFilters).
 
 legendary_request_tokens(Tokens) :-
-    ( member("lendario", Tokens)
-    ; member("lendarios", Tokens)
-    ; member("lendário", Tokens)
-    ; member("lendários", Tokens)
-    ; member("mitico", Tokens)
-    ; member("miticos", Tokens)
-    ; member("mítico", Tokens)
-    ; member("míticos", Tokens)
-    ).
+    member(Token, Tokens),
+    legendary_request_token(Token),
+    !.
 
 parse_generation_from_tokens(Tokens, Generation) :-
     ( append(_, [Key, Value | _], Tokens),
       generation_keyword_token(Key),
       token_to_generation(Value, Generation)
+        ; append(_, [Value, Key | _], Tokens),
+            generation_keyword_token(Key),
+            token_to_generation(Value, Generation)
+        ; append(_, [Prefix, Value | _], Tokens),
+            generation_prefix(Prefix),
+            token_to_generation(Value, Generation)
     ; member(Token, Tokens),
       token_with_generation_prefix(Token, Generation)
     ),
     between(1, 9, Generation).
 
-generation_keyword_token("geracao").
-generation_keyword_token("geração").
-generation_keyword_token("gen").
-
 token_to_generation(Token, Generation) :-
     string_number(Token, Generation),
     integer(Generation),
+    between(1, 9, Generation).
+token_to_generation(Token, Generation) :-
+    safe_generation_number_word(Token, Generation),
     between(1, 9, Generation).
 
 token_with_generation_prefix(Token, Generation) :-
@@ -580,11 +865,6 @@ token_with_generation_prefix(Token, Generation) :-
     string_number(Digits, Generation),
     integer(Generation),
     between(1, 9, Generation).
-
-generation_prefix("g").
-generation_prefix("gen").
-generation_prefix("geracao").
-generation_prefix("geração").
 
 extract_context_filters(Tokens, Filters) :-
     findall(Filter,
@@ -601,15 +881,14 @@ ensure_filter_present(Filter, Filters, [Filter | Filters]).
 
 parse_evolution_count_query(Text, Method) :-
     tokenize_for_match(Text, Tokens),
-    ( member("quantos", Tokens)
-    ; member("qtd", Tokens)
-    ),
-    ( member("evoluem", Tokens)
-    ; member("evolui", Tokens)
-    ; member("evolucao", Tokens)
-    ; member("evolução", Tokens)
-    ),
+    quantity_intent_tokens(Tokens),
+    has_evolution_intent_tokens(Tokens),
     evolution_method_tokens(Tokens, Method).
+
+has_evolution_intent_tokens(Tokens) :-
+    member(Token, Tokens),
+    evolution_intent_token(Token),
+    !.
 
 evolution_method_tokens(Tokens, level_up) :-
     member("level", Tokens)
@@ -635,7 +914,11 @@ extract_levels_from_tokens(Tokens, Levels) :-
         ( member(Token, Tokens),
           token_to_level(Token, Level)
         ),
-        LevelsRaw),
+        LevelsSingleRaw),
+    findall(Level,
+        token_level_compound_in_tokens(Tokens, Level),
+        LevelsCompoundRaw),
+    append(LevelsSingleRaw, LevelsCompoundRaw, LevelsRaw),
     LevelsRaw \= [],
     sort(LevelsRaw, LevelsSorted),
     reverse(LevelsSorted, Levels).
@@ -645,11 +928,23 @@ token_to_level(Token, Level) :-
     integer(Level),
     between(1, 100, Level).
 token_to_level(Token, Level) :-
+    safe_number_word_value(Token, Level),
+    between(1, 100, Level).
+token_to_level(Token, Level) :-
     level_prefix_digits(Token, "lv", Level).
 token_to_level(Token, Level) :-
     level_prefix_digits(Token, "nivel", Level).
 token_to_level(Token, Level) :-
     level_prefix_digits(Token, "nível", Level).
+
+token_level_compound_in_tokens(Tokens, Level) :-
+    append(_, [TensToken, "e", UnitToken | _], Tokens),
+    safe_number_word_value(TensToken, Tens),
+    safe_number_word_value(UnitToken, Units),
+    member(Tens, [20, 30, 40, 50, 60, 70, 80, 90]),
+    between(1, 9, Units),
+    Level is Tens + Units,
+    between(1, 100, Level).
 
 level_prefix_digits(Token, Prefix, Level) :-
     sub_string(Token, 0, PrefixLen, _, Prefix),
@@ -704,7 +999,8 @@ parse_info_by_name(Text, Name) :-
     ).
 
 parse_counter_query(Text, TargetName) :-
-    split_string(Text, " ", "", Tokens),
+    tokenize_for_match(Text, Tokens),
+    \+ parse_battle_pair_from_tokens(Tokens, _, _),
     append(_, ["contra" | Tail], Tokens),
     extract_name_from_tokens(Tail, TargetName).
 parse_counter_query(Text, TargetName) :-
@@ -737,11 +1033,9 @@ parse_counter_query(Text, TargetName) :-
     ; member("counters", Tokens)
     ; member("check", Tokens)
     ),
-    ( append(_, ["de" | Tail], Tokens)
-    ; append(_, ["do" | Tail], Tokens)
-    ; append(_, ["da" | Tail], Tokens)
-    ; append(_, ["pro" | Tail], Tokens)
-    ; append(_, ["para" | Tail], Tokens)
+        ( member(RelToken, Tokens),
+            counter_relation_token(RelToken),
+            append(_, [RelToken | Tail], Tokens)
     ),
     extract_name_from_tokens(Tail, TargetName).
 
@@ -755,34 +1049,10 @@ parse_counter_compound_query(Text, TargetName, TypeFilters, ContextFilters) :-
     ( TypeFilters \= [] ; ContextFilters \= [] ).
 
 counter_intent_tokens(Tokens) :-
-    ( member("counter", Tokens)
-    ; member("counters", Tokens)
-    ; member("countera", Tokens)
-    ; member("counteram", Tokens)
-    ; member("counterar", Tokens)
-    ; member("counterando", Tokens)
-    ; member("vence", Tokens)
-    ; member("vencer", Tokens)
-    ; member("vencem", Tokens)
-    ; member("ganha", Tokens)
-    ; member("ganhar", Tokens)
-    ; member("ganham", Tokens)
-    ; member("sola", Tokens)
-    ; member("amassa", Tokens)
-    ; member("stompa", Tokens)
-    ; member("deita", Tokens)
-    ; member("janta", Tokens)
-    ; member("surra", Tokens)
-    ; member("check", Tokens)
-    ; member("checks", Tokens)
-    ; contiguous_sublist(["bom", "contra"], Tokens)
-    ; contiguous_sublist(["boa", "contra"], Tokens)
-    ; contiguous_sublist(["forte", "contra"], Tokens)
-    ; contiguous_sublist(["melhor", "contra"], Tokens)
-    ; contiguous_sublist(["vantagem", "contra"], Tokens)
-    ; contiguous_sublist(["como", "ganhar", "de"], Tokens)
-    ; contiguous_sublist(["quem", "countera"], Tokens)
-    ).
+    ( member(Token, Tokens), counter_intent_token(Token)
+    ; counter_intent_phrase(Phrase), contiguous_sublist(Phrase, Tokens)
+    ),
+    !.
 
 parse_counter_with_filters_query(Text, TargetName, ContextFilters) :-
         tokenize_for_match(Text, Tokens),
@@ -853,40 +1123,6 @@ parse_context_filter_query(Text, Filters) :-
     sort(FiltersRaw, Filters),
     Filters \= [].
 
-context_filter_token(no_mega, ["sem", "mega"]).
-context_filter_token(only_mega, ["so", "mega"]).
-context_filter_token(only_mega, ["só", "mega"]).
-context_filter_token(only_mega, ["apenas", "mega"]).
-context_filter_token(only_mega, ["somente", "mega"]).
-context_filter_token(only_mega, ["só", "megas"]).
-context_filter_token(only_mega, ["so", "megas"]).
-context_filter_token(only_mega, ["apenas", "megas"]).
-context_filter_token(only_mega, ["somente", "megas"]).
-context_filter_token(no_legendary, ["sem", "lendario"]).
-context_filter_token(no_legendary, ["sem", "lendários"]).
-context_filter_token(no_legendary, ["sem", "lendarios"]).
-context_filter_token(no_legendary, ["sem", "pokemon", "lendario"]).
-context_filter_token(no_legendary, ["sem", "pokemon", "lendarios"]).
-context_filter_token(no_legendary, ["sem", "pokemons", "lendarios"]).
-context_filter_token(no_legendary, ["sem", "pokémon", "lendarios"]).
-context_filter_token(no_legendary, ["sem", "pokémons", "lendarios"]).
-context_filter_token(no_legendary, ["sem", "mitico"]).
-context_filter_token(no_legendary, ["sem", "mítico"]).
-context_filter_token(no_legendary, ["sem", "miticos"]).
-context_filter_token(no_legendary, ["sem", "míticos"]).
-context_filter_token(only_legendary, ["so", "lendario"]).
-context_filter_token(only_legendary, ["so", "lendarios"]).
-context_filter_token(only_legendary, ["só", "lendário"]).
-context_filter_token(only_legendary, ["só", "lendários"]).
-context_filter_token(only_legendary, ["apenas", "lendarios"]).
-context_filter_token(only_legendary, ["somente", "lendarios"]).
-context_filter_token(only_legendary, ["so", "miticos"]).
-context_filter_token(only_legendary, ["só", "míticos"]).
-context_filter_token(only_legendary, ["apenas", "miticos"]).
-context_filter_token(only_legendary, ["somente", "miticos"]).
-context_filter_token(only_legendary, ["so", "lendario"]).
-context_filter_token(only_legendary, ["somente", "lendario"]).
-
 parse_compare_query(Text, NameA, NameB) :-
     tokenize_for_match(Text, Tokens),
     ( append(_, ["compare" | Tail], Tokens)
@@ -922,31 +1158,10 @@ parse_ambiguous_two_pokemon_query(Text, NameA, NameB) :-
     pokemon_info(NameB, _).
 
 battle_intent_tokens(Tokens) :-
-    ( member("simule", Tokens)
-    ; member("simular", Tokens)
-    ; member("simula", Tokens)
-    ; member("embate", Tokens)
-    ; member("embates", Tokens)
-    ; member("duelo", Tokens)
-    ; member("duelos", Tokens)
-    ; member("batalha", Tokens)
-    ; member("batalhas", Tokens)
-    ; member("luta", Tokens)
-    ; member("lutas", Tokens)
-    ; member("confronto", Tokens)
-    ; member("confrontos", Tokens)
-    ; member("1x1", Tokens)
-    ; member("1v1", Tokens)
-    ; member("x1", Tokens)
-    ; member("manoamano", Tokens)
-    ; member("mano", Tokens)
-    ; starts_with_tokens(Tokens, ["quem", "ganha"])
-    ; starts_with_tokens(Tokens, ["quem", "vence"])
-    ; starts_with_tokens(Tokens, ["quem", "leva"])
-    ; starts_with_tokens(Tokens, ["qual", "ganha"])
-    ; starts_with_tokens(Tokens, ["qual", "vence"])
-    ; starts_with_tokens(Tokens, ["qual", "leva"])
-    ).
+    ( member(Token, Tokens), battle_intent_token(Token)
+    ; battle_intent_phrase(Phrase), starts_with_tokens(Tokens, Phrase)
+    ),
+    !.
 
 parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
     split_battle_tokens(Tokens, LeftTokens, RightTokens),
@@ -954,35 +1169,9 @@ parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
     extract_name_from_tokens(RightTokens, NameB),
     NameA \= NameB.
 parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
-    append(LeftTokens, ["ganha", "de" | RightTokens], Tokens),
-    LeftTokens \= [],
-    RightTokens \= [],
-    extract_name_from_tokens(LeftTokens, NameA),
-    extract_name_from_tokens(RightTokens, NameB),
-    NameA \= NameB.
-parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
-    append(LeftTokens, ["ganha", "do" | RightTokens], Tokens),
-    LeftTokens \= [],
-    RightTokens \= [],
-    extract_name_from_tokens(LeftTokens, NameA),
-    extract_name_from_tokens(RightTokens, NameB),
-    NameA \= NameB.
-parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
-    append(LeftTokens, ["ganha", "da" | RightTokens], Tokens),
-    LeftTokens \= [],
-    RightTokens \= [],
-    extract_name_from_tokens(LeftTokens, NameA),
-    extract_name_from_tokens(RightTokens, NameB),
-    NameA \= NameB.
-parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
-    append(LeftTokens, ["vence" | RightTokens], Tokens),
-    LeftTokens \= [],
-    RightTokens \= [],
-    extract_name_from_tokens(LeftTokens, NameA),
-    extract_name_from_tokens(RightTokens, NameB),
-    NameA \= NameB.
-parse_battle_pair_from_tokens(Tokens, NameA, NameB) :-
-    append(LeftTokens, ["contra" | RightTokens], Tokens),
+    battle_relation_phrase(RelationTokens),
+    append(LeftTokens, RelationTokens, LeftAndRelation),
+    append(LeftAndRelation, RightTokens, Tokens),
     LeftTokens \= [],
     RightTokens \= [],
     extract_name_from_tokens(LeftTokens, NameA),
@@ -996,12 +1185,8 @@ split_compare_tokens(Tokens, Left, Right) :-
     Right \= [],
     !.
 
-compare_separator("vs").
-compare_separator("versus").
-compare_separator("x").
-compare_separator("ou").
-compare_separator("e").
-compare_separator("contra").
+compare_separator(Separator) :-
+    compare_separator_token(Separator).
 
 split_battle_tokens(Tokens, Left, Right) :-
     append(_, ["entre" | Tail], Tokens),
@@ -1127,12 +1312,6 @@ parse_ability_query(Text, Ability) :-
     \+ starts_with_tokens(Tail, ["da"]),
     extract_ability_token(Tail, Ability).
 
-ability_keyword("habilidade").
-ability_keyword("habilidades").
-ability_keyword("ability").
-ability_keyword("talento").
-ability_keyword("talentos").
-
 parse_status_query(Text, Stat) :-
     tokenize_for_match(Text, Tokens),
     ( append(_, ["status" | Tail], Tokens)
@@ -1155,16 +1334,258 @@ parse_status_full_query(Text, Stat) :-
 
 parse_evolution_level_query(Text, Name) :-
     tokenize_for_match(Text, Tokens),
-    ( member("evolucao", Tokens)
-    ; member("evolução", Tokens)
-    ; member("evoluir", Tokens)
-    ; member("evolui", Tokens)
-    ),
-    ( member("nivel", Tokens)
-    ; member("nível", Tokens)
-    ; member("lv", Tokens)
-    ),
+    ( member(Token, Tokens), evolution_intent_token(Token) ),
+    level_word_tokens(Tokens),
     parse_natural_pokemon_query(Text, Name).
+
+parse_ranked_metric_query(Text, Metric, Limit, Generation) :-
+    tokenize_for_match(Text, Tokens),
+    has_ranking_signal(Tokens),
+    ranked_metric_from_tokens(Tokens, Metric),
+    ( parse_limit_from_tokens(Tokens, ParsedLimit) -> Limit = ParsedLimit ; Limit = 10 ),
+    ( parse_generation_from_tokens(Tokens, ParsedGeneration) -> Generation = ParsedGeneration ; Generation = all ).
+
+parse_bst_threshold_query(Text, Comparator, Threshold, Generation) :-
+    tokenize_for_match(Text, Tokens),
+    ranked_metric_from_tokens(Tokens, bst),
+    threshold_comparator_from_tokens(Tokens, Comparator),
+    extract_threshold_value(Tokens, Threshold),
+    ( parse_generation_from_tokens(Tokens, ParsedGeneration) -> Generation = ParsedGeneration ; Generation = all ).
+
+parse_evolution_structure_query(Text, Kind, Generation) :-
+    tokenize_for_match(Text, Tokens),
+    has_evolution_intent_tokens(Tokens),
+    evolution_structure_kind_from_tokens(Tokens, Kind),
+    ( parse_generation_from_tokens(Tokens, ParsedGeneration) -> Generation = ParsedGeneration ; Generation = all ).
+
+parse_evolution_chain_query(Text, Name) :-
+    tokenize_for_match(Text, Tokens),
+    has_evolution_intent_tokens(Tokens),
+    ( member(Token, Tokens), evolution_chain_token(Token) ),
+    parse_natural_pokemon_query(Text, Name).
+
+parse_type_coverage_query(Text, TargetType) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), coverage_intent_token(Token) ),
+    extract_type_filters(Tokens, [TargetType | _]).
+
+parse_double_weakness_query(Text, AttackType) :-
+    tokenize_for_match(Text, Tokens),
+    ( contiguous_sublist(["dupla", "fraqueza"], Tokens)
+    ; member("4x", Tokens)
+    ),
+    extract_type_filters(Tokens, [AttackType | _]).
+
+parse_most_immunities_query(Text, Limit) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), immunity_intent_token(Token) ),
+    has_ranking_signal(Tokens),
+    ( parse_limit_from_tokens(Tokens, ParsedLimit) -> Limit = ParsedLimit ; Limit = 10 ).
+
+parse_team_coverage_query(Text) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), team_intent_token(Token) ),
+    ( member(Token, Tokens), coverage_intent_token(Token) ).
+
+parse_multi_compare_query(Text, Names) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), compare_intent_token(Token) ),
+    extract_all_pokemon_mentions(Text, Names),
+    length(Names, Count),
+    Count >= 3.
+
+parse_rank_team_vs_target_query(Text, TeamNames, TargetName) :-
+    tokenize_for_match(Text, Tokens),
+    has_ranking_signal(Tokens),
+    ( member(Token, Tokens), team_intent_token(Token) ),
+    ( member(Token, Tokens), counter_relation_token(Token)
+    ; member(Token, Tokens), counter_intent_token(Token)
+    ),
+    extract_target_name_after_relation(Text, TargetName),
+    extract_all_pokemon_mentions(Text, Mentions),
+    exclude(=(TargetName), Mentions, TeamNames),
+    TeamNames \= [].
+
+parse_best_team_member_vs_target_query(Text, TeamNames, TargetName) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), team_intent_token(Token) ),
+    ( contiguous_sublist(["entra", "melhor"], Tokens)
+    ; contiguous_sublist(["melhor", "contra"], Tokens)
+    ; contiguous_sublist(["quem", "entra"], Tokens)
+    ),
+    extract_target_name_after_relation(Text, TargetName),
+    extract_all_pokemon_mentions(Text, Mentions),
+    exclude(=(TargetName), Mentions, TeamNames),
+    TeamNames \= [].
+
+has_ranking_signal(Tokens) :-
+    member("top", Tokens),
+    !.
+has_ranking_signal(Tokens) :-
+    member(Token, Tokens),
+    ranking_intent_token(Token),
+    !.
+has_ranking_signal(Tokens) :-
+    member("mais", Tokens),
+    ranked_metric_from_tokens(Tokens, _).
+
+ranked_metric_from_tokens(Tokens, speed) :-
+    ( member("rapido", Tokens)
+    ; member("rápido", Tokens)
+    ; member("rapidos", Tokens)
+    ; member("rápidos", Tokens)
+    ; member("veloz", Tokens)
+    ; member("speed", Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, defensive_bulk) :-
+    ( member("defensivo", Tokens)
+    ; member("tanque", Tokens)
+    ; member("bulk", Tokens)
+    ; member("resistente", Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, physical_attack) :-
+    ( contiguous_sublist(["ataque", "fisico"], Tokens)
+    ; contiguous_sublist(["ataque", "físico"], Tokens)
+    ; contiguous_sublist(["atk", "fisico"], Tokens)
+    ; contiguous_sublist(["atk", "físico"], Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, special_attack) :-
+    ( contiguous_sublist(["ataque", "especial"], Tokens)
+    ; contiguous_sublist(["sp", "atk"], Tokens)
+    ; contiguous_sublist(["special", "attack"], Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, bst) :-
+    ( member("bst", Tokens)
+    ; contiguous_sublist(["soma", "stats"], Tokens)
+    ; contiguous_sublist(["total", "stats"], Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, tallest) :-
+    ( member("altura", Tokens), (member("maior", Tokens); member("altos", Tokens); member("alto", Tokens)) ).
+ranked_metric_from_tokens(Tokens, shortest) :-
+    member("altura", Tokens),
+    ( member("menor", Tokens)
+    ; member("baixos", Tokens)
+    ; member("baixo", Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, heaviest) :-
+    member("peso", Tokens),
+    ( member("maior", Tokens)
+    ; member("pesado", Tokens)
+    ; member("pesados", Tokens)
+    ).
+ranked_metric_from_tokens(Tokens, lightest) :-
+    member("peso", Tokens),
+    ( member("menor", Tokens)
+    ; member("leve", Tokens)
+    ; member("leves", Tokens)
+    ).
+
+parse_limit_from_tokens(Tokens, Limit) :-
+    member("top", Tokens),
+    extract_threshold_value(Tokens, Parsed),
+    Parsed =< 30,
+    Limit = Parsed,
+    !.
+parse_limit_from_tokens(Tokens, Limit) :-
+    extract_threshold_value(Tokens, Parsed),
+    Parsed =< 20,
+    Limit = Parsed,
+    !.
+
+extract_threshold_value(Tokens, Threshold) :-
+    findall(Number,
+        ( member(Token, Tokens),
+          token_to_numeric_value(Token, Number),
+          integer(Number),
+          Number >= 1,
+          Number =< 999
+        ),
+        NumbersSingle),
+    findall(Number,
+        token_compound_numeric_value(Tokens, Number),
+        NumbersCompound),
+    append(NumbersSingle, NumbersCompound, Numbers),
+    Numbers \= [],
+    max_list(Numbers, Threshold).
+
+token_to_numeric_value(Token, Number) :-
+    string_number(Token, Number),
+    integer(Number).
+token_to_numeric_value(Token, Number) :-
+    safe_number_word_value(Token, Number).
+
+token_compound_numeric_value(Tokens, Number) :-
+    append(_, [TensToken, "e", UnitToken | _], Tokens),
+    safe_number_word_value(TensToken, Tens),
+    safe_number_word_value(UnitToken, Units),
+    member(Tens, [20, 30, 40, 50, 60, 70, 80, 90]),
+    between(1, 9, Units),
+    Number is Tens + Units.
+
+safe_number_word_value(Token, Number) :-
+    current_predicate(number_word_value/2),
+    number_word_value(Token, Number).
+
+safe_generation_number_word(Token, Generation) :-
+    current_predicate(generation_number_word/2),
+    generation_number_word(Token, Generation).
+
+threshold_comparator_from_tokens(Tokens, ge) :-
+    ( member("acima", Tokens)
+    ; contiguous_sublist(["maior", "que"], Tokens)
+    ; contiguous_sublist(["maiores", "que"], Tokens)
+    ; member(">=", Tokens)
+    ; member("minimo", Tokens)
+    ; member("mínimo", Tokens)
+    ).
+threshold_comparator_from_tokens(Tokens, le) :-
+    ( member("abaixo", Tokens)
+    ; contiguous_sublist(["menor", "que"], Tokens)
+    ; contiguous_sublist(["menores", "que"], Tokens)
+    ; member("<=", Tokens)
+    ; member("maximo", Tokens)
+    ; member("máximo", Tokens)
+    ).
+
+evolution_structure_kind_from_tokens(Tokens, three_stage) :-
+    ( contiguous_sublist(["3", "estagios"], Tokens)
+    ; contiguous_sublist(["3", "estágios"], Tokens)
+    ; contiguous_sublist(["tres", "estagios"], Tokens)
+    ; contiguous_sublist(["três", "estágios"], Tokens)
+    ).
+evolution_structure_kind_from_tokens(Tokens, by_method(Method)) :-
+    evolution_method_tokens(Tokens, Method),
+    ( member("por", Tokens)
+    ; member("via", Tokens)
+    ; member("com", Tokens)
+    ).
+evolution_structure_kind_from_tokens(Tokens, non_evolving) :-
+    ( contiguous_sublist(["nao", "evoluem"], Tokens)
+    ; contiguous_sublist(["não", "evoluem"], Tokens)
+    ; contiguous_sublist(["nao", "evolui"], Tokens)
+    ; contiguous_sublist(["não", "evolui"], Tokens)
+    ).
+evolution_structure_kind_from_tokens(Tokens, final_stage) :-
+    contiguous_sublist(["estagio", "final"], Tokens)
+    ; contiguous_sublist(["estágio", "final"], Tokens)
+    ; contiguous_sublist(["forma", "final"], Tokens).
+
+extract_target_name_after_relation(Text, TargetName) :-
+    tokenize_for_match(Text, Tokens),
+    append(_, [Rel | Tail], Tokens),
+    ( counter_relation_token(Rel) ; compare_separator_token(Rel) ),
+    find_best_pokemon_mention_in_tokens(Tail, TargetName),
+    !.
+
+find_best_pokemon_mention_in_tokens(Tokens, Name) :-
+    findall(Len-FoundName,
+        ( pokemon_in_scope(_, FoundName, _, _, _, _, _),
+          pokemon_name_mentioned_in_tokens(FoundName, Tokens, Len)
+        ),
+        Matches),
+    Matches \= [],
+    keysort(Matches, Asc),
+    reverse(Asc, [_BestLen-Name | _]).
 
 starts_with_tokens(Tokens, Prefix) :-
     append(Prefix, _, Tokens).
@@ -1204,59 +1625,6 @@ normalize_name_token(RawToken, Normalized) :-
     include(non_empty_string, Parts0, Parts),
     atomic_list_concat(Parts, '_', Combined0),
     atom_string(Combined0, Normalized).
-
-name_stopword("o").
-name_stopword("a").
-name_stopword("os").
-name_stopword("as").
-name_stopword("um").
-name_stopword("uma").
-name_stopword("de").
-name_stopword("do").
-name_stopword("da").
-name_stopword("no").
-name_stopword("na").
-name_stopword("em").
-name_stopword("pra").
-name_stopword("para").
-name_stopword("qual").
-name_stopword("que").
-name_stopword("bom").
-name_stopword("boa").
-name_stopword("melhor").
-name_stopword("quem").
-name_stopword("quais").
-name_stopword("ganha").
-name_stopword("ganhar").
-name_stopword("ganharia").
-name_stopword("vence").
-name_stopword("vencer").
-name_stopword("venceria").
-name_stopword("leva").
-name_stopword("levar").
-name_stopword("levaria").
-name_stopword("vencedor").
-name_stopword("vencedora").
-name_stopword("entre").
-name_stopword("time").
-name_stopword("equipe").
-name_stopword("comp").
-name_stopword("simule").
-name_stopword("simular").
-name_stopword("simula").
-name_stopword("duelo").
-name_stopword("embate").
-name_stopword("batalha").
-name_stopword("luta").
-name_stopword("confronto").
-name_stopword("x1").
-name_stopword("1x1").
-name_stopword("eh").
-name_stopword("é").
-name_stopword("pokemon").
-name_stopword("pokémon").
-name_stopword("pokemons").
-name_stopword("pokémons").
 
 extract_number(Tokens, Number) :-
     member(Token, Tokens),
@@ -1351,27 +1719,10 @@ stat_from_words(Words, Stat) :-
     stat_token_alias(Word, Stat),
     !.
 
-stat_pair_alias("special", "attack", special_attack).
-stat_pair_alias("ataque", "especial", special_attack).
-stat_pair_alias("special", "defense", special_defense).
-stat_pair_alias("defesa", "especial", special_defense).
-
-stat_token_alias("hp", hp).
-stat_token_alias("vida", hp).
-stat_token_alias("attack", attack).
-stat_token_alias("ataque", attack).
-stat_token_alias("defense", defense).
-stat_token_alias("defesa", defense).
-stat_token_alias("speed", speed).
-stat_token_alias("velocidade", speed).
-stat_token_alias("rapido", speed).
-stat_token_alias("rápido", speed).
-stat_token_alias("rapida", speed).
-stat_token_alias("rápida", speed).
-stat_token_alias("rapidos", speed).
-stat_token_alias("rápidos", speed).
-stat_token_alias("rapidas", speed).
-stat_token_alias("rápidas", speed).
+% ============================================================
+% RESPOSTAS: CONSULTAS BÁSICAS
+% (info, tipo, habilidade, status, evolução simples)
+% ============================================================
 
 answer_pokemon(Identifier) :-
     pokemon_info(Identifier, Pokemon),
@@ -1551,6 +1902,10 @@ build_evolution_condition_text(TriggerText, LevelText, ExtraText, Text) :-
     ExtraText \= '',
     format(atom(Text), '~w~w~w.', [TriggerText, LevelText, ExtraText]).
 
+% ============================================================
+% RESPOSTAS: COUNTER / MATCHUP / GERAÇÃO
+% ============================================================
+
 answer_counter_query(TargetIdentifier) :-
     resolve_counter_target(TargetIdentifier, pokemon(TargetID, TargetName, _, _, TargetTypes, _, TargetStats), UsedFallback),
     recommend_counters(TargetID, TargetTypes, TargetStats, CounterPairs),
@@ -1696,6 +2051,45 @@ answer_counter_level_cap_query_with_filters(TargetIdentifier, MaxLevel, TypeFilt
     format('Bot: Contra ~w, no cenário de nível até ~w e considerando seus filtros, boas opções são: ~w.~n', [TargetLabel, MaxLevel, CounterText]).
 answer_counter_level_cap_query_with_filters(TargetIdentifier, MaxLevel, _, _) :-
     answer_counter_level_cap_query(TargetIdentifier, MaxLevel).
+
+answer_counter_composed_query(TargetIdentifier, Generation, TypeFilters, ContextFilters, MaxLevel) :-
+    resolve_counter_target(TargetIdentifier, pokemon(_, TargetName, _, _, TargetTypes, _, TargetStatsRaw), _),
+    scale_stats_by_level(TargetStatsRaw, MaxLevel, TargetStats),
+    findall(Score-Name-AttackMult-DefenseMult,
+        ( pokemon(ID, Name, _Height, _Weight, CandidateTypes, _Abilities, CandidateStatsRaw),
+          generation_matches_id(Generation, ID),
+          pokemon_info(Name, pokemon(CandidateID, _, _, _, _, _, _)),
+          pokemon_reachable_by_level(CandidateID, MaxLevel),
+          pokemon_matches_optional_type_filters(TypeFilters, CandidateTypes),
+          name_passes_filters(ContextFilters, Name),
+          scale_stats_by_level(CandidateStatsRaw, MaxLevel, CandidateStats),
+          counter_metrics(CandidateTypes, CandidateStats, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
+          AttackMult > 1.0,
+          Score is (AttackPressure * 2.5) - DefensePressure
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, DescRaw),
+    dedupe_counter_pairs_by_name(DescRaw, UniquePairs),
+    take_first_n(UniquePairs, 8, TopPairs),
+    TopPairs \= [],
+    !,
+    extract_counter_names(TopPairs, CounterNames),
+    remember_candidate_list(CounterNames),
+    display_pokemon_name(TargetName, TargetLabel),
+    counter_pairs_text(TopPairs, CounterText),
+    type_filters_text_if_any(TypeFilters, TypeText),
+    format('Bot: Contra ~w, na geração ~w, até nível ~w~w, os melhores counters são: ~w.~n', [TargetLabel, Generation, MaxLevel, TypeText, CounterText]).
+answer_counter_composed_query(TargetIdentifier, Generation, TypeFilters, _ContextFilters, MaxLevel) :-
+    display_pokemon_name(TargetIdentifier, TargetLabel),
+    type_filters_text_if_any(TypeFilters, TypeText),
+    format('Bot: Não encontrei counters para ~w na geração ~w até nível ~w~w.~n', [TargetLabel, Generation, MaxLevel, TypeText]).
+
+type_filters_text_if_any([], '').
+type_filters_text_if_any(TypeFilters, Text) :-
+    TypeFilters \= [],
+    type_filters_text(TypeFilters, FiltersText),
+    format(atom(Text), ' com tipo ~w', [FiltersText]).
 
 answer_evolution_count_query(Method) :-
     findall(FromID,
@@ -1920,8 +2314,504 @@ evolution_method_label(level_up, 'level up').
 evolution_method_label(stone, 'uso de pedra').
 evolution_method_label(happiness, 'felicidade (happiness)').
 
+% ============================================================
+% RESPOSTAS: NOVOS INTENTS (RANKING, EVOLUÇÃO, COBERTURA)
+% ============================================================
+
+answer_ranked_metric_query(Metric, Limit, Generation) :-
+    ranked_metric_pairs(Metric, Generation, Pairs),
+    Pairs \= [],
+    take_first_n(Pairs, Limit, TopPairs),
+    TopPairs \= [],
+    !,
+    extract_names_from_pairs(TopPairs, Names),
+    remember_candidate_list(Names),
+    ranked_metric_label(Metric, MetricLabel),
+    generation_scope_text(Generation, ScopeText),
+    writeln('Bot: Ranking encontrado:'),
+    format('  Métrica: ~w (~w)~n', [MetricLabel, ScopeText]),
+    print_ranked_metric_lines(Metric, TopPairs, 1).
+answer_ranked_metric_query(Metric, _Limit, Generation) :-
+    ranked_metric_label(Metric, MetricLabel),
+    generation_scope_text(Generation, ScopeText),
+    format('Bot: Não encontrei ranking de ~w no recorte ~w.~n', [MetricLabel, ScopeText]).
+
+answer_bst_threshold_query(Comparator, Threshold, Generation) :-
+    findall(Name,
+        ( pokemon_in_scope(ID, Name, _Height, _Weight, _Types, _Abilities, Stats),
+          generation_filter_matches(Generation, ID),
+          total_stats_value(Stats, BST),
+          bst_threshold_matches(Comparator, BST, Threshold)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 12, SampleText),
+    bst_comparator_text(Comparator, ComparatorText),
+    generation_scope_text(Generation, ScopeText),
+    format('Bot: Encontrei ~w Pokémon com BST ~w ~w (~w).~n', [Count, ComparatorText, Threshold, ScopeText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_bst_threshold_query(Comparator, Threshold, Generation) :-
+    bst_comparator_text(Comparator, ComparatorText),
+    generation_scope_text(Generation, ScopeText),
+    format('Bot: Não encontrei Pokémon com BST ~w ~w (~w).~n', [ComparatorText, Threshold, ScopeText]).
+
+answer_evolution_structure_query(Kind, Generation) :-
+    evolution_structure_names(Kind, Generation, Names),
+    Names \= [],
+    !,
+    remember_candidate_list(Names),
+    length(Names, Count),
+    sample_names_text(Names, 12, SampleText),
+    evolution_structure_label(Kind, KindLabel),
+    generation_scope_text(Generation, ScopeText),
+    format('Bot: Encontrei ~w Pokémon para "~w" (~w).~n', [Count, KindLabel, ScopeText]),
+    format('  Exemplos: ~w~n', [SampleText]).
+answer_evolution_structure_query(Kind, Generation) :-
+    evolution_structure_label(Kind, KindLabel),
+    generation_scope_text(Generation, ScopeText),
+    format('Bot: Não encontrei resultados para "~w" no recorte ~w.~n', [KindLabel, ScopeText]).
+
+answer_evolution_chain_query(NameIdentifier) :-
+    pokemon_info(NameIdentifier, pokemon(ID, NameAtom, _, _, _, _, _)),
+    !,
+    level_gate_species_id(ID, SpeciesID),
+    species_family_members(SpeciesID, FamilyIDs),
+    sort(FamilyIDs, UniqueFamily),
+    findall(Stage-Name,
+        ( member(MemberID, UniqueFamily),
+          species_stage_index(MemberID, Stage),
+          evolution_target_label(MemberID, Name)
+        ),
+        StagePairs),
+    StagePairs \= [],
+    display_pokemon_name(NameAtom, NameLabel),
+    writeln('Bot: Cadeia evolutiva completa:'),
+    format('  Referência: ~w~n', [NameLabel]),
+    print_chain_by_stage(StagePairs).
+answer_evolution_chain_query(_) :-
+    writeln('Bot: Não consegui identificar o Pokémon para montar a cadeia evolutiva.').
+
+answer_type_coverage_query(TargetType) :-
+    findall(Multiplier-AttackType,
+        ( all_types(Types),
+          member(AttackType, Types),
+          combined_multiplier(AttackType, [TargetType], Multiplier),
+          Multiplier > 1.0
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, Desc),
+    Desc \= [],
+    !,
+    display_type_label(TargetType, TargetLabel),
+    take_first_n(Desc, 6, Top),
+    coverage_pairs_text(Top, Text),
+    format('Bot: Tipos que cobrem melhor ~w: ~w.~n', [TargetLabel, Text]).
+answer_type_coverage_query(TargetType) :-
+    display_type_label(TargetType, TargetLabel),
+    format('Bot: Não encontrei cobertura super efetiva para o tipo ~w.~n', [TargetLabel]).
+
+answer_double_weakness_query(AttackType) :-
+    findall(Name,
+        ( pokemon_in_scope(_, Name, _, _, Types, _, _),
+          combined_multiplier(AttackType, Types, Multiplier),
+          Multiplier >= 4.0
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names),
+    length(Names, Count),
+    display_type_label(AttackType, TypeLabel),
+    format('Bot: Encontrei ~w Pokémon com dupla fraqueza (4x) a ~w.~n', [Count, TypeLabel]),
+    ( Count > 0 ->
+        remember_candidate_list(Names),
+        sample_names_text(Names, 12, SampleText),
+        format('  Exemplos: ~w~n', [SampleText])
+    ; true
+    ).
+
+answer_most_immunities_query(Limit) :-
+    findall(Count-Name,
+        ( pokemon_in_scope(_, Name, _, _, Types, _, _),
+          type_effectiveness_summary(Types, _Weak, _Resist, Immunities),
+          length(Immunities, Count),
+          Count > 0
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, Desc),
+    Desc \= [],
+    !,
+    take_first_n(Desc, Limit, Top),
+    extract_names_from_pairs(Top, Names),
+    remember_candidate_list(Names),
+    writeln('Bot: Pokémon com mais imunidades:'),
+    print_ranked_metric_lines(immunities, Top, 1).
+answer_most_immunities_query(_) :-
+    writeln('Bot: Não encontrei Pokémon com imunidades no recorte atual.').
+
+answer_team_coverage_query :-
+    greedy_coverage_team(6, Team),
+    Team \= [],
+    !,
+    remember_candidate_list(Team),
+    sample_names_text(Team, 6, TeamText),
+    coverage_by_team(Team, CoveredTypes),
+    length(CoveredTypes, CoveredCount),
+    format('Bot: Time heurístico de cobertura (6): ~w.~n', [TeamText]),
+    format('Bot: Esse time pressiona super efetivo ~w tipos diferentes.~n', [CoveredCount]).
+answer_team_coverage_query :-
+    writeln('Bot: Não consegui montar um time de cobertura no recorte atual.').
+
+answer_multi_compare_query(Names) :-
+    compare_candidates_ranked(Names, Ranked),
+    Ranked \= [],
+    !,
+    remember_candidate_list(Names),
+    writeln('Bot: Comparação rápida do grupo:'),
+    print_multi_compare_lines(Ranked, 1).
+answer_multi_compare_query(_) :-
+    writeln('Bot: Não consegui comparar esse grupo de Pokémon.').
+
+answer_rank_team_vs_target_query(TeamNames, TargetIdentifier) :-
+    resolve_counter_target(TargetIdentifier, pokemon(TargetID, TargetName, _, _, TargetTypes, _, TargetStats), _),
+    findall(Score-Name,
+        ( member(Name, TeamNames),
+          pokemon_in_scope(CandidateID, Name, _, _, CandidateTypes, _, CandidateStats),
+          CandidateID =\= TargetID,
+          counter_metrics(CandidateTypes, CandidateStats, TargetTypes, TargetStats, _AttackMult, _DefenseMult, AttackPressure, DefensePressure),
+          Score is (AttackPressure * 2.5) - DefensePressure
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, Ranked),
+    Ranked \= [],
+    !,
+    display_pokemon_name(TargetName, TargetLabel),
+    format('Bot: Ranking do seu time contra ~w:~n', [TargetLabel]),
+    print_ranked_metric_lines(team_matchup, Ranked, 1).
+answer_rank_team_vs_target_query(_, TargetIdentifier) :-
+    display_pokemon_name(TargetIdentifier, TargetLabel),
+    format('Bot: Não consegui ranquear seu time contra ~w com os nomes informados.~n', [TargetLabel]).
+
+answer_best_team_member_vs_target_query(TeamNames, TargetIdentifier) :-
+    answer_rank_team_vs_target_query(TeamNames, TargetIdentifier),
+    resolve_counter_target(TargetIdentifier, pokemon(TargetID, _, _, _, TargetTypes, _, TargetStats), _),
+    findall(Score-Name,
+        ( member(Name, TeamNames),
+          pokemon_in_scope(CandidateID, Name, _, _, CandidateTypes, _, CandidateStats),
+          CandidateID =\= TargetID,
+          counter_metrics(CandidateTypes, CandidateStats, TargetTypes, TargetStats, _AttackMult, _DefenseMult, AttackPressure, DefensePressure),
+          Score is (AttackPressure * 2.5) - DefensePressure
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, [BestScore-BestName | _]),
+    display_pokemon_name(BestName, BestLabel),
+    format('Bot: Melhor entrada do seu time nesse cenário: ~w (score ~2f).~n', [BestLabel, BestScore]).
+answer_best_team_member_vs_target_query(_TeamNames, TargetIdentifier) :-
+    display_pokemon_name(TargetIdentifier, TargetLabel),
+    format('Bot: Não consegui apontar a melhor entrada do seu time contra ~w.~n', [TargetLabel]).
+
+ranked_metric_pairs(Metric, Generation, OrderedPairs) :-
+    findall(Value-Name,
+        ( pokemon_in_scope(ID, Name, Height, Weight, _Types, _Abilities, Stats),
+          generation_filter_matches(Generation, ID),
+          ranked_metric_value(Metric, Height, Weight, Stats, Value)
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    ( metric_sort_order(Metric, asc) -> OrderedPairs = Asc ; reverse(Asc, OrderedPairs) ).
+
+ranked_metric_value(speed, _Height, _Weight, Stats, Value) :- member(speed-Value, Stats).
+ranked_metric_value(defensive_bulk, _Height, _Weight, Stats, Value) :-
+    member(hp-HP, Stats),
+    member(defense-Def, Stats),
+    member(special_defense-SpDef, Stats),
+    Value is HP + Def + SpDef.
+ranked_metric_value(physical_attack, _Height, _Weight, Stats, Value) :- member(attack-Value, Stats).
+ranked_metric_value(special_attack, _Height, _Weight, Stats, Value) :- member(special_attack-Value, Stats).
+ranked_metric_value(bst, _Height, _Weight, Stats, Value) :- total_stats_value(Stats, Value).
+ranked_metric_value(tallest, Height, _Weight, _Stats, Height).
+ranked_metric_value(shortest, Height, _Weight, _Stats, Height).
+ranked_metric_value(heaviest, _Height, Weight, _Stats, Weight).
+ranked_metric_value(lightest, _Height, Weight, _Stats, Weight).
+ranked_metric_value(immunities, _Height, _Weight, _Stats, _Value) :- fail.
+ranked_metric_value(team_matchup, _Height, _Weight, _Stats, _Value) :- fail.
+
+metric_sort_order(shortest, asc).
+metric_sort_order(lightest, asc).
+metric_sort_order(_, desc).
+
+ranked_metric_label(speed, 'velocidade').
+ranked_metric_label(defensive_bulk, 'bulk defensivo (HP+Def+SpDef)').
+ranked_metric_label(physical_attack, 'ataque físico').
+ranked_metric_label(special_attack, 'ataque especial').
+ranked_metric_label(bst, 'BST (soma dos status base)').
+ranked_metric_label(tallest, 'altura (maiores)').
+ranked_metric_label(shortest, 'altura (menores)').
+ranked_metric_label(heaviest, 'peso (maiores)').
+ranked_metric_label(lightest, 'peso (menores)').
+ranked_metric_label(immunities, 'imunidades').
+ranked_metric_label(team_matchup, 'matchup do time').
+
+generation_scope_text(all, 'todas as gerações').
+generation_scope_text(Generation, Text) :-
+    format(atom(Text), 'geração ~w', [Generation]).
+
+generation_filter_matches(all, _ID).
+generation_filter_matches(Generation, ID) :-
+    generation_matches_id(Generation, ID).
+
+print_ranked_metric_lines(_Metric, [], _Index).
+print_ranked_metric_lines(Metric, [Value-Name | Rest], Index) :-
+    display_pokemon_name(Name, Label),
+    ranked_metric_value_text(Metric, Value, ValueText),
+    format('  ~w) ~w — ~w~n', [Index, Label, ValueText]),
+    NextIndex is Index + 1,
+    print_ranked_metric_lines(Metric, Rest, NextIndex).
+
+ranked_metric_value_text(tallest, HeightDecimeters, Text) :-
+    HeightMeters is HeightDecimeters / 10,
+    format(atom(Text), '~1f m', [HeightMeters]).
+ranked_metric_value_text(shortest, HeightDecimeters, Text) :-
+    HeightMeters is HeightDecimeters / 10,
+    format(atom(Text), '~1f m', [HeightMeters]).
+ranked_metric_value_text(heaviest, WeightHectograms, Text) :-
+    WeightKg is WeightHectograms / 10,
+    format(atom(Text), '~1f kg', [WeightKg]).
+ranked_metric_value_text(lightest, WeightHectograms, Text) :-
+    WeightKg is WeightHectograms / 10,
+    format(atom(Text), '~1f kg', [WeightKg]).
+ranked_metric_value_text(team_matchup, Value, Text) :-
+    format(atom(Text), 'score ~2f', [Value]).
+ranked_metric_value_text(_, Value, Text) :-
+    format(atom(Text), '~w', [Value]).
+
+extract_names_from_pairs(Pairs, Names) :-
+    findall(Name,
+        member(_Value-Name, Pairs),
+        Names).
+
+bst_threshold_matches(ge, Value, Threshold) :- Value >= Threshold.
+bst_threshold_matches(le, Value, Threshold) :- Value =< Threshold.
+
+bst_comparator_text(ge, '>=').
+bst_comparator_text(le, '<=').
+
+evolution_structure_names(three_stage, Generation, Names) :-
+    scoped_species_ids(Generation, SpeciesIDs),
+    findall(Name,
+        ( member(SpeciesID, SpeciesIDs),
+          species_stage_index(SpeciesID, 1),
+          species_max_stage(SpeciesID, 3),
+          evolution_target_label(SpeciesID, Name)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names).
+evolution_structure_names(by_method(Method), Generation, Names) :-
+    scoped_species_ids(Generation, SpeciesIDs),
+    findall(Name,
+        ( member(SpeciesID, SpeciesIDs),
+          pokemon_evolution(SpeciesID, _ToID, Trigger, _MinLevel, Condition),
+          evolution_matches_method(Trigger, Condition, Method),
+          evolution_target_label(SpeciesID, Name)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names).
+evolution_structure_names(non_evolving, Generation, Names) :-
+    scoped_species_ids(Generation, SpeciesIDs),
+    findall(Name,
+        ( member(SpeciesID, SpeciesIDs),
+          \+ pokemon_evolution(SpeciesID, _ToID, _Trigger, _MinLevel, _Condition),
+          evolution_target_label(SpeciesID, Name)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names).
+evolution_structure_names(final_stage, Generation, Names) :-
+    scoped_species_ids(Generation, SpeciesIDs),
+    findall(Name,
+        ( member(SpeciesID, SpeciesIDs),
+          species_is_final_stage(SpeciesID),
+          evolution_target_label(SpeciesID, Name)
+        ),
+        NamesRaw),
+    sort(NamesRaw, Names).
+
+evolution_structure_label(three_stage, 'cadeias de 3 estágios').
+evolution_structure_label(by_method(level_up), 'evolução por level up').
+evolution_structure_label(by_method(stone), 'evolução por pedra').
+evolution_structure_label(by_method(happiness), 'evolução por felicidade').
+evolution_structure_label(non_evolving, 'não evoluem').
+evolution_structure_label(final_stage, 'estágio final').
+
+scoped_species_ids(Generation, SpeciesIDs) :-
+    findall(SpeciesID,
+        ( pokemon_in_scope(ID, _Name, _Height, _Weight, _Types, _Abilities, _Stats),
+          generation_filter_matches(Generation, ID),
+          level_gate_species_id(ID, SpeciesID)
+        ),
+        SpeciesRaw),
+    sort(SpeciesRaw, SpeciesIDs).
+
+species_is_final_stage(SpeciesID) :-
+    \+ pokemon_evolution(SpeciesID, _ToID, _Trigger, _MinLevel, _Condition).
+
+species_stage_index(SpeciesID, Stage) :-
+    species_stage_index(SpeciesID, [], Stage).
+
+species_stage_index(SpeciesID, _Visited, 1) :-
+    \+ pokemon_evolution(_PrevID, SpeciesID, _Trigger, _MinLevel, _Condition),
+    !.
+species_stage_index(SpeciesID, Visited, Stage) :-
+    findall(PrevStage,
+        ( pokemon_evolution(PrevID, SpeciesID, _Trigger, _MinLevel, _Condition),
+          \+ member(PrevID, Visited),
+          species_stage_index(PrevID, [SpeciesID | Visited], PrevStage)
+        ),
+        PrevStages),
+    PrevStages \= [],
+    max_list(PrevStages, MaxPrev),
+    Stage is MaxPrev + 1,
+    !.
+species_stage_index(_SpeciesID, _Visited, 1).
+
+species_max_stage(SpeciesID, MaxStage) :-
+    species_family_members(SpeciesID, FamilyIDs),
+    findall(Stage,
+        ( member(MemberID, FamilyIDs),
+          species_stage_index(MemberID, Stage)
+        ),
+        Stages),
+    max_list(Stages, MaxStage).
+
+species_family_members(SpeciesID, FamilyIDs) :-
+    species_family_members([SpeciesID], [], FamilyIDs).
+
+species_family_members([], Visited, Visited).
+species_family_members([Current | Queue], Visited, FamilyIDs) :-
+    ( member(Current, Visited) ->
+        species_family_members(Queue, Visited, FamilyIDs)
+    ; findall(Next,
+          ( pokemon_evolution(Current, Next, _T1, _L1, _C1)
+          ; pokemon_evolution(Next, Current, _T2, _L2, _C2)
+          ),
+          Neighbors),
+      append(Queue, Neighbors, NextQueue),
+      species_family_members(NextQueue, [Current | Visited], FamilyIDs)
+    ).
+
+print_chain_by_stage(StagePairs) :-
+    findall(Stage, member(Stage-_, StagePairs), StagesRaw),
+    max_list(StagesRaw, MaxStage),
+    print_chain_stage_lines(1, MaxStage, StagePairs).
+
+print_chain_stage_lines(Stage, MaxStage, _Pairs) :-
+    Stage > MaxStage,
+    !.
+print_chain_stage_lines(Stage, MaxStage, Pairs) :-
+    findall(Name, member(Stage-Name, Pairs), NamesRaw),
+    sort(NamesRaw, Names),
+    ( Names \= [] ->
+        atomic_list_concat(Names, ', ', Text),
+        format('  - Estágio ~w: ~w~n', [Stage, Text])
+    ; true
+    ),
+    Next is Stage + 1,
+    print_chain_stage_lines(Next, MaxStage, Pairs).
+
+coverage_pairs_text(Pairs, Text) :-
+    maplist(coverage_pair_label, Pairs, Labels),
+    atomic_list_concat(Labels, ', ', Text).
+
+coverage_pair_label(Multiplier-Type, Label) :-
+    display_type_label(Type, TypeLabel),
+    multiplier_text(Multiplier, MultText),
+    format(atom(Label), '~w (~w)', [TypeLabel, MultText]).
+
+greedy_coverage_team(Size, Team) :-
+    findall(Name,
+        pokemon_in_scope(_ID, Name, _Height, _Weight, _Types, _Abilities, _Stats),
+        NamesRaw),
+    sort(NamesRaw, Names),
+    greedy_coverage_team(Names, [], [], Size, Team).
+
+greedy_coverage_team(_Pool, TeamAcc, _Covered, 0, Team) :-
+    reverse(TeamAcc, Team),
+    !.
+greedy_coverage_team(Pool, TeamAcc, Covered, SlotsLeft, Team) :-
+    best_coverage_pick(Pool, Covered, BestName, BestNewCovered),
+    !,
+    delete(Pool, BestName, RemainingPool),
+    append(Covered, BestNewCovered, CoveredRaw),
+    sort(CoveredRaw, UpdatedCovered),
+    NextSlots is SlotsLeft - 1,
+    greedy_coverage_team(RemainingPool, [BestName | TeamAcc], UpdatedCovered, NextSlots, Team).
+greedy_coverage_team(_Pool, TeamAcc, _Covered, _SlotsLeft, Team) :-
+    reverse(TeamAcc, Team).
+
+best_coverage_pick(Pool, Covered, BestName, BestNewCovered) :-
+    findall(NewCount-Name-NewCovered,
+        ( member(Name, Pool),
+          pokemon_info(Name, pokemon(_, _, _, _, Types, _, _)),
+          offensive_coverage_types(Types, Coverage),
+          subtract(Coverage, Covered, NewCovered),
+          length(NewCovered, NewCount)
+        ),
+        Candidates),
+    keysort(Candidates, Sorted),
+    reverse(Sorted, [_BestCount-BestName-BestNewCovered | _]).
+
+offensive_coverage_types(AttackTypes, CoveredTypes) :-
+    all_types(TargetTypes),
+    findall(TargetType,
+        ( member(TargetType, TargetTypes),
+          member(AttackType, AttackTypes),
+          combined_multiplier(AttackType, [TargetType], Multiplier),
+          Multiplier > 1.0
+        ),
+        CoveredRaw),
+    sort(CoveredRaw, CoveredTypes).
+
+coverage_by_team(TeamNames, CoveredTypes) :-
+    findall(Type,
+        ( member(Name, TeamNames),
+          pokemon_info(Name, pokemon(_, _, _, _, Types, _, _)),
+          offensive_coverage_types(Types, TeamCovered),
+          member(Type, TeamCovered)
+        ),
+        CoveredRaw),
+    sort(CoveredRaw, CoveredTypes).
+
+compare_candidates_ranked(Names, Ranked) :-
+    findall(BST-Name,
+        ( member(Name, Names),
+          pokemon_info(Name, pokemon(_, _, _, _, _, _, Stats)),
+          total_stats_value(Stats, BST)
+        ),
+        PairsRaw),
+    keysort(PairsRaw, Asc),
+    reverse(Asc, Ranked).
+
+print_multi_compare_lines([], _Index).
+print_multi_compare_lines([BST-Name | Rest], Index) :-
+    pokemon_info(Name, pokemon(_, _, _, _, Types, _, Stats)),
+    compare_role_profile(Stats, RoleText, _Bucket),
+    display_pokemon_name(Name, NameLabel),
+    type_list_text(Types, TypeText),
+    format('  ~w) ~w — BST ~w, tipos: ~w, perfil: ~w~n', [Index, NameLabel, BST, TypeText, RoleText]),
+    Next is Index + 1,
+    print_multi_compare_lines(Rest, Next).
+
 counter_pair_passes_filters(Filters, _Score-Name-_AttackMult-_DefenseMult) :-
     name_passes_filters(Filters, Name).
+
+% ============================================================
+% RESPOSTAS: MATCHUP POR NÍVEL E FILTROS CONTEXTUAIS
+% ============================================================
 
 answer_level_matchup_query(Text, TargetName, TargetLevel, OwnLevel) :-
     extract_all_pokemon_mentions(Text, Mentioned),
@@ -2086,6 +2976,10 @@ answer_team_compare_query(NameA, NameB) :-
 answer_team_compare_query(NameA, NameB) :-
     writeln('Bot: Não consegui montar comparação de função para time.'),
     print_suggestion_for_pair(compare, NameA, NameB).
+
+% ============================================================
+% RESPOSTAS: TIPOLOGIA, COMPARAÇÃO E BATALHA
+% ============================================================
 
 answer_weak_against_type_query(TypeFilters) :-
     findall(Name,
@@ -2680,7 +3574,19 @@ name_passes_filters(Filters, Name) :-
     \+ (member(no_mega, Filters), is_mega_name(Name)),
     \+ (member(no_legendary, Filters), is_legendary_or_mythical_name(Name)),
     ( \+ member(only_mega, Filters) ; is_mega_name(Name) ),
-    ( \+ member(only_legendary, Filters) ; is_legendary_or_mythical_name(Name) ).
+    ( \+ member(only_legendary, Filters) ; is_legendary_or_mythical_name(Name) ),
+    ( \+ member(only_unevolved, Filters) ; is_unevolved_name(Name) ),
+    ( \+ member(only_evolved, Filters) ; is_evolved_name(Name) ).
+
+is_unevolved_name(Name) :-
+    pokemon_info(Name, pokemon(ID, _Name, _Height, _Weight, _Types, _Abilities, _Stats)),
+    level_gate_species_id(ID, SpeciesID),
+    \+ pokemon_evolution(_FromID, SpeciesID, _Trigger, _MinLevel, _Condition).
+
+is_evolved_name(Name) :-
+    pokemon_info(Name, pokemon(ID, _Name, _Height, _Weight, _Types, _Abilities, _Stats)),
+    level_gate_species_id(ID, SpeciesID),
+    pokemon_evolution(_FromID, SpeciesID, _Trigger, _MinLevel, _Condition).
 
 is_mega_name(Name) :-
     atom_string(Name, NameText),
@@ -2883,6 +3789,10 @@ legendary_or_mythical_species_id(1022).
 legendary_or_mythical_species_id(1023).
 legendary_or_mythical_species_id(1024).
 legendary_or_mythical_species_id(1025).
+
+% ============================================================
+% RESPOSTAS CONTEXTUAIS E UTILITÁRIOS DE LISTA
+% ============================================================
 
 answer_contextual_stat_query(Stats) :-
     last_list_candidates(Names),
@@ -3136,6 +4046,10 @@ keysort_stats_desc(Stats, SortedDesc) :-
         member(Value-Stat, Desc),
         SortedDesc).
 
+% ============================================================
+% UTILITÁRIOS GERAIS (DADOS, TEXTO E EXIBIÇÃO)
+% ============================================================
+
 take_first_n(List, N, Taken) :-
     length(Taken, N),
     append(Taken, _, List),
@@ -3174,68 +4088,6 @@ type_filters_text(TypeFilters, Text) :-
 normalize_type(InputType, ApiType) :-
     downcase_atom(InputType, TypeAtom),
     ( type_alias(TypeAtom, ApiType) -> true ; ApiType = TypeAtom ).
-
-type_alias(fogo, fire).
-type_alias(fogos, fire).
-type_alias(foguento, fire).
-type_alias(foguentos, fire).
-type_alias(agua, water).
-type_alias('água', water).
-type_alias(aguatico, water).
-type_alias('aquático', water).
-type_alias(aguaticos, water).
-type_alias('aquáticos', water).
-type_alias(grama, grass).
-type_alias(gramas, grass).
-type_alias(gramineo, grass).
-type_alias(gramineos, grass).
-type_alias(planta, grass).
-type_alias(plantas, grass).
-type_alias(inseto, bug).
-type_alias(insetos, bug).
-type_alias(normal, normal).
-type_alias(normais, normal).
-type_alias(veneno, poison).
-type_alias(venenoso, poison).
-type_alias(venenosos, poison).
-type_alias('elétrico', electric).
-type_alias(eletrico, electric).
-type_alias('elétricos', electric).
-type_alias(eletricos, electric).
-type_alias(elétrico, electric).
-type_alias(elétricos, electric).
-type_alias(terra, ground).
-type_alias(terrestre, ground).
-type_alias(terrestres, ground).
-type_alias(pedra, rock).
-type_alias(pedras, rock).
-type_alias(rochoso, rock).
-type_alias(rochosos, rock).
-type_alias(psiquico, psychic).
-type_alias('psíquico', psychic).
-type_alias(psiquicos, psychic).
-type_alias('psíquicos', psychic).
-type_alias(gelo, ice).
-type_alias(gelado, ice).
-type_alias(gelados, ice).
-type_alias(dragao, dragon).
-type_alias('dragão', dragon).
-type_alias(dragoes, dragon).
-type_alias('dragões', dragon).
-type_alias(fantasma, ghost).
-type_alias(fantasmas, ghost).
-type_alias(lutador, fighting).
-type_alias(lutadores, fighting).
-type_alias(sombrio, dark).
-type_alias(sombrios, dark).
-type_alias('aço', steel).
-type_alias(aco, steel).
-type_alias(acos, steel).
-type_alias('aços', steel).
-type_alias(fada, fairy).
-type_alias(fadas, fairy).
-type_alias(voador, flying).
-type_alias(voadores, flying).
 
 pokemon_in_scope(ID, Name, Height, Weight, Types, Abilities, Stats) :-
     pokemon(ID, Name, Height, Weight, Types, Abilities, Stats),
@@ -3339,8 +4191,6 @@ display_label(Value, Label) :-
     split_string(Text, "_", "", Parts),
     atomic_list_concat(Parts, ' ', Label).
 
-all_types([normal, fire, water, electric, grass, ice, fighting, poison, ground, flying, psychic, bug, rock, ghost, dragon, dark, steel, fairy]).
-
 type_effectiveness_summary(DefenseTypes, Weaknesses, Resistances, Immunities) :-
     all_types(AttackTypes),
     findall(Type-M,
@@ -3416,14 +4266,6 @@ dominant_stat([Stat-Value | Rest], BestStat, BestValue) :-
       BestValue = CurrentValue
     ).
 
-stat_profile(attack, 'perfil ofensivo físico').
-stat_profile(special_attack, 'perfil ofensivo especial').
-stat_profile(defense, 'perfil defensivo').
-stat_profile(special_defense, 'perfil defensivo').
-stat_profile(speed, 'perfil veloz').
-stat_profile(hp, 'boa resistência').
-stat_profile(_, 'perfil equilibrado').
-
 first_ability_text([Ability | _], Text) :-
     display_label(Ability, Text).
 first_ability_text([], 'desconhecida').
@@ -3434,189 +4276,16 @@ display_type_label(Type, Label) :-
 display_stat_label(Stat, Label) :-
     ( stat_pt(Stat, Label) -> true ; display_label(Stat, Label) ).
 
-stat_command_text(hp, 'hp').
-stat_command_text(attack, 'ataque').
-stat_command_text(defense, 'defesa').
-stat_command_text(special_attack, 'ataque especial').
-stat_command_text(special_defense, 'defesa especial').
-stat_command_text(speed, 'velocidade').
-
-stat_pt(hp, 'HP').
-stat_pt(attack, 'Ataque').
-stat_pt(defense, 'Defesa').
-stat_pt(special_attack, 'Ataque Especial').
-stat_pt(special_defense, 'Defesa Especial').
-stat_pt(speed, 'Velocidade').
-
-type_pt(normal, 'Normal').
-type_pt(fire, 'Fogo').
-type_pt(water, 'Água').
-type_pt(electric, 'Elétrico').
-type_pt(grass, 'Grama').
-type_pt(ice, 'Gelo').
-type_pt(fighting, 'Lutador').
-type_pt(poison, 'Veneno').
-type_pt(ground, 'Terra').
-type_pt(flying, 'Voador').
-type_pt(psychic, 'Psíquico').
-type_pt(bug, 'Inseto').
-type_pt(rock, 'Pedra').
-type_pt(ghost, 'Fantasma').
-type_pt(dragon, 'Dragão').
-type_pt(dark, 'Sombrio').
-type_pt(steel, 'Aço').
-type_pt(fairy, 'Fada').
-
-type_chart(normal, rock, 0.5).
-type_chart(normal, ghost, 0.0).
-type_chart(normal, steel, 0.5).
-type_chart(fire, fire, 0.5).
-type_chart(fire, water, 0.5).
-type_chart(fire, grass, 2.0).
-type_chart(fire, ice, 2.0).
-type_chart(fire, bug, 2.0).
-type_chart(fire, rock, 0.5).
-type_chart(fire, dragon, 0.5).
-type_chart(fire, steel, 2.0).
-type_chart(water, fire, 2.0).
-type_chart(water, water, 0.5).
-type_chart(water, grass, 0.5).
-type_chart(water, ground, 2.0).
-type_chart(water, rock, 2.0).
-type_chart(water, dragon, 0.5).
-type_chart(electric, water, 2.0).
-type_chart(electric, electric, 0.5).
-type_chart(electric, grass, 0.5).
-type_chart(electric, ground, 0.0).
-type_chart(electric, flying, 2.0).
-type_chart(electric, dragon, 0.5).
-type_chart(grass, fire, 0.5).
-type_chart(grass, water, 2.0).
-type_chart(grass, grass, 0.5).
-type_chart(grass, poison, 0.5).
-type_chart(grass, ground, 2.0).
-type_chart(grass, flying, 0.5).
-type_chart(grass, bug, 0.5).
-type_chart(grass, rock, 2.0).
-type_chart(grass, dragon, 0.5).
-type_chart(grass, steel, 0.5).
-type_chart(ice, fire, 0.5).
-type_chart(ice, water, 0.5).
-type_chart(ice, grass, 2.0).
-type_chart(ice, ground, 2.0).
-type_chart(ice, flying, 2.0).
-type_chart(ice, dragon, 2.0).
-type_chart(ice, steel, 0.5).
-type_chart(ice, ice, 0.5).
-type_chart(fighting, normal, 2.0).
-type_chart(fighting, ice, 2.0).
-type_chart(fighting, poison, 0.5).
-type_chart(fighting, flying, 0.5).
-type_chart(fighting, psychic, 0.5).
-type_chart(fighting, bug, 0.5).
-type_chart(fighting, rock, 2.0).
-type_chart(fighting, ghost, 0.0).
-type_chart(fighting, dark, 2.0).
-type_chart(fighting, steel, 2.0).
-type_chart(fighting, fairy, 0.5).
-type_chart(poison, grass, 2.0).
-type_chart(poison, poison, 0.5).
-type_chart(poison, ground, 0.5).
-type_chart(poison, rock, 0.5).
-type_chart(poison, ghost, 0.5).
-type_chart(poison, steel, 0.0).
-type_chart(poison, fairy, 2.0).
-type_chart(ground, fire, 2.0).
-type_chart(ground, electric, 2.0).
-type_chart(ground, grass, 0.5).
-type_chart(ground, poison, 2.0).
-type_chart(ground, flying, 0.0).
-type_chart(ground, bug, 0.5).
-type_chart(ground, rock, 2.0).
-type_chart(ground, steel, 2.0).
-type_chart(flying, electric, 0.5).
-type_chart(flying, grass, 2.0).
-type_chart(flying, fighting, 2.0).
-type_chart(flying, bug, 2.0).
-type_chart(flying, rock, 0.5).
-type_chart(flying, steel, 0.5).
-type_chart(psychic, fighting, 2.0).
-type_chart(psychic, poison, 2.0).
-type_chart(psychic, psychic, 0.5).
-type_chart(psychic, dark, 0.0).
-type_chart(psychic, steel, 0.5).
-type_chart(bug, fire, 0.5).
-type_chart(bug, grass, 2.0).
-type_chart(bug, fighting, 0.5).
-type_chart(bug, poison, 0.5).
-type_chart(bug, flying, 0.5).
-type_chart(bug, psychic, 2.0).
-type_chart(bug, ghost, 0.5).
-type_chart(bug, dark, 2.0).
-type_chart(bug, steel, 0.5).
-type_chart(bug, fairy, 0.5).
-type_chart(rock, fire, 2.0).
-type_chart(rock, ice, 2.0).
-type_chart(rock, fighting, 0.5).
-type_chart(rock, ground, 0.5).
-type_chart(rock, flying, 2.0).
-type_chart(rock, bug, 2.0).
-type_chart(rock, steel, 0.5).
-type_chart(ghost, normal, 0.0).
-type_chart(ghost, psychic, 2.0).
-type_chart(ghost, ghost, 2.0).
-type_chart(ghost, dark, 0.5).
-type_chart(dragon, dragon, 2.0).
-type_chart(dragon, steel, 0.5).
-type_chart(dragon, fairy, 0.0).
-type_chart(dark, fighting, 0.5).
-type_chart(dark, psychic, 2.0).
-type_chart(dark, ghost, 2.0).
-type_chart(dark, dark, 0.5).
-type_chart(dark, fairy, 0.5).
-type_chart(steel, fire, 0.5).
-type_chart(steel, water, 0.5).
-type_chart(steel, electric, 0.5).
-type_chart(steel, ice, 2.0).
-type_chart(steel, rock, 2.0).
-type_chart(steel, steel, 0.5).
-type_chart(steel, fairy, 2.0).
-type_chart(fairy, fire, 0.5).
-type_chart(fairy, fighting, 2.0).
-type_chart(fairy, poison, 0.5).
-type_chart(fairy, dragon, 2.0).
-type_chart(fairy, dark, 2.0).
-type_chart(fairy, steel, 0.5).
-
-show_help :-
-    writeln('Bot: Exemplos de uso:'),
-    writeln('  1) info nome pikachu'),
-    writeln('  2) info numero 25'),
-    writeln('  3) pokemon charizard'),
-    writeln('  4) tipo fogo'),
-    writeln('  5) quantos pokemon existem do tipo grama'),
-    writeln('  6) 25  (numero direto)'),
-    writeln('  7) pokemon #25'),
-    writeln('  8) geracao 1'),
-    writeln('  9) geracao todas'),
-    writeln(' 10) tipo fogo/voador'),
-    writeln(' 11) habilidade blaze'),
-    writeln(' 12) status velocidade'),
-    writeln(' 13) status velocidade completo'),
-    writeln(' 14) pokemon charizard mega x'),
-    writeln(' 15) qual é um bom pokemon contra charizard'),
-    writeln(' 16) quem ganha entre charizard e blastoise'),
-    writeln(' 17) charizard ou blastoise'),
-    writeln(' 18) comparacao entre alakazam e gengar'),
-    writeln(' 19) habilidade static'),
-    writeln(' 20) quais de elemento fogo'),
-    writeln(' 21) quantas megas evoluções existem'),
-    writeln(' 22) megas por geração'),
-    writeln(' 23) pokemons por geração'),
-    writeln(' 24) lendarios por geração'),
-    writeln(' 25) pokemons do tipo fogo na geração 3'),
-    writeln(' 26) megas do tipo dragão na geração 6'),
-    writeln(' 27) lendarios do tipo psíquico').
+% ============================================================
+% SAÍDA PADRÃO DE MENSAGENS (CENTRALIZADA)
+% ============================================================
 
 print_follow_up_prompt :-
-    writeln('Bot: Quer fazer outra consulta? Ex.: "pokemon pikachu", "tipo água", "habilidade blaze" ou "status ataque".').
+    say_response(follow_up_prompt).
+
+say_response(Key) :-
+    response_text(Key, Text),
+    !,
+    writeln(Text).
+say_response(_) :-
+    true.
