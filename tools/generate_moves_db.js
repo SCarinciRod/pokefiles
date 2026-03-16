@@ -150,6 +150,18 @@ function mapMovePp(moveData) {
   return Number.isInteger(moveData?.pp) ? moveData.pp : 0;
 }
 
+function mapMoveEffectChance(moveData) {
+  return Number.isInteger(moveData?.effect_chance) ? moveData.effect_chance : null;
+}
+
+function mapMoveAilment(moveData) {
+  return sanitizeAtom(moveData?.meta?.ailment?.name || 'none');
+}
+
+function mapMoveEffectCategory(moveData) {
+  return sanitizeAtom(moveData?.meta?.category?.name || 'unknown');
+}
+
 function mapMoveTags(moveData) {
   const tags = [];
   const className = sanitizeAtom(moveData?.damage_class?.name || 'status');
@@ -179,7 +191,12 @@ function pickMoveDescription(moveData) {
   const entries = Array.isArray(moveData?.effect_entries) ? moveData.effect_entries : [];
   const en = entries.find((entry) => entry?.language?.name === 'en' && entry?.short_effect);
   if (!en) return 'Sem descrição curta disponível.';
-  return String(en.short_effect).replace(/\n+/g, ' ').trim();
+  let text = String(en.short_effect).replace(/\n+/g, ' ').trim();
+  const chance = mapMoveEffectChance(moveData);
+  if (Number.isInteger(chance)) {
+    text = text.replace(/\$effect_chance/g, String(chance));
+  }
+  return text;
 }
 
 function renderMovesCatalog(moveRows) {
@@ -187,13 +204,14 @@ function renderMovesCatalog(moveRows) {
     ':- encoding(utf8).',
     '',
     '% Arquivo gerado automaticamente por tools/generate_moves_db.js',
-    '% move_entry(MoveId, Type, Category, BasePower, Accuracy, PP, Tags, Description).',
+    '% move_entry(MoveId, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description).',
     '',
   ].join('\n');
 
   const lines = moveRows.map((row) => {
     const tags = `[${row.tags.join(', ')}]`;
-    return `move_entry(${row.id}, ${row.type}, ${row.category}, ${row.power}, ${row.accuracy}, ${row.pp}, ${tags}, ${prologQuotedText(row.description)}).`;
+    const effectChance = row.effectChance === null ? 'null' : row.effectChance;
+    return `move_entry(${row.id}, ${row.type}, ${row.category}, ${row.power}, ${row.accuracy}, ${row.pp}, ${tags}, ${effectChance}, ${row.ailment}, ${row.effectCategory}, ${prologQuotedText(row.description)}).`;
   });
 
   return `${header}${lines.join('\n')}\n`;
@@ -358,6 +376,9 @@ async function main() {
         accuracy: mapMoveAccuracy(moveData),
         pp: mapMovePp(moveData),
         tags: mapMoveTags(moveData),
+        effectChance: mapMoveEffectChance(moveData),
+        ailment: mapMoveAilment(moveData),
+        effectCategory: mapMoveEffectCategory(moveData),
         description: pickMoveDescription(moveData),
       };
     },

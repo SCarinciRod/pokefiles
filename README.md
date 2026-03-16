@@ -11,6 +11,12 @@ Também possui base de golpes separada em:
 - `db/moves_catalog.pl` (catálogo global de moves)
 - `db/pokemon_movelists.pl` (movelist por Pokémon)
 
+O catálogo global de moves inclui metadados de efeito secundário vindos da PokéAPI:
+
+- `EffectChance` (campo `effect_chance` da PokéAPI)
+- `Ailment` (campo `meta.ailment`)
+- `EffectCategory` (campo `meta.category`)
+
 Também possui catálogos completos de metadados competitivos:
 
 - `db/abilities_catalog.pl` (abilities completas da PokéAPI)

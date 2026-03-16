@@ -4208,6 +4208,8 @@ move_catalog(Moves) :-
     sort(MovesRaw, Moves).
 
 move_catalog_entry(Move) :-
+    move_entry(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _EffectChance, _Ailment, _EffectCategory, _Description).
+move_catalog_entry(Move) :-
     move_entry(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _Description).
 move_catalog_entry(Move) :-
     pokemon_move_list(_PokemonName, Moves),
