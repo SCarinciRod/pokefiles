@@ -41,6 +41,7 @@
 :- multifile metric_phrase/2.
 :- multifile rank_role_token/2.
 :- multifile focus_choice_token/2.
+:- multifile move_intent_token/1.
 
 negation_token("sem").
 
@@ -477,6 +478,13 @@ focus_choice_token(special, "sp").
 focus_choice_token(special, "spatk").
 focus_choice_token(special, "spdef").
 focus_choice_token(special, "especialdefense").
+
+move_intent_token("move").
+move_intent_token("moves").
+move_intent_token("movelist").
+move_intent_token("moveset").
+move_intent_token("golpe").
+move_intent_token("golpes").
 
 % Números por extenso (base para geração, nível e limites de ranking)
 number_word_value("zero", 0).

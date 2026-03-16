@@ -6,6 +6,15 @@ Projeto de faculdade: chatbot Pokédex feito em Prolog, com suporte para:
 - Informar quantos Pokémon diferentes existem de um determinado **tipo** (fogo, grama, inseto, etc.).
 
 O projeto usa base local em Prolog (modo offline), separada por geração em `db/generation_1.pl`, `db/generation_2.pl`, etc.
+Também possui base de golpes separada em:
+
+- `db/moves_catalog.pl` (catálogo global de moves)
+- `db/pokemon_movelists.pl` (movelist por Pokémon)
+
+Também possui catálogos completos de metadados competitivos:
+
+- `db/abilities_catalog.pl` (abilities completas da PokéAPI)
+- `db/items_catalog.pl` (itens completos da PokéAPI)
 
 ## Requisitos
 
@@ -29,6 +38,7 @@ Esse setup:
 - se ainda faltar, instala via `scoop` (modo sem instalador gráfico);
 - roda o gerador e cria `db/generation_1.pl` até `db/generation_9.pl`;
 - gera também lore local por geração em `db/lore_generation_1.pl` até `db/lore_generation_9.pl`.
+- pode gerar base completa de moves/movelists com script dedicado.
 
 Local de instalação (somente usuário):
 
@@ -98,4 +108,22 @@ Consultas por tipo, habilidade e status retornam contagem e uma lista amostral d
 
 ```bash
 node tools/generate_generation_db.js all
+```
+
+- Para gerar novamente os dados completos de moves/movelists:
+
+```bash
+node tools/generate_moves_db.js
+```
+
+- Para gerar novamente catálogos completos de abilities e itens:
+
+```bash
+node tools/generate_abilities_items_db.js
+```
+
+Se houver problema de certificado TLS na sua rede local:
+
+```powershell
+$env:POKEDEX_INSECURE_TLS='1'; node tools/generate_moves_db.js
 ```

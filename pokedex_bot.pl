@@ -53,6 +53,12 @@ load_database :-
     expand_file_name('db/bot_type_data.pl', BotTypeDataFiles),
     expand_file_name('db/bot_ui_texts.pl', BotUITextFiles),
     expand_file_name('db/bot_response_texts.pl', BotResponseTextFiles),
+    expand_file_name('db/ability_data.pl', AbilityDataFiles),
+    expand_file_name('db/abilities_catalog.pl', AbilitiesCatalogFiles),
+    expand_file_name('db/items_catalog.pl', ItemsCatalogFiles),
+    expand_file_name('db/moves_catalog.pl', MovesCatalogFiles),
+    expand_file_name('db/pokemon_movelists.pl', PokemonMovelistFiles),
+    expand_file_name('db/move_data.pl', MoveDataFallbackFiles),
     ( GenerationFiles \= [] ->
         maplist(consult, GenerationFiles)
     ; consult('pokemon_db.pl')
@@ -95,6 +101,30 @@ load_database :-
     ),
     ( BotResponseTextFiles \= [] ->
         maplist(consult, BotResponseTextFiles)
+    ; true
+    ),
+    ( AbilityDataFiles \= [] ->
+        maplist(consult, AbilityDataFiles)
+    ; true
+    ),
+    ( AbilitiesCatalogFiles \= [] ->
+        maplist(consult, AbilitiesCatalogFiles)
+    ; true
+    ),
+    ( ItemsCatalogFiles \= [] ->
+        maplist(consult, ItemsCatalogFiles)
+    ; true
+    ),
+    ( MovesCatalogFiles \= [] ->
+        maplist(consult, MovesCatalogFiles)
+    ; true
+    ),
+    ( PokemonMovelistFiles \= [] ->
+        maplist(consult, PokemonMovelistFiles)
+    ; true
+    ),
+    ( MovesCatalogFiles == [], PokemonMovelistFiles == [], MoveDataFallbackFiles \= [] ->
+        maplist(consult, MoveDataFallbackFiles)
     ; true
     ).
 
@@ -315,6 +345,12 @@ answer_query(Text) :-
         print_follow_up_prompt
     ; parse_natural_type_query(Text, TypeFilters) ->
         answer_type_query_with_clarification(TypeFilters),
+        print_follow_up_prompt
+    ; parse_pokemon_movelist_query(Text, Name) ->
+        answer_pokemon_movelist_query(Name),
+        print_follow_up_prompt
+    ; parse_move_list_query(Text) ->
+        answer_global_move_list_query,
         print_follow_up_prompt
     ; parse_ability_query(Text, Ability) ->
         answer_ability_query(Ability),
@@ -1364,6 +1400,29 @@ parse_ability_query(Text, Ability) :-
     \+ starts_with_tokens(Tail, ["da"]),
     extract_ability_token(Tail, Ability).
 
+parse_pokemon_movelist_query(Text, Name) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), move_intent_token(Token) ),
+    extract_all_pokemon_mentions(Text, Mentions),
+    Mentions = [Name | _].
+
+parse_move_list_query(Text) :-
+    tokenize_for_match(Text, Tokens),
+        ( ( member(Token, Tokens), move_intent_token(Token),
+                ( member("lista", Tokens)
+                ; member("listar", Tokens)
+                ; member("todos", Tokens)
+                ; member("presentes", Tokens)
+                ; member("jogo", Tokens)
+                )
+            )
+        ; contiguous_sublist(["lista", "de", "moves"], Tokens)
+    ; contiguous_sublist(["lista", "de", "golpes"], Tokens)
+    ; contiguous_sublist(["moves", "presentes"], Tokens)
+    ; contiguous_sublist(["golpes", "presentes"], Tokens)
+    ),
+    \+ parse_pokemon_movelist_query(Text, _).
+
 parse_status_query(Text, Stat) :-
     tokenize_for_match(Text, Tokens),
     ( append(_, ["status" | Tail], Tokens)
@@ -1852,12 +1911,46 @@ answer_ability_query(Ability) :-
     remember_candidate_list(Names),
     length(Names, Count),
     display_label(Ability, AbilityLabel),
+    ability_brief_text(Ability, AbilityBrief),
     sample_names_text(Names, 8, SampleText),
+    format('Bot: Habilidade ~w — ~w~n', [AbilityLabel, AbilityBrief]),
     format('Bot: Encontrei ~w Pokémon com a habilidade ~w.~n', [Count, AbilityLabel]),
     format('  Exemplos: ~w~n', [SampleText]).
 answer_ability_query(Ability) :-
     display_label(Ability, AbilityLabel),
     format('Bot: Não encontrei Pokémon com a habilidade ~w.~n', [AbilityLabel]).
+
+answer_global_move_list_query :-
+    move_catalog(Moves),
+    Moves \= [],
+    !,
+    length(Moves, Count),
+    sample_move_names_text(Moves, 30, SampleText),
+    format('Bot: Tenho ~w moves catalogados na base atual.~n', [Count]),
+    format('  Amostra: ~w~n', [SampleText]),
+    writeln('Bot: Se quiser, peça também o movelist de um Pokémon (ex.: "moves do charizard").').
+answer_global_move_list_query :-
+    writeln('Bot: Ainda não encontrei moves catalogados na base local.').
+
+answer_pokemon_movelist_query(NameIdentifier) :-
+    pokemon_info(NameIdentifier, pokemon(ID, NameAtom, _, _, _, _, _)),
+    !,
+    pokemon_move_list_for_id(ID, NameAtom, Moves, Source),
+    display_pokemon_name(NameAtom, NameLabel),
+    length(Moves, Count),
+    sample_move_names_text(Moves, 20, SampleText),
+    format('Bot: Movelist de ~w (~w moves): ~w.~n', [NameLabel, Count, SampleText]),
+    ( Source = exact ->
+        true
+    ; Source = base(BaseName) ->
+        display_pokemon_name(BaseName, BaseLabel),
+        format('Bot: Observação: usei a movelist da forma base (~w).~n', [BaseLabel])
+    ; Source = fallback ->
+        writeln('Bot: Observação: ainda não tenho movelist específica desse Pokémon; mostrei um fallback mínimo.')
+    ).
+answer_pokemon_movelist_query(NameIdentifier) :-
+    display_pokemon_name(NameIdentifier, NameLabel),
+    format('Bot: Não consegui identificar o Pokémon para mostrar movelist (~w).~n', [NameLabel]).
 
 answer_status_query(Stat) :-
     top_pokemon_by_stat(Stat, 8, TopPairs),
@@ -4110,6 +4203,40 @@ ability_pokemon_list(Ability, Names) :-
         NamesRaw),
     sort(NamesRaw, Names).
 
+move_catalog(Moves) :-
+    findall(Move, move_catalog_entry(Move), MovesRaw),
+    sort(MovesRaw, Moves).
+
+move_catalog_entry(Move) :-
+    move_entry(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _Description).
+move_catalog_entry(Move) :-
+    pokemon_move_list(_PokemonName, Moves),
+    member(Move, Moves).
+
+pokemon_move_list_for_id(ID, Name, Moves, exact) :-
+    \+ is_special_form_id(ID),
+    pokemon_move_list(Name, Moves),
+    !.
+pokemon_move_list_for_id(ID, _Name, Moves, base(BaseName)) :-
+    special_form_base_name(ID, BaseName),
+    pokemon_move_list(BaseName, Moves),
+    !.
+pokemon_move_list_for_id(_ID, _Name, Moves, fallback) :-
+    pokemon_move_list(unknown, Moves).
+
+special_form_base_name(ID, BaseName) :-
+    pokemon_form_base(ID, BaseID),
+    pokemon_info(BaseID, pokemon(_, BaseName, _, _, _, _, _)),
+    !.
+special_form_base_name(ID, BaseName) :-
+    pokemon_mega_base(ID, BaseID),
+    pokemon_info(BaseID, pokemon(_, BaseName, _, _, _, _, _)).
+
+sample_move_names_text(Moves, Limit, Text) :-
+    take_first_n(Moves, Limit, Sample),
+    maplist(display_label, Sample, Labels),
+    atomic_list_concat(Labels, ', ', Text).
+
 top_pokemon_by_stat(Stat, Limit, TopPairs) :-
     findall(Value-Name,
         ( pokemon_in_scope(_, Name, _, _, _, _, Stats),
@@ -4366,6 +4493,37 @@ dominant_stat([Stat-Value | Rest], BestStat, BestValue) :-
 first_ability_text([Ability | _], Text) :-
     display_label(Ability, Text).
 first_ability_text([], 'desconhecida').
+
+ability_brief_text(Ability, Text) :-
+    ( ability_effect(Ability, _Category, _Trigger, _CombatModel, Description) ->
+        Text = Description
+    ; ability_catalog_text(Ability, CatalogText) ->
+        Text = CatalogText
+    ; ability_effect(unknown, _DefaultCategory, _DefaultTrigger, _DefaultModel, Description),
+      Text = Description
+    ).
+
+ability_catalog_text(Ability, Text) :-
+    current_predicate(ability_entry/5),
+    ability_entry(Ability, _Generation, _IsMainSeries, ShortEffect, Effect),
+    ( text_is_present(ShortEffect) ->
+        Text = ShortEffect
+    ; text_is_present(Effect) ->
+        Text = Effect
+    ),
+    !.
+
+text_is_present(Text) :-
+    nonvar(Text),
+    atom(Text),
+    atom_length(Text, Length),
+    Length > 0.
+
+ability_effect_or_default(Ability, Category, Trigger, CombatModel, Description) :-
+    ( ability_effect(Ability, Category, Trigger, CombatModel, Description) ->
+        true
+    ; ability_effect(unknown, Category, Trigger, CombatModel, Description)
+    ).
 
 display_type_label(Type, Label) :-
     ( type_pt(Type, Label) -> true ; display_label(Type, Label) ).
