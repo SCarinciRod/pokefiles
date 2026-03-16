@@ -1534,12 +1534,12 @@ ranked_metric_from_tokens(Tokens, lightest) :-
     metric_match(Tokens, lightest).
 
 metric_match(Tokens, Metric) :-
-    member(Token, Tokens),
-    metric_token(Metric, Token),
-    !.
-metric_match(Tokens, Metric) :-
     metric_phrase(Metric, PhraseTokens),
     contiguous_sublist(PhraseTokens, Tokens),
+    !.
+metric_match(Tokens, Metric) :-
+    member(Token, Tokens),
+    metric_token(Metric, Token),
     !.
 
 parse_limit_from_tokens(Tokens, Limit) :-

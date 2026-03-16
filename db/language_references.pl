@@ -410,7 +410,6 @@ metric_phrase(special_attack, ["special", "attack"]).
 metric_phrase(special_attack, ["atacante", "especial"]).
 metric_phrase(special_attack, ["atacantes", "especiais"]).
 
-metric_token(physical_defense, "defesa").
 metric_phrase(physical_defense, ["defesa", "fisica"]).
 metric_phrase(physical_defense, ["defesa", "física"]).
 metric_phrase(physical_defense, ["defensor", "fisico"]).
@@ -420,10 +419,17 @@ metric_phrase(physical_defense, ["defensores", "físicos"]).
 
 metric_token(special_defense, "spdef").
 metric_phrase(special_defense, ["defesa", "especial"]).
+metric_phrase(special_defense, ["especial", "defesa"]).
 metric_phrase(special_defense, ["sp", "def"]).
 metric_phrase(special_defense, ["special", "defense"]).
+metric_phrase(special_defense, ["especial", "defense"]).
+metric_phrase(special_defense, ["defense", "especial"]).
 metric_phrase(special_defense, ["defensor", "especial"]).
 metric_phrase(special_defense, ["defensores", "especiais"]).
+metric_phrase(special_defense, ["defesa", "epecial"]).
+metric_phrase(special_defense, ["epecial", "defesa"]).
+metric_token(special_defense, "especialdefense").
+metric_token(special_defense, "specialdefense").
 
 metric_token(bst, "bst").
 metric_phrase(bst, ["soma", "stats"]).
@@ -454,6 +460,7 @@ rank_role_token(attacker, "ofensivos").
 
 rank_role_token(defender, "defensor").
 rank_role_token(defender, "defensores").
+rank_role_token(defender, "defenseores").
 rank_role_token(defender, "defensivo").
 rank_role_token(defender, "defensivos").
 
@@ -464,12 +471,12 @@ focus_choice_token(physical, "fisica").
 focus_choice_token(physical, "física").
 focus_choice_token(physical, "atk").
 focus_choice_token(physical, "attack").
-focus_choice_token(physical, "defesa").
 
 focus_choice_token(special, "especial").
 focus_choice_token(special, "sp").
 focus_choice_token(special, "spatk").
 focus_choice_token(special, "spdef").
+focus_choice_token(special, "especialdefense").
 
 % Números por extenso (base para geração, nível e limites de ranking)
 number_word_value("zero", 0).
