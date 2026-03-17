@@ -89,16 +89,19 @@ run_chatbot.cmd
 - `geracao todas`
 - `tipo fogo/voador`
 - `habilidade blaze`
+- `o que as habilidades do charizard fazem`
 - `status velocidade`
 
 As respostas de Pokémon incluem:
 
 - dados base (nome, número, altura, peso, tipos, habilidades, status)
+- resumo de moveset (com contagem e amostra dos golpes)
 - fraquezas, resistências e imunidades
 - descrição estratégica
 - lore local estilo Pokédex (texto oficial de flavor entries por espécie, gerado para todas as gerações)
 
 Consultas por tipo, habilidade e status retornam contagem e uma lista amostral de Pokémon para facilitar entendimento.
+Consultas de habilidades por Pokémon retornam os efeitos detalhados das habilidades (priorizando o campo `effect` do catálogo de abilities).
 
 ## Encerrar
 

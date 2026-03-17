@@ -352,6 +352,9 @@ answer_query(Text) :-
     ; parse_move_list_query(Text) ->
         answer_global_move_list_query,
         print_follow_up_prompt
+    ; parse_pokemon_ability_details_query(Text, Name) ->
+        answer_pokemon_ability_details_query(Name),
+        print_follow_up_prompt
     ; parse_ability_query(Text, Ability) ->
         answer_ability_query(Ability),
         print_follow_up_prompt
@@ -1400,6 +1403,19 @@ parse_ability_query(Text, Ability) :-
     \+ starts_with_tokens(Tail, ["da"]),
     extract_ability_token(Tail, Ability).
 
+parse_pokemon_ability_details_query(Text, Name) :-
+    tokenize_for_match(Text, Tokens),
+    member(Keyword, Tokens),
+    ability_keyword(Keyword),
+    ( member("faz", Tokens)
+    ; member("fazem", Tokens)
+    ; member("efeito", Tokens)
+    ; member("efeitos", Tokens)
+    ; contiguous_sublist(["o", "que"], Tokens)
+    ; contiguous_sublist(["oq"], Tokens)
+    ),
+    parse_natural_pokemon_query(Text, Name).
+
 parse_pokemon_movelist_query(Text, Name) :-
     tokenize_for_match(Text, Tokens),
     ( member(Token, Tokens), move_intent_token(Token) ),
@@ -1911,14 +1927,35 @@ answer_ability_query(Ability) :-
     remember_candidate_list(Names),
     length(Names, Count),
     display_label(Ability, AbilityLabel),
-    ability_brief_text(Ability, AbilityBrief),
+    ability_effect_text(Ability, AbilityEffect),
     sample_names_text(Names, 8, SampleText),
-    format('Bot: Habilidade ~w — ~w~n', [AbilityLabel, AbilityBrief]),
-    format('Bot: Encontrei ~w Pokémon com a habilidade ~w.~n', [Count, AbilityLabel]),
+    format('Bot: Habilidade ~w — efeito: ~w~n', [AbilityLabel, AbilityEffect]),
+    format('Bot: Encontrei ~w Pokémon que podem possuir a habilidade ~w.~n', [Count, AbilityLabel]),
     format('  Exemplos: ~w~n', [SampleText]).
 answer_ability_query(Ability) :-
     display_label(Ability, AbilityLabel),
     format('Bot: Não encontrei Pokémon com a habilidade ~w.~n', [AbilityLabel]).
+
+answer_pokemon_ability_details_query(NameIdentifier) :-
+    pokemon_info(NameIdentifier, pokemon(_ID, NameAtom, _, _, _, Abilities, _)),
+    !,
+    display_pokemon_name(NameAtom, NameLabel),
+    ( Abilities = [] ->
+        format('Bot: Não encontrei habilidades cadastradas para ~w.~n', [NameLabel])
+    ; writeln('Bot: Detalhes das habilidades:'),
+      format('  Pokémon: ~w~n', [NameLabel]),
+      print_ability_effect_lines(Abilities)
+    ).
+answer_pokemon_ability_details_query(NameIdentifier) :-
+    display_pokemon_name(NameIdentifier, NameLabel),
+    format('Bot: Não consegui identificar o Pokémon para consultar habilidades (~w).~n', [NameLabel]).
+
+print_ability_effect_lines([]).
+print_ability_effect_lines([Ability | Rest]) :-
+    display_label(Ability, AbilityLabel),
+    ability_effect_text(Ability, AbilityEffect),
+    format('  - ~w: ~w~n', [AbilityLabel, AbilityEffect]),
+    print_ability_effect_lines(Rest).
 
 answer_global_move_list_query :-
     move_catalog(Moves),
@@ -4368,6 +4405,7 @@ print_pokemon_info(pokemon(ID, Name, Height, Weight, Types, Abilities, Stats)) :
     format('  Peso: ~1f kg (~w hg)~n', [WeightKg, Weight]),
     format('  Tipos: ~w~n', [TypesText]),
     format('  Habilidades: ~w~n', [AbilitiesText]),
+    print_pokemon_moveset_info(ID, Name),
     format('  Fraquezas: ~w~n', [WeakText]),
     format('  Resistências: ~w~n', [ResistText]),
     format('  Imunidades: ~w~n', [ImmunityText]),
@@ -4375,6 +4413,29 @@ print_pokemon_info(pokemon(ID, Name, Height, Weight, Types, Abilities, Stats)) :
     format('  Lore: ~w~n', [LoreText]),
     writeln('  Status base:'),
     print_stats(Stats).
+
+print_pokemon_moveset_info(ID, Name) :-
+    pokemon_move_list_for_id(ID, Name, Moves, Source),
+    Moves \= [],
+    !,
+    length(Moves, Count),
+    ( Count > 25 ->
+        sample_move_names_text(Moves, 25, MovesText),
+        format('  Moveset (~w moves, amostra): ~w~n', [Count, MovesText])
+    ; sample_move_names_text(Moves, Count, MovesText),
+      format('  Moveset (~w moves): ~w~n', [Count, MovesText])
+    ),
+    print_moveset_source_note(Source).
+print_pokemon_moveset_info(_, _) :-
+    writeln('  Moveset: sem dados de moves na base local.').
+
+print_moveset_source_note(exact) :-
+    !.
+print_moveset_source_note(base(BaseName)) :-
+    display_pokemon_name(BaseName, BaseLabel),
+    format('  Observação moveset: movelist obtida da forma base (~w).~n', [BaseLabel]).
+print_moveset_source_note(fallback) :-
+    writeln('  Observação moveset: usei um fallback mínimo para este Pokémon.').
 
 pokemon_lore_text(ID, LoreText) :-
     pokemon_lore(ID, LoreText),
@@ -4504,6 +4565,24 @@ ability_brief_text(Ability, Text) :-
     ; ability_effect(unknown, _DefaultCategory, _DefaultTrigger, _DefaultModel, Description),
       Text = Description
     ).
+
+ability_effect_text(Ability, Text) :-
+    ( ability_catalog_effect_text(Ability, CatalogEffectText) ->
+        Text = CatalogEffectText
+    ; ability_brief_text(Ability, FallbackText) ->
+        Text = FallbackText
+    ; Text = 'Sem descrição de efeito disponível.'
+    ).
+
+ability_catalog_effect_text(Ability, Text) :-
+    current_predicate(ability_entry/5),
+    ability_entry(Ability, _Generation, _IsMainSeries, ShortEffect, Effect),
+    ( text_is_present(Effect) ->
+        Text = Effect
+    ; text_is_present(ShortEffect) ->
+        Text = ShortEffect
+    ),
+    !.
 
 ability_catalog_text(Ability, Text) :-
     current_predicate(ability_entry/5),

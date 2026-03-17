@@ -14,6 +14,8 @@
   - `EffectChance` (`effect_chance` da PokéAPI)
   - `Ailment` (`meta.ailment`)
   - `EffectCategory` (`meta.category`)
+- Novo intent para perguntas do tipo "o que as habilidades do Pokémon X fazem", com detalhamento por habilidade.
+- Consulta direta por habilidade reforçada para retornar o efeito da habilidade e lista de Pokémon que podem possuí-la.
 
 ### Alterações
 
