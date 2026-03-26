@@ -38,6 +38,23 @@ test(parse_level2_with_typo_tokens, [setup(ensure_test_db_ready)]) :-
     assertion(MaxLevel == 40),
     assertion(member(fire, TypeFilters)).
 
+test(parse_count_without_type_with_short_quantity_token, [setup(ensure_test_db_ready)]) :-
+    once(parse_count_without_type_query("qntos pokemons sem tipo agua", TypeFilters)),
+    assertion(member(water, TypeFilters)).
+
+test(parse_natural_type_query_with_list_synonym, [setup(ensure_test_db_ready)]) :-
+    once(parse_natural_type_query("exiba pokemons tipo fogo", TypeFilters)),
+    assertion(member(fire, TypeFilters)).
+
+test(parse_weak_query_with_short_token, [setup(ensure_test_db_ready)]) :-
+    once(parse_weak_against_type_query("quais sao vuln contra agua", TypeFilters)),
+    assertion(member(water, TypeFilters)).
+
+test(parse_compare_query_comparativo_entre, [setup(ensure_test_db_ready)]) :-
+    once(parse_compare_query("comparativo entre pikachu e raichu", NameA, NameB)),
+    assertion(NameA == pikachu),
+    assertion(NameB == raichu).
+
 test(infer_identifier_small_typo_pikachu, [setup(ensure_test_db_ready)]) :-
     once(infer_identifier("pikchu", Resolved, Status)),
     assertion(Resolved == pikachu),

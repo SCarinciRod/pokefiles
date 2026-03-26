@@ -1238,6 +1238,7 @@ parse_compare_query(Text, NameA, NameB) :-
     ( append(_, ["compare" | Tail], Tokens)
     ; append(_, ["comparar" | Tail], Tokens)
     ; append(_, ["compara" | Tail], Tokens)
+    ; append(_, ["comparativo", "entre" | Tail], Tokens)
     ; append(_, ["comparacao", "entre" | Tail], Tokens)
     ; append(_, ["comparação", "entre" | Tail], Tokens)
     ; append(_, ["diferença", "entre" | Tail], Tokens)
@@ -1332,23 +1333,18 @@ parse_type_query(Text, TypeFilters) :-
 
 parse_natural_type_query(Text, TypeFilters) :-
     tokenize_for_match(Text, Tokens),
-    ( member("pokemon", Tokens)
-    ; member("pokemons", Tokens)
-    ; member("pokémon", Tokens)
-    ; member("pokémons", Tokens)
+    ( pokemon_noun_tokens(Tokens)
+    ; list_intent_tokens(Tokens)
     ; member("tipo", Tokens)
     ; member("tipos", Tokens)
     ; member("elemento", Tokens)
     ; member("elementos", Tokens)
-    ; member("quais", Tokens)
-    ; member("mostra", Tokens)
-    ; member("liste", Tokens)
     ),
     extract_type_filters(Tokens, TypeFilters).
 
 parse_count_without_type_query(Text, TypeFilters) :-
     tokenize_for_match(Text, Tokens),
-    member("quantos", Tokens),
+    quantity_intent_tokens(Tokens),
     member("sem", Tokens),
     ( member("tipo", Tokens) ; member("tipos", Tokens) ),
     extract_type_filters(Tokens, TypeFilters),
@@ -1356,12 +1352,7 @@ parse_count_without_type_query(Text, TypeFilters) :-
 
 parse_weak_against_type_query(Text, TypeFilters) :-
     tokenize_for_match(Text, Tokens),
-    ( member("fraco", Tokens)
-    ; member("fracos", Tokens)
-    ; member("fraqueza", Tokens)
-    ; member("fraquezas", Tokens)
-    ; member("vulneravel", Tokens)
-    ; member("vulneraveis", Tokens)
+    ( member(Token, Tokens), weak_intent_token(Token)
     ),
     ( member("contra", Tokens)
     ; member("a", Tokens)
@@ -1371,10 +1362,7 @@ parse_weak_against_type_query(Text, TypeFilters) :-
 
 parse_immunity_type_query(Text, TypeFilters) :-
     tokenize_for_match(Text, Tokens),
-    ( member("imunidade", Tokens)
-    ; member("imunidades", Tokens)
-    ; member("imune", Tokens)
-    ; member("imunes", Tokens)
+    ( member(Token, Tokens), immunity_intent_token(Token)
     ),
     extract_type_filters(Tokens, TypeFilters),
     TypeFilters \= [].
@@ -1839,11 +1827,13 @@ common_typo_token("pokemo", "pokemon").
 common_typo_token("poekmon", "pokemon").
 common_typo_token("pokeomn", "pokemon").
 common_typo_token("pnkemon", "pokemon").
+common_typo_token("pokemonss", "pokemons").
 common_typo_token("qantos", "quantos").
 common_typo_token("qunatos", "quantos").
 common_typo_token("quantso", "quantos").
 common_typo_token("quntos", "quantos").
 common_typo_token("quanots", "quantos").
+common_typo_token("qnts", "qts").
 common_typo_token("qal", "qual").
 common_typo_token("qul", "qual").
 common_typo_token("cntra", "contra").
@@ -1855,11 +1845,16 @@ common_typo_token("ganh", "ganha").
 common_typo_token("geracoa", "geracao").
 common_typo_token("geracap", "geracao").
 common_typo_token("geraçao", "geracao").
+common_typo_token("geraaco", "geracao").
+common_typo_token("gera", "gen").
 common_typo_token("nivle", "nivel").
 common_typo_token("nviel", "nivel").
 common_typo_token("nive", "nivel").
 common_typo_token("evoluçao", "evolucao").
 common_typo_token("evolucap", "evolucao").
+common_typo_token("comparacoa", "comparacao").
+common_typo_token("comparcao", "comparacao").
+common_typo_token("habilidae", "habilidade").
 
 pokemon_name_mentioned_in_tokens(Name, Tokens, Len) :-
     atom_string(Name, NameText),
