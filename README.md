@@ -107,6 +107,16 @@ Consultas de habilidades por Pokémon retornam os efeitos detalhados das habilid
 
 - Digite: `sair`
 
+## Validação rápida (processo recomendado)
+
+Antes de seguir com novas mudanças de parser/heurística, execute:
+
+```powershell
+.\tools\validate_and_benchmark.ps1
+```
+
+Esse comando valida parse dos arquivos `.pl`, mede baseline de carga/consultas e roda testes de NLP.
+
 ## Observações
 
 - O bot funciona sem internet.

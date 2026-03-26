@@ -13,6 +13,10 @@
 :- dynamic pending_type_preferences/1.
 :- dynamic pending_list_preferences/1.
 :- dynamic pending_rank_focus/3.
+:- dynamic cache_type_count/3.
+:- dynamic cache_type_list/3.
+:- dynamic cache_ability_list/3.
+:- dynamic cache_move_catalog/1.
 :- multifile pokemon/7.
 :- multifile pokemon_lore/2.
 :- multifile pokemon_mega_base/2.
@@ -131,6 +135,7 @@ load_database :-
 set_default_generation :-
     retractall(active_generation(_)),
     assertz(active_generation(all)),
+    clear_query_caches,
     retractall(last_list_candidates(_)),
     retractall(pending_confirmation(_)),
     retractall(pending_level_roster(_, _, _)),
@@ -184,11 +189,25 @@ parse_generation_command(Text, Generation) :-
 set_active_generation(all) :-
     retractall(active_generation(_)),
     assertz(active_generation(all)),
+    clear_query_caches,
     writeln('Bot: Agora estou consultando todas as geracoes carregadas.').
 set_active_generation(Generation) :-
     retractall(active_generation(_)),
     assertz(active_generation(Generation)),
+    clear_query_caches,
     format('Bot: Agora estou consultando apenas a geracao ~w.~n', [Generation]).
+
+clear_query_caches :-
+    retractall(cache_type_count(_, _, _)),
+    retractall(cache_type_list(_, _, _)),
+    retractall(cache_ability_list(_, _, _)),
+    retractall(cache_move_catalog(_)).
+
+current_generation_key(Key) :-
+    active_generation(Active),
+    !,
+    Key = Active.
+current_generation_key(all).
 
 % ============================================================
 % ORQUESTRADOR DE INTENTS
@@ -1060,7 +1079,7 @@ extract_all_pokemon_mentions(Text, Names) :-
     sort(NamesRaw, Names).
 
 parse_info_by_number(Text, Number) :-
-    split_string(Text, " ", "", Tokens),
+    tokenize_for_match(Text, Tokens),
     ( starts_with_tokens(Tokens, ["info", "numero"]) ;
       starts_with_tokens(Tokens, ["pokemon", "numero"]) ;
             starts_with_tokens(Tokens, ["pokemon"]) ;
@@ -1073,7 +1092,7 @@ parse_info_by_number(Text, Number) :-
     extract_number(Tokens, Number).
 
 parse_info_by_name(Text, Name) :-
-    split_string(Text, " ", "", Tokens),
+    tokenize_for_match(Text, Tokens),
     ( starts_with_tokens(Tokens, ["info", "nome"]) ->
         drop_first_n(Tokens, 2, NameTokens),
         extract_name_from_tokens(NameTokens, Name)
@@ -1799,9 +1818,48 @@ token_to_type_candidates(Token, Candidates) :-
 non_empty_string(Text) :- Text \= "".
 
 tokenize_for_match(Text, Tokens) :-
-    atom_string(Text, TextString),
-    split_string(TextString, " ,.;:!?()[]{}\"'/-_", "", RawTokens),
-    include(non_empty_string, RawTokens, Tokens).
+    input_to_string(Text, TextString),
+    string_lower(TextString, Lower),
+    split_string(Lower, " ,.;:!?()[]{}\"'/-_", "", RawTokens),
+    include(non_empty_string, RawTokens, NonEmptyRaw),
+    maplist(normalize_input_token, NonEmptyRaw, TokensRaw),
+    include(non_empty_string, TokensRaw, Tokens).
+
+normalize_input_token(RawToken, Normalized) :-
+    input_to_string(RawToken, RawText),
+    string_lower(RawText, Lower),
+    string_chars(Lower, Chars),
+    maplist(fold_accent_char, Chars, FoldedChars),
+    string_chars(FoldedText, FoldedChars),
+    ( common_typo_token(FoldedText, Corrected) -> Normalized = Corrected ; Normalized = FoldedText ).
+
+% Correções explícitas e seguras para palavras de intenção (não nomes de Pokémon).
+common_typo_token("pokemom", "pokemon").
+common_typo_token("pokemo", "pokemon").
+common_typo_token("poekmon", "pokemon").
+common_typo_token("pokeomn", "pokemon").
+common_typo_token("pnkemon", "pokemon").
+common_typo_token("qantos", "quantos").
+common_typo_token("qunatos", "quantos").
+common_typo_token("quantso", "quantos").
+common_typo_token("quntos", "quantos").
+common_typo_token("quanots", "quantos").
+common_typo_token("qal", "qual").
+common_typo_token("qul", "qual").
+common_typo_token("cntra", "contra").
+common_typo_token("contraa", "contra").
+common_typo_token("vnce", "vence").
+common_typo_token("vense", "vence").
+common_typo_token("ganhha", "ganha").
+common_typo_token("ganh", "ganha").
+common_typo_token("geracoa", "geracao").
+common_typo_token("geracap", "geracao").
+common_typo_token("geraçao", "geracao").
+common_typo_token("nivle", "nivel").
+common_typo_token("nviel", "nivel").
+common_typo_token("nive", "nivel").
+common_typo_token("evoluçao", "evolucao").
+common_typo_token("evolucap", "evolucao").
 
 pokemon_name_mentioned_in_tokens(Name, Tokens, Len) :-
     atom_string(Name, NameText),
@@ -4211,21 +4269,33 @@ pokemon_info(Identifier, Pokemon) :-
     Pokemon = pokemon(ID, Name, Height, Weight, Types, Abilities, Stats).
 
 type_pokemon_count(Type, Count) :-
-        findall(Name,
+    current_generation_key(GenerationKey),
+    cache_type_count(GenerationKey, Type, Count),
+    !.
+type_pokemon_count(Type, Count) :-
+    current_generation_key(GenerationKey),
+    findall(Name,
         ( pokemon_in_scope(_, Name, _, _, Types, _, _),
-                    member(Type, Types)
-                ),
-                NamesRaw),
+          member(Type, Types)
+        ),
+        NamesRaw),
     sort(NamesRaw, UniqueNames),
-    length(UniqueNames, Count).
+    length(UniqueNames, Count),
+    assertz(cache_type_count(GenerationKey, Type, Count)).
 
 type_pokemon_list(TypeFilters, Names) :-
+    current_generation_key(GenerationKey),
+    cache_type_list(GenerationKey, TypeFilters, Names),
+    !.
+type_pokemon_list(TypeFilters, Names) :-
+    current_generation_key(GenerationKey),
     findall(Name,
         ( pokemon_in_scope(_, Name, _, _, Types, _, _),
           pokemon_matches_type_filters(TypeFilters, Types)
         ),
         NamesRaw),
-    sort(NamesRaw, Names).
+    sort(NamesRaw, Names),
+    assertz(cache_type_list(GenerationKey, TypeFilters, Names)).
 
 pokemon_matches_type_filters([], _).
 pokemon_matches_type_filters([Type | Rest], PokemonTypes) :-
@@ -4233,20 +4303,32 @@ pokemon_matches_type_filters([Type | Rest], PokemonTypes) :-
     pokemon_matches_type_filters(Rest, PokemonTypes).
 
 ability_pokemon_list(Ability, Names) :-
+    current_generation_key(GenerationKey),
+    cache_ability_list(GenerationKey, Ability, Names),
+    !.
+ability_pokemon_list(Ability, Names) :-
+    current_generation_key(GenerationKey),
     findall(Name,
         ( pokemon_in_scope(_, Name, _, _, _, Abilities, _),
           member(Ability, Abilities)
         ),
         NamesRaw),
-    sort(NamesRaw, Names).
+    sort(NamesRaw, Names),
+    assertz(cache_ability_list(GenerationKey, Ability, Names)).
 
 move_catalog(Moves) :-
+    cache_move_catalog(Moves),
+    !.
+move_catalog(Moves) :-
     findall(Move, move_catalog_entry(Move), MovesRaw),
-    sort(MovesRaw, Moves).
+    sort(MovesRaw, Moves),
+    assertz(cache_move_catalog(Moves)).
 
 move_catalog_entry(Move) :-
+    current_predicate(move_entry/11),
     move_entry(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _EffectChance, _Ailment, _EffectCategory, _Description).
 move_catalog_entry(Move) :-
+    current_predicate(move_entry/8),
     move_entry(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _Description).
 move_catalog_entry(Move) :-
     pokemon_move_list(_PokemonName, Moves),

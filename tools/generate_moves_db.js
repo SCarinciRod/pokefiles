@@ -12,12 +12,15 @@ const useInsecureTls = process.env.POKEDEX_INSECURE_TLS === '1';
 const PARALLEL = Number(process.env.POKEDEX_FETCH_PARALLEL || 10);
 
 function sanitizeAtom(value) {
-  return String(value)
+  const atom = String(value)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
+
+  if (!atom) return 'unknown_atom';
+  return /^[0-9]/.test(atom) ? `m_${atom}` : atom;
 }
 
 function prologQuotedText(value) {
