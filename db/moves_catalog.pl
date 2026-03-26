@@ -2,7 +2,7 @@
 
 % Arquivo gerado automaticamente por tools/generate_moves_db.js
 % move_entry(MoveId, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description).
-move_entry(10_000_000_volt_thunderbolt, electric, special, 195, 0, 1, [special, high_crit], null, none, damage, 'Inflicts regular damage with no additional effect.').
+move_entry(m_10_000_000_volt_thunderbolt, electric, special, 195, 0, 1, [special, high_crit], null, none, damage, 'Inflicts regular damage with no additional effect.').
 move_entry(absorb, grass, special, 20, 100, 25, [special], null, none, damage_heal, 'Drains half the damage inflicted to heal the user.').
 move_entry(accelerock, rock, physical, 40, 100, 20, [physical, priority_1], null, none, damage, 'Inflicts regular damage with no additional effect.').
 move_entry(acid, poison, special, 40, 100, 30, [special], 10, none, damage_lower, 'Has a 10% chance to lower the target’s Special Defense by one stage.').
