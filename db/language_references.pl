@@ -34,6 +34,7 @@
 :- multifile evolution_chain_token/1.
 :- multifile immunity_intent_token/1.
 :- multifile coverage_intent_token/1.
+:- multifile weak_intent_token/1.
 :- multifile number_word_value/2.
 :- multifile generation_number_word/2.
 :- multifile ranking_signal_token/1.
@@ -125,6 +126,9 @@ counter_intent_token("vencem").
 counter_intent_token("ganha").
 counter_intent_token("ganhar").
 counter_intent_token("ganham").
+counter_intent_token("ganharia").
+counter_intent_token("venceria").
+counter_intent_token("counterpickar").
 counter_intent_token("sola").
 counter_intent_token("amassa").
 counter_intent_token("stompa").
@@ -143,6 +147,9 @@ counter_intent_phrase(["melhor", "contra"]).
 counter_intent_phrase(["vantagem", "contra"]).
 counter_intent_phrase(["como", "ganhar", "de"]).
 counter_intent_phrase(["quem", "countera"]).
+counter_intent_phrase(["quem", "ganha", "de"]).
+counter_intent_phrase(["quem", "vence", "contra"]).
+counter_intent_phrase(["qual", "vai", "bem", "contra"]).
 counter_intent_phrase(["quem", "segura", "melhor"]).
 counter_intent_phrase(["quem", "lida", "melhor", "com"]).
 counter_intent_phrase(["quem", "vai", "bem", "contra"]).
@@ -184,6 +191,8 @@ legendary_request_token(Token) :- mythical_token(Token).
 generation_keyword_token("geracao").
 generation_keyword_token("geração").
 generation_keyword_token("gen").
+generation_keyword_token("gera").
+generation_keyword_token("ger").
 
 generation_prefix("g").
 generation_prefix("gen").
@@ -195,6 +204,9 @@ quantity_intent_token("quantas").
 quantity_intent_token("qtd").
 quantity_intent_token("qtos").
 quantity_intent_token("qts").
+quantity_intent_token("qntos").
+quantity_intent_token("qntas").
+quantity_intent_token("qnt").
 quantity_intent_token("quantis").
 quantity_intent_token("quanto").
 quantity_intent_token("qtde").
@@ -210,6 +222,10 @@ list_intent_token("existem").
 list_intent_token("quero").
 list_intent_token("ver").
 list_intent_token("listar").
+list_intent_token("mostre").
+list_intent_token("quaiss").
+list_intent_token("exiba").
+list_intent_token("exibir").
 
 level_cap_indicator_token("abaixo").
 level_cap_indicator_token("ate").
@@ -224,6 +240,8 @@ level_cap_indicator_token("nível").
 level_cap_indicator_token("ateh").
 level_cap_indicator_token("lvl").
 level_cap_indicator_token("level").
+level_cap_indicator_token("nvl").
+level_cap_indicator_token("lvlmax").
 
 counter_relation_token("de").
 counter_relation_token("do").
@@ -275,6 +293,7 @@ level_word_token("lvl").
 level_word_token("level").
 level_word_token("nivel").
 level_word_token("nível").
+level_word_token("nvl").
 
 evolution_intent_token("evolucao").
 evolution_intent_token("evolução").
@@ -337,6 +356,8 @@ compare_intent_token("compare").
 compare_intent_token("comparar").
 compare_intent_token("comparacao").
 compare_intent_token("comparação").
+compare_intent_token("comparativo").
+compare_intent_token("comparativa").
 
 evolution_structure_token("estagio").
 evolution_structure_token("estágio").
@@ -356,6 +377,15 @@ immunity_intent_token("imunidade").
 immunity_intent_token("imunidades").
 immunity_intent_token("imune").
 immunity_intent_token("imunes").
+immunity_intent_token("imun").
+
+weak_intent_token("fraco").
+weak_intent_token("fracos").
+weak_intent_token("fraqueza").
+weak_intent_token("fraquezas").
+weak_intent_token("vulneravel").
+weak_intent_token("vulneraveis").
+weak_intent_token("vuln").
 
 coverage_intent_token("cobertura").
 coverage_intent_token("cobre").
