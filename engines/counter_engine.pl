@@ -135,6 +135,7 @@ answer_counter_generation_query(TargetIdentifier, Generation, TypeFilters, Conte
           CandidateID =\= TargetID,
           pokemon_matches_optional_type_filters(TypeFilters, CandidateTypes),
           name_passes_filters(ContextFilters, Name),
+                    counter_has_super_effective_coverage(CandidateID, CandidateTypes, TargetID, TargetTypes),
           counter_metrics(CandidateID, CandidateTypes, CandidateStats, TargetID, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
           AttackMult > 1.0,
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
@@ -253,6 +254,7 @@ answer_counter_level_cap_query(TargetIdentifier, LevelConstraint) :-
         ( pokemon_in_scope(CandidateID, Name, _, _, CandidateTypes, _, CandidateStatsRaw),
           pokemon_reachable_by_level(CandidateID, LevelConstraint),
           scale_stats_by_level(CandidateStatsRaw, RefLevel, CandidateStats),
+                    counter_has_super_effective_coverage(CandidateID, CandidateTypes, TargetID, TargetTypes),
           counter_metrics(CandidateID, CandidateTypes, CandidateStats, TargetID, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
           AttackMult > 1.0,
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
@@ -291,6 +293,7 @@ answer_counter_level_cap_query_with_filters(TargetIdentifier, LevelConstraint, T
           pokemon_reachable_by_level(CandidateID, LevelConstraint),
           pokemon_matches_optional_type_filters_by_name(TypeFilters, Name),
           scale_stats_by_level(CandidateStatsRaw, RefLevel, CandidateStats),
+                    counter_has_super_effective_coverage(CandidateID, CandidateTypes, TargetID, TargetTypes),
           counter_metrics(CandidateID, CandidateTypes, CandidateStats, TargetID, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
           AttackMult > 1.0,
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
@@ -322,6 +325,7 @@ answer_counter_composed_query(TargetIdentifier, Generation, TypeFilters, Context
           pokemon_matches_optional_type_filters(TypeFilters, CandidateTypes),
           name_passes_filters(ContextFilters, Name),
           scale_stats_by_level(CandidateStatsRaw, RefLevel, CandidateStats),
+                    counter_has_super_effective_coverage(ID, CandidateTypes, TargetID, TargetTypes),
           counter_metrics(ID, CandidateTypes, CandidateStats, TargetID, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
           AttackMult > 1.0,
           counter_score(ID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
@@ -405,6 +409,7 @@ recommend_counters(TargetID, TargetTypes, TargetStats, TopPairs) :-
     findall(Score-Name-AttackMult-DefenseMult,
         ( pokemon_in_scope(CandidateID, Name, _, _, CandidateTypes, _, CandidateStats),
           CandidateID =\= TargetID,
+                    counter_has_super_effective_coverage(CandidateID, CandidateTypes, TargetID, TargetTypes),
           counter_metrics(CandidateID, CandidateTypes, CandidateStats, TargetID, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure),
           AttackMult > 1.0,
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
@@ -446,6 +451,10 @@ dedupe_counter_pairs_by_name([Score-Name-AttackMult-DefenseMult | Rest], Seen, A
 total_stats_value(Stats, Total) :-
     findall(Value, member(_Stat-Value, Stats), Values),
     sum_list(Values, Total).
+
+counter_has_super_effective_coverage(CandidateID, CandidateTypes, TargetID, TargetTypes) :-
+    coverage_attack_multiplier(CandidateID, CandidateTypes, TargetID, TargetTypes, AttackMult),
+    AttackMult > 1.0.
 
 counter_metrics(CandidateID, CandidateTypes, CandidateStats, TargetID, TargetTypes, TargetStats, AttackMult, DefenseMult, AttackPressure, DefensePressure) :-
     counter_coverage_matchup(CandidateID, CandidateTypes, TargetID, TargetTypes, AttackMult, DefenseMult),

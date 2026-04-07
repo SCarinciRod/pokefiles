@@ -926,12 +926,20 @@ battle_profile(LevelRaw, AttackerID, AttackerTypes, AttackerStats, _DefenderID, 
     ).
 
 battle_best_move_choice(AttackerID, AttackerTypes, DefenderID, DefenderTypes, FieldContext, Choice) :-
-    findall(Score-ChoiceItem,
-        battle_offensive_move_option(AttackerID, AttackerTypes, DefenderID, DefenderTypes, FieldContext, Score, ChoiceItem),
-        RawChoices),
-    RawChoices \= [],
-    keysort(RawChoices, ChoicesAsc),
-    reverse(ChoicesAsc, [_BestScore-Choice | _]).
+    battle_choice_context_key(FieldContext, Weather, Terrain, AttackerGrounded, DefenderGrounded),
+    ( cache_battle_best_move_choice(AttackerID, DefenderID, Weather, Terrain, AttackerGrounded, DefenderGrounded, Choice) ->
+        true
+    ; findall(Score-ChoiceItem,
+          battle_offensive_move_option(AttackerID, AttackerTypes, DefenderID, DefenderTypes, FieldContext, Score, ChoiceItem),
+          RawChoices),
+      RawChoices \= [],
+      keysort(RawChoices, ChoicesAsc),
+      reverse(ChoicesAsc, [_BestScore-Choice | _]),
+      assertz(cache_battle_best_move_choice(AttackerID, DefenderID, Weather, Terrain, AttackerGrounded, DefenderGrounded, Choice))
+    ).
+
+battle_choice_context_key(field_context{weather:Weather, terrain:Terrain, attacker_grounded:AttackerGrounded, defender_grounded:DefenderGrounded},
+    Weather, Terrain, AttackerGrounded, DefenderGrounded).
 
 battle_offensive_move_option(AttackerID, AttackerTypes, DefenderID, DefenderTypes, FieldContext, Score,
     choice{move:Move, type:MoveType, category:Category, multiplier:Mult, priority:Priority, base_power:BasePowerEstimate, stab:STAB, move_note:MoveInsight, tempo_factor:TempoFactor, weather_mod:WeatherMod, terrain_mod:TerrainMod}) :-
