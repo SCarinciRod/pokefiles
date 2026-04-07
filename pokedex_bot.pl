@@ -26,6 +26,9 @@
 :- dynamic cache_move_coverage_multiplier/4.
 :- dynamic cache_pokemon_max_offensive_priority/2.
 :- dynamic cache_counter_move_factor/4.
+:- dynamic cache_pokemon_move_list/3.
+:- dynamic cache_held_item_recommendation/6.
+:- dynamic cache_battle_best_move_choice/7.
 :- dynamic pokemon_name_index_tokens/2.
 :- dynamic pokemon_name_index_token/2.
 :- multifile pokemon/7.
@@ -246,6 +249,9 @@ clear_query_caches :-
     retractall(cache_move_coverage_multiplier(_, _, _, _)),
     retractall(cache_pokemon_max_offensive_priority(_, _)),
     retractall(cache_counter_move_factor(_, _, _, _)),
+    retractall(cache_pokemon_move_list(_, _, _)),
+    retractall(cache_held_item_recommendation(_, _, _, _, _, _)),
+    retractall(cache_battle_best_move_choice(_, _, _, _, _, _, _)),
     retractall(cache_scoped_filtered_names(_, _, _, _)),
     retractall(cache_generation_filtered_names(_, _, _, _)).
 
@@ -1734,15 +1740,26 @@ move_data(Move, Type, Category, BasePower, Accuracy, PP, Tags, null, none, unkno
     current_predicate(move_entry/8),
     move_entry(Move, Type, Category, BasePower, Accuracy, PP, Tags, Description).
 
-pokemon_move_list_for_id(ID, Name, Moves, exact) :-
+pokemon_move_list_for_id(ID, Name, Moves, Source) :-
+    nonvar(ID),
+    ( cache_pokemon_move_list(ID, Moves, Source) ->
+        true
+    ; pokemon_move_list_for_id_uncached(ID, Name, Moves, Source),
+      assertz(cache_pokemon_move_list(ID, Moves, Source))
+    ),
+    !.
+pokemon_move_list_for_id(ID, Name, Moves, Source) :-
+    pokemon_move_list_for_id_uncached(ID, Name, Moves, Source).
+
+pokemon_move_list_for_id_uncached(ID, Name, Moves, exact) :-
     \+ is_special_form_id(ID),
     pokemon_move_list(Name, Moves),
     !.
-pokemon_move_list_for_id(ID, _Name, Moves, base(BaseName)) :-
+pokemon_move_list_for_id_uncached(ID, _Name, Moves, base(BaseName)) :-
     special_form_base_name(ID, BaseName),
     pokemon_move_list(BaseName, Moves),
     !.
-pokemon_move_list_for_id(_ID, _Name, Moves, fallback) :-
+pokemon_move_list_for_id_uncached(_ID, _Name, Moves, fallback) :-
     pokemon_move_list(unknown, Moves).
 
 special_form_base_name(ID, BaseName) :-

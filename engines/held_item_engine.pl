@@ -135,6 +135,14 @@ held_item_short_effect(Description, EffectText) :-
     ( Normalized == "" -> EffectText = Description ; EffectText = Normalized ).
 
 held_item_recommendations_for_pokemon(ID, NameAtom, Types, Abilities, Stats, Strategy, Profile, ContextMatrix, Recommendations) :-
+    current_generation_key(GenerationKey),
+    ( cache_held_item_recommendation(GenerationKey, ID, Strategy, Profile, ContextMatrix, Recommendations) ->
+        true
+    ; held_item_recommendations_for_pokemon_uncached(ID, NameAtom, Types, Abilities, Stats, Strategy, Profile, ContextMatrix, Recommendations),
+      assertz(cache_held_item_recommendation(GenerationKey, ID, Strategy, Profile, ContextMatrix, Recommendations))
+    ).
+
+held_item_recommendations_for_pokemon_uncached(ID, NameAtom, Types, Abilities, Stats, Strategy, Profile, ContextMatrix, Recommendations) :-
     pokemon_move_list_for_id(ID, NameAtom, MovesRaw, _Source),
     sort(MovesRaw, Moves),
     held_item_feature_pack(ID, Types, Abilities, Stats, Moves, Features),
