@@ -32,6 +32,7 @@
 :- multifile compare_intent_token/1.
 :- multifile evolution_structure_token/1.
 :- multifile evolution_chain_token/1.
+:- multifile evolution_detail_token/1.
 :- multifile immunity_intent_token/1.
 :- multifile coverage_intent_token/1.
 :- multifile weak_intent_token/1.
@@ -43,6 +44,14 @@
 :- multifile rank_role_token/2.
 :- multifile focus_choice_token/2.
 :- multifile move_intent_token/1.
+:- multifile item_intent_token/1.
+:- multifile level_upper_bound_token/1.
+:- multifile level_lower_bound_token/1.
+:- multifile level_upper_bound_phrase/1.
+:- multifile level_lower_bound_phrase/1.
+:- multifile best_switch_intent_phrase/1.
+:- multifile context_reference_token/1.
+:- multifile team_compare_signal_token/1.
 
 negation_token("sem").
 
@@ -129,12 +138,20 @@ counter_intent_token("ganham").
 counter_intent_token("ganharia").
 counter_intent_token("venceria").
 counter_intent_token("counterpickar").
+counter_intent_token("counterpicka").
+counter_intent_token("counterpickam").
 counter_intent_token("sola").
 counter_intent_token("amassa").
 counter_intent_token("stompa").
 counter_intent_token("deita").
 counter_intent_token("janta").
 counter_intent_token("surra").
+counter_intent_token("responde").
+counter_intent_token("respondem").
+counter_intent_token("responder").
+counter_intent_token("lida").
+counter_intent_token("lidar").
+counter_intent_token("bate").
 counter_intent_token("check").
 counter_intent_token("checks").
 counter_intent_token("counterpick").
@@ -153,6 +170,9 @@ counter_intent_phrase(["qual", "vai", "bem", "contra"]).
 counter_intent_phrase(["quem", "segura", "melhor"]).
 counter_intent_phrase(["quem", "lida", "melhor", "com"]).
 counter_intent_phrase(["quem", "vai", "bem", "contra"]).
+counter_intent_phrase(["quem", "responde", "melhor", "a"]).
+counter_intent_phrase(["qual", "responde", "melhor", "a"]).
+counter_intent_phrase(["quem", "lida", "bem", "contra"]).
 
 battle_intent_token("simule").
 battle_intent_token("simular").
@@ -207,7 +227,11 @@ quantity_intent_token("qts").
 quantity_intent_token("qntos").
 quantity_intent_token("qntas").
 quantity_intent_token("qnt").
+quantity_intent_token("qt").
+quantity_intent_token("qto").
+quantity_intent_token("qtas").
 quantity_intent_token("quantis").
+quantity_intent_token("quant").
 quantity_intent_token("quanto").
 quantity_intent_token("qtde").
 quantity_intent_token("numero").
@@ -226,6 +250,10 @@ list_intent_token("mostre").
 list_intent_token("quaiss").
 list_intent_token("exiba").
 list_intent_token("exibir").
+list_intent_token("exibe").
+list_intent_token("mostrar").
+list_intent_token("traga").
+list_intent_token("traz").
 
 level_cap_indicator_token("abaixo").
 level_cap_indicator_token("ate").
@@ -243,11 +271,43 @@ level_cap_indicator_token("level").
 level_cap_indicator_token("nvl").
 level_cap_indicator_token("lvlmax").
 
+level_upper_bound_token("ate").
+level_upper_bound_token("até").
+level_upper_bound_token("abaixo").
+level_upper_bound_token("maximo").
+level_upper_bound_token("máximo").
+level_upper_bound_token("max").
+level_upper_bound_token("cap").
+level_upper_bound_token("limite").
+level_upper_bound_token("ateh").
+
+level_lower_bound_token("acima").
+level_lower_bound_token("maior").
+level_lower_bound_token("minimo").
+level_lower_bound_token("mínimo").
+level_lower_bound_token("min").
+level_lower_bound_token("desde").
+level_lower_bound_token("apartir").
+
+level_upper_bound_phrase(["abaixo", "de"]).
+level_upper_bound_phrase(["no", "maximo"]).
+level_upper_bound_phrase(["no", "máximo"]).
+level_upper_bound_phrase(["no", "max"]).
+
+level_lower_bound_phrase(["acima", "de"]).
+level_lower_bound_phrase(["a", "partir", "de"]).
+level_lower_bound_phrase(["a", "partir"]).
+level_lower_bound_phrase(["depois", "de"]).
+level_lower_bound_phrase(["mais", "de"]).
+level_lower_bound_phrase(["no", "minimo"]).
+level_lower_bound_phrase(["no", "mínimo"]).
+
 counter_relation_token("de").
 counter_relation_token("do").
 counter_relation_token("da").
 counter_relation_token("pro").
 counter_relation_token("para").
+counter_relation_token("ao").
 
 compare_separator_token("vs").
 compare_separator_token("versus").
@@ -261,6 +321,20 @@ battle_relation_phrase(["ganha", "do"]).
 battle_relation_phrase(["ganha", "da"]).
 battle_relation_phrase(["vence"]).
 battle_relation_phrase(["contra"]).
+
+best_switch_intent_phrase(["quem", "entra", "melhor", "contra"]).
+best_switch_intent_phrase(["qual", "entra", "melhor", "contra"]).
+best_switch_intent_phrase(["quem", "segura", "melhor", "contra"]).
+best_switch_intent_phrase(["qual", "segura", "melhor", "contra"]).
+best_switch_intent_phrase(["segura", "melhor", "contra"]).
+
+context_reference_token("desses").
+context_reference_token("desse").
+context_reference_token("deles").
+
+team_compare_signal_token("melhor").
+team_compare_signal_token("vale").
+team_compare_signal_token("forte").
 
 cancel_token("cancelar").
 cancel_token("cancela").
@@ -358,6 +432,10 @@ compare_intent_token("comparacao").
 compare_intent_token("comparação").
 compare_intent_token("comparativo").
 compare_intent_token("comparativa").
+compare_intent_token("diferenca").
+compare_intent_token("diferença").
+compare_intent_token("diferencas").
+compare_intent_token("diferenças").
 
 evolution_structure_token("estagio").
 evolution_structure_token("estágio").
@@ -372,19 +450,40 @@ evolution_chain_token("arvore").
 evolution_chain_token("árvore").
 evolution_chain_token("completa").
 evolution_chain_token("completo").
+evolution_chain_token("linhagem").
+
+evolution_detail_token("como").
+evolution_detail_token("quando").
+evolution_detail_token("metodo").
+evolution_detail_token("método").
+evolution_detail_token("metodos").
+evolution_detail_token("métodos").
+evolution_detail_token("requisito").
+evolution_detail_token("requisitos").
+evolution_detail_token("condicao").
+evolution_detail_token("condição").
+evolution_detail_token("item").
+evolution_detail_token("itens").
+evolution_detail_token("felicidade").
+evolution_detail_token("amizade").
 
 immunity_intent_token("imunidade").
 immunity_intent_token("imunidades").
 immunity_intent_token("imune").
 immunity_intent_token("imunes").
 immunity_intent_token("imun").
+immunity_intent_token("immune").
 
 weak_intent_token("fraco").
+weak_intent_token("fraca").
 weak_intent_token("fracos").
+weak_intent_token("fracas").
 weak_intent_token("fraqueza").
 weak_intent_token("fraquezas").
 weak_intent_token("vulneravel").
+weak_intent_token("vulnerável").
 weak_intent_token("vulneraveis").
+weak_intent_token("vulneráveis").
 weak_intent_token("vuln").
 
 coverage_intent_token("cobertura").
@@ -515,6 +614,23 @@ move_intent_token("movelist").
 move_intent_token("moveset").
 move_intent_token("golpe").
 move_intent_token("golpes").
+move_intent_token("skill").
+move_intent_token("skills").
+
+item_intent_token("item").
+item_intent_token("itens").
+item_intent_token("held").
+item_intent_token("segura").
+item_intent_token("segurar").
+item_intent_token("segurando").
+item_intent_token("equipa").
+item_intent_token("equipar").
+item_intent_token("focus").
+item_intent_token("sash").
+item_intent_token("orb").
+item_intent_token("boots").
+item_intent_token("choice").
+item_intent_token("vest").
 
 % Números por extenso (base para geração, nível e limites de ranking)
 number_word_value("zero", 0).

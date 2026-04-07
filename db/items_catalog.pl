@@ -57,7 +57,6 @@ item_entry(awakening, status_cures, 200, 30, none, 'Cures sleep.').
 item_entry(axew_scales, tm_materials, 200, 0, none, 'Sem descrição disponível.').
 item_entry(azure_flute, event_items, 0, 0, none, 'Allows entry into the Hall of Origin. Unreleased.').
 item_entry(azurill_fur, tm_materials, 60, 0, none, 'Sem descrição disponível.').
-item_entry(b_w_grass_tablecloth, picnic, 0, 0, none, 'Sem descrição disponível.').
 item_entry(babiri_berry, type_protection, 80, 10, none, 'Held: Consumed when struck by a super-effective Steel-type attack to halve the damage.').
 item_entry(bachs_food_tin, curry_ingredients, 950, 80, none, 'Sem descrição disponível.').
 item_entry(bacon, sandwich_ingredients, 150, 0, none, 'Sem descrição disponível.').
@@ -162,6 +161,7 @@ item_entry(bulbasaur_candy, species_candies, 20, 0, none, 'Sem descrição dispo
 item_entry(burn_drive, species_specific, 0, 70, none, 'Grants Genesect a red, Fire-type Techno Blast.').
 item_entry(burn_heal, status_cures, 200, 30, none, 'Cures a burn.').
 item_entry(butter, sandwich_ingredients, 250, 0, none, 'Sem descrição disponível.').
+item_entry(bw_grass_tablecloth, picnic, 0, 0, none, 'Sem descrição disponível.').
 item_entry(cacnea_needle, tm_materials, 80, 0, none, 'Sem descrição disponível.').
 item_entry(calcium, vitamins, 10000, 30, none, 'Raises Special Attack effort and happiness.').
 item_entry(calm_mint, nature_mints, 20, 10, none, 'Sem descrição disponível.').
@@ -970,7 +970,7 @@ item_entry(klawf_stick, sandwich_ingredients, 500, 0, none, 'Sem descrição dis
 item_entry(klefki_key, tm_materials, 100, 0, none, 'Sem descrição disponível.').
 item_entry(koffing_candy, species_candies, 20, 0, none, 'Sem descrição disponível.').
 item_entry(koffing_gas, tm_materials, 25, 0, none, 'Sem descrição disponível.').
-item_entry(kofu_s_wallet, plot_advancement, 0, 0, none, 'Sem descrição disponível.').
+item_entry(kofus_wallet, plot_advancement, 0, 0, none, 'Sem descrição disponível.').
 item_entry(komala_claw, tm_materials, 100, 0, none, 'Sem descrição disponível.').
 item_entry(kommonium_z_bag, unused, 0, 0, none, 'XXX new effect for kommonium-z--bag').
 item_entry(kommonium_z_held, unused, 0, 0, none, 'XXX new effect for kommonium-z--held').
@@ -999,7 +999,7 @@ item_entry(lava_cookie, status_cures, 350, 30, none, 'Cures any status ailment a
 item_entry(lawing_ball, standard_balls, 0, 0, none, 'Sem descrição disponível.').
 item_entry(lax_incense, held_items, 5000, 10, none, 'Held: Holder’s evasion is increased by 5%. Breeding: Wobbuffet begets a Wynaut Egg.').
 item_entry(lax_mint, nature_mints, 20, 10, none, 'Sem descrição disponível.').
-item_entry(leader_s_crest, picnic, 3000, 0, none, 'Sem descrição disponível.').
+item_entry(leaders_crest, picnic, 3000, 0, none, 'Sem descrição disponível.').
 item_entry(leaf_letter_eevee, loot, 0, 30, none, 'Sem descrição disponível.').
 item_entry(leaf_letter_pikachu, loot, 0, 30, none, 'Sem descrição disponível.').
 item_entry(leaf_stone, evolution, 3000, 30, none, 'Evolves an Exeggcute into Exeggutor, a Gloom into Vileplume, a Nuzleaf into Shiftry, a Pansage into Simisage, or a Weepinbell into Victreebel.').
