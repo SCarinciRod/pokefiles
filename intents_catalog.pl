@@ -15,11 +15,46 @@ resolve_intent_rule(Text, _Tokens, true, _Mode) :-
     handle_pending_list_preferences(Text).
 resolve_intent_rule(Text, _Tokens, true, _Mode) :-
     handle_pending_rank_focus(Text).
+resolve_intent_rule(Text, _Tokens, true, _Mode) :-
+    handle_pending_held_item_options(Text).
+resolve_intent_rule(Text, _Tokens, true, _Mode) :-
+    handle_pending_partner_preferences(Text).
+resolve_intent_rule(Text, _Tokens, true, _Mode) :-
+    handle_pending_partner_options(Text).
+resolve_intent_rule(Text, _Tokens, true, _Mode) :-
+    handle_pending_synergy_details(Text).
+
+resolve_intent_rule(Text, Tokens, Goal, Mode) :-
+    allow_guard(Mode, item_move_ability_conflict_signal, Tokens),
+    resolve_item_move_ability_by_evidence(Text, Tokens, Goal),
+    !.
+resolve_intent_rule(Text, Tokens, Goal, Mode) :-
+    allow_guard(Mode, strategy_rules_conflict_signal, Tokens),
+    resolve_strategy_rules_by_evidence(Text, Tokens, Goal),
+    !.
 
 resolve_intent_rule(Text, _Tokens, answer_pokemon(Number), _Mode) :-
     parse_info_by_number(Text, Number).
 resolve_intent_rule(Text, _Tokens, answer_pokemon(Name), _Mode) :-
     parse_info_by_name(Text, Name).
+
+resolve_intent_rule(Text, Tokens, answer_tournament_rules_query(Topic), Mode) :-
+    allow_guard(Mode, tournament_rules_domain_signal, Tokens),
+    \+ strategy_domain_signal(Tokens),
+    parse_tournament_rules_query(Text, Topic).
+
+resolve_intent_rule(Text, Tokens, answer_pair_synergy_query(NameA, NameB), Mode) :-
+    allow_guard(Mode, strategy_domain_signal, Tokens),
+    parse_pair_synergy_query(Text, NameA, NameB).
+
+resolve_intent_rule(Text, Tokens, answer_compatible_partners_query(Name, Limit), Mode) :-
+    allow_guard(Mode, strategy_domain_signal, Tokens),
+    \+ item_domain_signal(Tokens),
+    parse_compatible_partners_query(Text, Name, Limit).
+
+resolve_intent_rule(Text, Tokens, answer_doubles_strategy_query(Topic), Mode) :-
+    allow_guard(Mode, strategy_domain_signal, Tokens),
+    parse_doubles_strategy_query(Text, Topic).
 
 resolve_intent_rule(Text, Tokens, answer_evolution_should_have_query(Name, CurrentLevel), Mode) :-
     allow_guard(Mode, evolution_domain_signal, Tokens),
@@ -159,15 +194,21 @@ resolve_intent_rule(Text, Tokens, answer_type_query_with_clarification(TypeFilte
     allow_guard(Mode, type_domain_signal, Tokens),
     parse_natural_type_query(Text, TypeFilters).
 
+resolve_intent_rule(Text, Tokens, answer_held_item_recommendation_query(Name, Strategy), Mode) :-
+    allow_guard(Mode, item_domain_signal, Tokens),
+    parse_held_item_recommendation_query(Text, Name, Strategy).
+resolve_intent_rule(Text, Tokens, answer_specific_item_query(Item), Mode) :-
+    allow_guard(Mode, item_domain_signal, Tokens),
+    parse_specific_item_query(Text, Item).
+resolve_intent_rule(Text, Tokens, answer_specific_move_query(Move), Mode) :-
+    allow_guard(Mode, move_or_ability_domain_signal, Tokens),
+    parse_specific_move_query(Text, Move).
 resolve_intent_rule(Text, Tokens, answer_pokemon_movelist_query(Name), Mode) :-
     allow_guard(Mode, move_or_ability_domain_signal, Tokens),
     parse_pokemon_movelist_query(Text, Name).
 resolve_intent_rule(Text, Tokens, answer_global_move_list_query, Mode) :-
     allow_guard(Mode, move_or_ability_domain_signal, Tokens),
     parse_move_list_query(Text).
-resolve_intent_rule(Text, Tokens, answer_held_item_recommendation_query(Name, Strategy), Mode) :-
-    allow_guard(Mode, item_domain_signal, Tokens),
-    parse_held_item_recommendation_query(Text, Name, Strategy).
 resolve_intent_rule(Text, Tokens, answer_pokemon_ability_details_query(Name), Mode) :-
     allow_guard(Mode, move_or_ability_domain_signal, Tokens),
     parse_pokemon_ability_details_query(Text, Name).
@@ -189,3 +230,148 @@ resolve_intent_rule(Text, _Tokens, answer_contextual_stat_query(Stats), _Mode) :
 
 resolve_intent_rule(Text, _Tokens, answer_pokemon(NaturalName), _Mode) :-
     parse_natural_pokemon_query(Text, NaturalName).
+
+resolve_item_move_ability_by_evidence(Text, Tokens, Goal) :-
+    findall(Score-CandidateGoal,
+        item_move_ability_candidate_goal(Text, Tokens, Score, CandidateGoal),
+        Candidates),
+    Candidates \= [],
+    keysort(Candidates, Sorted),
+    reverse(Sorted, [_BestScore-Goal | _]).
+
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_held_item_recommendation_query(Name, Strategy)) :-
+    parse_held_item_recommendation_query(Text, Name, Strategy),
+    item_evidence_strength(Tokens, ItemEvidence),
+    score_if_true(token_member_any(Tokens, ["melhor", "combina", "cobrir", "fraqueza", "ofensivo", "defensivo", "balanceado", "balanced", "forte", "segurar"]), 24, StrategyCue),
+    Score is 120 + ItemEvidence + StrategyCue.
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_specific_item_query(Item)) :-
+    parse_specific_item_query(Text, Item),
+    item_evidence_strength(Tokens, ItemEvidence),
+    score_if_true(detail_query_signal(Tokens), 28, DetailCue),
+    ( parse_natural_pokemon_query(Text, _) -> ContextAdj = -6 ; ContextAdj = 8 ),
+    Score is 108 + ItemEvidence + DetailCue + ContextAdj.
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_specific_move_query(Move)) :-
+    parse_specific_move_query(Text, Move),
+    move_evidence_strength(Tokens, MoveEvidence),
+    score_if_true(detail_query_signal(Tokens), 26, DetailCue),
+    Score is 104 + MoveEvidence + DetailCue.
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_pokemon_movelist_query(Name)) :-
+    parse_pokemon_movelist_query(Text, Name),
+    move_evidence_strength(Tokens, MoveEvidence),
+    score_if_true(list_request_signal(Tokens), 26, ListCue),
+    Score is 90 + MoveEvidence + ListCue.
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_global_move_list_query) :-
+    parse_move_list_query(Text),
+    move_evidence_strength(Tokens, MoveEvidence),
+    score_if_true(list_request_signal(Tokens), 30, ListCue),
+    Score is 84 + MoveEvidence + ListCue.
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_pokemon_ability_details_query(Name)) :-
+    parse_pokemon_ability_details_query(Text, Name),
+    ability_evidence_strength(Tokens, AbilityEvidence),
+    score_if_true(detail_query_signal(Tokens), 18, DetailCue),
+    Score is 112 + AbilityEvidence + DetailCue.
+item_move_ability_candidate_goal(Text, Tokens, Score, answer_ability_query(Ability)) :-
+    parse_ability_query(Text, Ability),
+    ability_evidence_strength(Tokens, AbilityEvidence),
+    score_if_true(detail_query_signal(Tokens), 20, DetailCue),
+    ( parse_natural_pokemon_query(Text, _) -> ContextAdj = -8 ; ContextAdj = 10 ),
+    Score is 92 + AbilityEvidence + DetailCue + ContextAdj.
+
+resolve_strategy_rules_by_evidence(Text, Tokens, Goal) :-
+    findall(Score-CandidateGoal,
+        strategy_rules_candidate_goal(Text, Tokens, Score, CandidateGoal),
+        Candidates),
+    Candidates \= [],
+    keysort(Candidates, Sorted),
+    reverse(Sorted, [_BestScore-Goal | _]).
+
+strategy_rules_candidate_goal(Text, Tokens, Score, answer_tournament_rules_query(Topic)) :-
+    parse_tournament_rules_query(Text, Topic),
+    rules_evidence_strength(Tokens, RulesEvidence),
+    score_if_true(token_member_any(Tokens, ["regras", "regra", "regulamento", "manual", "torneio", "torneios", "juiz", "penalidade", "timer", "tempo"]), 24, RulesCue),
+    Score is 100 + RulesEvidence + RulesCue.
+strategy_rules_candidate_goal(Text, Tokens, Score, answer_pair_synergy_query(NameA, NameB)) :-
+    parse_pair_synergy_query(Text, NameA, NameB),
+    strategy_evidence_strength(Tokens, StrategyEvidence),
+    Score is 124 + StrategyEvidence.
+strategy_rules_candidate_goal(Text, Tokens, Score, answer_compatible_partners_query(Name, Limit)) :-
+    parse_compatible_partners_query(Text, Name, Limit),
+    strategy_evidence_strength(Tokens, StrategyEvidence),
+    Score is 122 + StrategyEvidence.
+strategy_rules_candidate_goal(Text, Tokens, Score, answer_doubles_strategy_query(Topic)) :-
+    parse_doubles_strategy_query(Text, Topic),
+    strategy_evidence_strength(Tokens, StrategyEvidence),
+    score_if_true(token_member_any(Tokens, ["estrategia", "plano", "gameplan", "doubles", "dupla", "speed", "trick", "room", "bo3", "lead", "posicionamento"]), 22, StrategyCue),
+    Score is 102 + StrategyEvidence + StrategyCue.
+
+item_evidence_strength(Tokens, Score) :-
+    count_token_pred_matches(Tokens, item_intent_token, TokenHits),
+    count_phrase_pred_matches(Tokens, item_intent_phrase, PhraseHits),
+    score_if_true(token_member_any(Tokens, ["item", "itens", "held", "equipar", "equipado", "equipa"]), 10, LexCue),
+    Score is TokenHits * 6 + PhraseHits * 14 + LexCue.
+
+move_evidence_strength(Tokens, Score) :-
+    count_token_pred_matches(Tokens, move_intent_token, TokenHits),
+    count_phrase_pred_matches(Tokens, battle_intent_phrase, PhraseHits),
+    score_if_true(token_member_any(Tokens, ["move", "moves", "golpe", "golpes", "movelist", "moveset"]), 10, LexCue),
+    Score is TokenHits * 6 + PhraseHits * 10 + LexCue.
+
+ability_evidence_strength(Tokens, Score) :-
+    count_token_pred_matches(Tokens, ability_keyword, TokenHits),
+    count_phrase_pred_matches(Tokens, ability_keyword_phrase, PhraseHits),
+    score_if_true(token_member_any(Tokens, ["habilidade", "habilidades", "ability", "abilities", "passiva", "trait", "traits"]), 10, LexCue),
+    Score is TokenHits * 6 + PhraseHits * 14 + LexCue.
+
+rules_evidence_strength(Tokens, Score) :-
+    count_token_pred_matches(Tokens, tournament_rules_token, TokenHits),
+    score_if_true(contiguous_sublist(["team", "list"], Tokens), 12, TeamListCue),
+    score_if_true(contiguous_sublist(["team", "id"], Tokens), 12, TeamIdCue),
+    score_if_true(contiguous_sublist(["morte", "subita"], Tokens), 10, SuddenDeathPtCue),
+    score_if_true(contiguous_sublist(["sudden", "death"], Tokens), 10, SuddenDeathEnCue),
+    Score is TokenHits * 8 + TeamListCue + TeamIdCue + SuddenDeathPtCue + SuddenDeathEnCue.
+
+strategy_evidence_strength(Tokens, Score) :-
+    count_token_pred_matches(Tokens, strategy_intent_token, StrategyHits),
+    count_token_pred_matches(Tokens, doubles_format_token, DoublesHits),
+    count_token_pred_matches(Tokens, speed_control_token, SpeedHits),
+    count_token_pred_matches(Tokens, trick_room_token, TrickHits),
+    count_token_pred_matches(Tokens, weather_plan_token, WeatherHits),
+    count_token_pred_matches(Tokens, bo3_adaptation_token, Bo3Hits),
+    count_token_pred_matches(Tokens, positioning_token, PositionHits),
+    count_token_pred_matches(Tokens, synergy_intent_token, SynergyHits),
+    Score is StrategyHits * 8 + DoublesHits * 7 + SpeedHits * 6 + TrickHits * 6 + WeatherHits * 6 + Bo3Hits * 6 + PositionHits * 6 + SynergyHits * 7.
+
+count_token_pred_matches(Tokens, PredicateName, Count) :-
+    findall(Token,
+        ( member(Token, Tokens),
+          Goal =.. [PredicateName, Token],
+          call(Goal)
+        ),
+        RawMatches),
+    sort(RawMatches, UniqueMatches),
+    length(UniqueMatches, Count).
+
+count_phrase_pred_matches(Tokens, PredicateName, Count) :-
+    ( current_predicate(PredicateName/1) ->
+        findall(Phrase,
+            ( Goal =.. [PredicateName, Phrase],
+              call(Goal),
+              contiguous_sublist(Phrase, Tokens)
+            ),
+            RawMatches),
+        sort(RawMatches, UniqueMatches),
+        length(UniqueMatches, Count)
+    ; Count = 0
+    ).
+
+score_if_true(Goal, Points, Points) :-
+    call(Goal),
+    !.
+score_if_true(_Goal, _Points, 0).
+
+list_request_signal(Tokens) :-
+    token_member_any(Tokens, ["lista", "listar", "todos", "presentes", "mostrar", "mostra", "exiba", "traga"]),
+    !.
+list_request_signal(Tokens) :-
+    contiguous_sublist(["lista", "de"], Tokens),
+    !.

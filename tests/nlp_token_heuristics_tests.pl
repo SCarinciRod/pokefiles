@@ -8,9 +8,9 @@ ensure_test_db_ready :-
     ( test_db_ready ->
         true
     ; load_database,
-      set_default_generation,
       assertz(test_db_ready)
-    ).
+    ),
+    set_default_generation.
 
 :- begin_tests(nlp_token_heuristics).
 
@@ -278,13 +278,61 @@ test(parse_weak_query_with_short_token, [setup(ensure_test_db_ready)]) :-
     once(parse_weak_against_type_query("quais sao vuln contra agua", TypeFilters)),
     assertion(member(water, TypeFilters)).
 
+test(parse_counter_query_with_punir_token, [setup(ensure_test_db_ready)]) :-
+    once(parse_counter_query("como punir charizard", Name)),
+    assertion(Name == charizard).
+
+test(parse_natural_type_query_with_manda_synonym, [setup(ensure_test_db_ready)]) :-
+    once(parse_natural_type_query("manda pokemons tipo gelo", TypeFilters)),
+    assertion(member(ice, TypeFilters)).
+
+test(parse_ability_details_query_with_passiva_keyword, [setup(ensure_test_db_ready)]) :-
+    once(parse_pokemon_ability_details_query("o que faz a passiva do tyranitar", Name)),
+    assertion(Name == tyranitar).
+
+test(parse_ability_details_query_with_ability_phrase, [setup(ensure_test_db_ready)]) :-
+    once(parse_pokemon_ability_details_query("o que faz clear body do metagross", Name)),
+    assertion(Name == metagross).
+
+test(resolve_intent_routes_ability_details_without_keyword, [setup(ensure_test_db_ready)]) :-
+    Text = "o que faz clear body do metagross",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_pokemon_ability_details_query(metagross)).
+
+test(resolve_intent_routes_ability_catalog_info_prompt, [setup(ensure_test_db_ready)]) :-
+    Text = "info sobre rough skin",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_ability_query(rough_skin)).
+
+test(move_or_ability_domain_signal_with_ability_phrase, [setup(ensure_test_db_ready)]) :-
+    once(tokenize_for_match("o que faz clear body do metagross", Tokens)),
+    once(move_or_ability_domain_signal(Tokens)).
+
 test(parse_compare_query_comparativo_entre, [setup(ensure_test_db_ready)]) :-
     once(parse_compare_query("comparativo entre pikachu e raichu", NameA, NameB)),
     assertion(NameA == pikachu),
     assertion(NameB == raichu).
 
+test(parse_compare_query_with_comparando_token, [setup(ensure_test_db_ready)]) :-
+    once(parse_compare_query("comparando pikachu e raichu", NameA, NameB)),
+    assertion(NameA == pikachu),
+    assertion(NameB == raichu).
+
+test(parse_compare_query_ignores_trailing_clause_stopwords, [setup(ensure_test_db_ready)]) :-
+    once(parse_compare_query("comparar pikachu e raichu e quem ganha", NameA, NameB)),
+    assertion(NameA == pikachu),
+    assertion(NameB == raichu).
+
 test(counter_domain_signal_with_responde_token, [setup(ensure_test_db_ready)]) :-
     once(counter_domain_signal(["quem", "responde", "melhor", "contra", "charizard"])).
+
+test(resolve_intent_routes_counter_with_resposta_token, [setup(ensure_test_db_ready)]) :-
+    Text = "qual resposta para garchomp",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_counter_query_with_clarification(garchomp)).
 
 test(parse_natural_type_query_with_traga_synonym, [setup(ensure_test_db_ready)]) :-
     once(parse_natural_type_query("traga pokemons elemento fogo", TypeFilters)),
@@ -322,6 +370,41 @@ test(resolve_intent_routes_held_item_query, [setup(ensure_test_db_ready)]) :-
     once(resolve_intent(guarded, Text, Tokens, Goal)),
     assertion(Goal = answer_held_item_recommendation_query(hawlucha, balanced)).
 
+test(parse_held_item_recommendation_query_with_item_phrase, [setup(ensure_test_db_ready)]) :-
+    once(parse_held_item_recommendation_query("melhor black sludge para toxapex", Name, Strategy)),
+    assertion(Name == toxapex),
+    assertion(Strategy == balanced).
+
+test(resolve_intent_routes_held_item_query_with_item_phrase, [setup(ensure_test_db_ready)]) :-
+    Text = "melhor black sludge para toxapex",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_held_item_recommendation_query(toxapex, balanced)).
+
+test(resolve_intent_routes_specific_item_detail_query, [setup(ensure_test_db_ready)]) :-
+    Text = "o que faz black sludge",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_specific_item_query(black_sludge)).
+
+test(resolve_intent_routes_specific_move_detail_query, [setup(ensure_test_db_ready)]) :-
+    Text = "qual o efeito de thunder wave",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_specific_move_query(thunder_wave)).
+
+test(resolve_intent_routes_specific_move_detail_query_without_move_keyword, [setup(ensure_test_db_ready)]) :-
+    Text = "poder e precisao de hydro pump",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_specific_move_query(hydro_pump)).
+
+test(resolve_intent_routes_global_movelist_catalog_prompt, [setup(ensure_test_db_ready)]) :-
+    Text = "quais sao os moves catalogados",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_global_move_list_query).
+
 test(held_item_output_highlights_unburden_focus_sash_synergy, [setup(ensure_test_db_ready)]) :-
     with_output_to(atom(Output), answer_held_item_recommendation_query(hawlucha, balanced)),
     assertion(sub_atom(Output, _, _, _, 'focus sash')),
@@ -330,6 +413,63 @@ test(held_item_output_highlights_unburden_focus_sash_synergy, [setup(ensure_test
 test(held_item_output_shows_context_matrix_section, [setup(ensure_test_db_ready)]) :-
     with_output_to(atom(Output), answer_held_item_recommendation_query(hawlucha, balanced)),
     assertion(sub_atom(Output, _, _, _, 'Quadro de possibilidades')).
+
+test(choice_scarf_score_rewards_field_setter_pivot_execution, [setup(ensure_test_db_ready)]) :-
+    Features = held_features{speed:88, offense_peak:95, has_pivot:true, has_weather_setter_ability:true, has_terrain_setter_ability:false, abilities:[drizzle], pivot_moves:[u_turn]},
+    once(held_item_candidate_score(choice_scarf, Features, balanced, Score, _Objective, Reason)),
+    assertion(Score >= 40),
+    assertion(sub_atom(Reason, _, _, _, 'drizzle')),
+    assertion(sub_atom(Reason, _, _, _, 'chuva')).
+
+test(flame_orb_score_rewards_reliable_guts_activation, [setup(ensure_test_db_ready)]) :-
+    Features = held_features{has_guts:true, has_facade:true, has_protect_turn:true},
+    once(held_item_candidate_score(flame_orb, Features, balanced, Score, _Objective, Reason)),
+    assertion(Score >= 50),
+    assertion(sub_atom(Reason, _, _, _, 'blinda contra outros status negativos')).
+
+test(move_tactical_catalog_marks_pivot_and_protection_roles, [setup(ensure_test_db_ready)]) :-
+    assertion(move_has_tactical_role(u_turn, pivot)),
+    assertion(move_has_tactical_role(u_turn, control)),
+    assertion(move_has_tactical_role(protect, protection)),
+    assertion(move_has_tactical_role(protect, control)).
+
+test(move_tactical_catalog_marks_core_high_level_roles, [setup(ensure_test_db_ready)]) :-
+    assertion(move_has_tactical_role(swords_dance, buff)),
+    assertion(move_has_tactical_role(will_o_wisp, debuff)),
+    assertion(move_has_tactical_role(stealth_rock, hazard)),
+    assertion(move_has_tactical_role(recover, recovery)),
+    assertion(move_has_tactical_role(flamethrower, damage)).
+
+test(held_item_feature_pack_uses_tactical_catalog_roles, [setup(ensure_test_db_ready)]) :-
+    once(pokemon_info(pelipper, pokemon(ID, Name, _, _, Types, Abilities, Stats))),
+    once(pokemon_move_list_for_id(ID, Name, MovesRaw, _)),
+    sort(MovesRaw, Moves),
+    once(held_item_feature_pack(ID, Types, Abilities, Stats, Moves, Features)),
+    assertion(Features.has_pivot == true),
+    assertion(Features.has_protect_turn == true).
+
+test(held_item_pelipper_output_mentions_pivot_move_example, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_held_item_recommendation_query(pelipper, balanced)),
+    assertion(sub_atom(Output, _, _, _, 'choice scarf')),
+    assertion(sub_atom(Output, _, _, _, 'drizzle')),
+    assertion(sub_atom(Output, _, _, _, 'chuva')),
+    assertion(
+        sub_atom(Output, _, _, _, 'u turn')
+        ; sub_atom(Output, _, _, _, 'volt switch')
+        ; sub_atom(Output, _, _, _, 'flip turn')
+        ; sub_atom(Output, _, _, _, 'parting shot')
+        ; sub_atom(Output, _, _, _, 'teleport')
+    ).
+
+test(held_item_output_hides_score_and_offers_next_option, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_held_item_recommendation_query(hawlucha, balanced)),
+    \+ sub_atom(Output, _, _, _, 'score'),
+    assertion(sub_atom(Output, _, _, _, 'outra opção')).
+
+test(held_item_pending_next_option_prints_followup_line, [setup(ensure_test_db_ready)]) :-
+    answer_held_item_recommendation_query(hawlucha, balanced),
+    with_output_to(atom(Output), handle_pending_held_item_options("outra opção")),
+    assertion(sub_atom(Output, _, _, _, 'Se quiser outra opção')).
 
 test(held_item_output_prioritizes_rocky_helmet_for_ferrothorn, [setup(ensure_test_db_ready)]) :-
     with_output_to(atom(Output), answer_held_item_recommendation_query(ferrothorn, balanced)),
@@ -344,5 +484,163 @@ test(compare_role_key_prefers_setup_for_hawlucha_unburden_archetype, [setup(ensu
 test(held_item_output_shows_official_setup_role_for_hawlucha, [setup(ensure_test_db_ready)]) :-
     with_output_to(atom(Output), answer_held_item_recommendation_query(hawlucha, balanced)),
     assertion(sub_atom(Output, _, _, _, 'Classificação oficial detectada: Setup Sweeper')).
+
+test(resolve_intent_routes_tournament_timer_query, [setup(ensure_test_db_ready)]) :-
+    Text = "regras vgc de tempo de movimento",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_tournament_rules_query(timers)).
+
+test(resolve_intent_prefers_rules_over_strategy_in_mixed_vgc_prompt, [setup(ensure_test_db_ready)]) :-
+    Text = "regras vgc bo3 e topcut",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_tournament_rules_query(match_format)).
+
+test(resolve_intent_prefers_held_item_over_strategy_on_item_query, [setup(ensure_test_db_ready)]) :-
+    Text = "qual held item combina com pelipper",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_held_item_recommendation_query(pelipper, balanced)).
+
+test(tournament_rules_output_is_marked_as_non_strategy, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_tournament_rules_query(general)),
+    assertion(sub_atom(Output, _, _, _, 'apenas regulamento de torneio')),
+    assertion(sub_atom(Output, _, _, _, 'nao orientacao de estrategia de batalha')).
+
+test(resolve_intent_routes_doubles_strategy_speed_control, [setup(ensure_test_db_ready)]) :-
+    Text = "qual estrategia de speed control no vgc doubles",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_doubles_strategy_query(speed_control)).
+
+test(resolve_intent_prefers_strategy_over_rules_in_mixed_vgc_prompt, [setup(ensure_test_db_ready)]) :-
+    Text = "no vgc doubles qual plano de speed control contra trick room",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    Goal = answer_doubles_strategy_query(Topic),
+    assertion(member(Topic, [speed_control, anti_trick_room])).
+
+test(doubles_strategy_output_mentions_architecture_focus, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_doubles_strategy_query(general)),
+    assertion(sub_atom(Output, _, _, _, 'Foco em arquitetura de jogo')),
+    assertion(sub_atom(Output, _, _, _, 'numeros podem ser calibrados depois')).
+
+test(resolve_intent_routes_pair_synergy_query, [setup(ensure_test_db_ready)]) :-
+    Text = "sinergia entre tyranitar e garchomp",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    Goal = answer_pair_synergy_query(NameA, NameB),
+    assertion(NameA \= NameB),
+    assertion(member(NameA, [tyranitar, garchomp])),
+    assertion(member(NameB, [tyranitar, garchomp])).
+
+test(pair_synergy_output_mentions_sandstorm_for_tyranitar_garchomp, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pair_synergy_query(tyranitar, garchomp)),
+    assertion(sub_atom(Output, _, _, _, 'tempestade de areia')).
+
+test(pair_synergy_output_marks_weak_pairs_as_initial_band, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pair_synergy_query(magikarp, metapod)),
+    assertion(sub_atom(Output, _, _, _, 'sinergia estrutural inicial')).
+
+test(pair_synergy_output_mentions_role_flexibility_and_support_options, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pair_synergy_query(tyranitar, garchomp)),
+    assertion(sub_atom(Output, _, _, _, 'podem inverter conforme o matchup')),
+    assertion(sub_atom(Output, _, _, _, 'opções de suporte como')).
+
+test(pair_synergy_output_offers_detail_followup, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pair_synergy_query(tyranitar, garchomp)),
+    assertion(sub_atom(Output, _, _, _, 'detalhar 1')),
+    assertion(sub_atom(Output, _, _, _, 'detalhar tudo')).
+
+test(pair_synergy_pending_detail_by_index_prints_impact, [setup(ensure_test_db_ready)]) :-
+    once(with_output_to(atom(_PairOutput), answer_pair_synergy_query(tyranitar, garchomp))),
+    with_output_to(atom(Output), handle_pending_synergy_details("detalhar 1")),
+    assertion(sub_atom(Output, _, _, _, 'Detalhamento #1')),
+    assertion(sub_atom(Output, _, _, _, 'Impacto pratico')).
+
+test(pair_turn_window_support_detects_setup_lane, [setup(ensure_test_db_ready)]) :-
+    Enabler = pair_profile{name:clefable, has_redirection:true, has_fake_out:false, has_screens:false, has_damage_amplifier:false, has_pivot:false, has_protect:true},
+    Carry = pair_profile{name:garchomp, has_setup:true, speed:95, offense_peak:130},
+    once(pair_turn_window_support(Enabler, Carry, Score, Reason)),
+    assertion(Score > 0),
+    assertion(sub_atom(Reason, _, _, _, 'janela de execução')).
+
+test(pair_item_activation_support_detects_guts_lane, [setup(ensure_test_db_ready)]) :-
+    Enabler = pair_profile{name:amoonguss, has_redirection:true, has_fake_out:false, has_protect:true, has_screens:false},
+    Carry = pair_profile{name:ursaring, has_guts:true, has_facade:true, has_poison_heal:false},
+    once(pair_item_activation_support(Enabler, Carry, Score, Reason)),
+    assertion(Score > 0),
+    assertion(sub_atom(Reason, _, _, _, 'Flame Orb + Guts')).
+
+test(resolve_intent_routes_compatible_partners_query, [setup(ensure_test_db_ready)]) :-
+    Text = "pokemons compativeis com tyranitar",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_compatible_partners_query(tyranitar, _)).
+
+test(resolve_intent_routes_single_name_synergy_to_partners, [setup(ensure_test_db_ready)]) :-
+    Text = "sinergia com tyranitar",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_compatible_partners_query(tyranitar, _)).
+
+test(compatible_partners_query_now_asks_for_refinement_preferences, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_compatible_partners_query(tyranitar, 8)),
+    assertion(sub_atom(Output, _, _, _, 'Antes de listar parceiros')),
+    assertion(sub_atom(Output, _, _, _, 'principal (carry) ou suporte')),
+    assertion(sub_atom(Output, _, _, _, 'sem lendarios')).
+
+test(compatible_partners_output_uses_multifactor_explanation, [setup(ensure_test_db_ready)]) :-
+    once(answer_compatible_partners_query(tyranitar, 8)),
+    with_output_to(atom(Output), handle_pending_partner_preferences("padrao")),
+    assertion(sub_atom(Output, _, _, _, 'moveset, stats, habilidades e plano de item')),
+    assertion(sub_atom(Output, _, _, _, 'outra opção')),
+    \+ sub_atom(Output, _, _, _, 'score').
+
+test(compatible_partners_output_offers_detail_followup, [setup(ensure_test_db_ready)]) :-
+    once(answer_compatible_partners_query(tyranitar, 8)),
+    with_output_to(atom(Output), handle_pending_partner_preferences("padrao")),
+    assertion(sub_atom(Output, _, _, _, 'detalhar 1')),
+    assertion(sub_atom(Output, _, _, _, 'detalhar <nome>')).
+
+test(compatible_partners_refinement_applies_target_role_and_filter_summary, [setup(ensure_test_db_ready)]) :-
+    once(answer_compatible_partners_query(tyranitar, 8)),
+    with_output_to(atom(Output), handle_pending_partner_preferences("principal sem lendarios")),
+    assertion(sub_atom(Output, _, _, _, 'Filtro aplicado:')),
+    assertion(sub_atom(Output, _, _, _, 'papel do alvo: principal')),
+    assertion(sub_atom(Output, _, _, _, 'sem lendarios/miticos')).
+
+test(compatible_partners_include_name_is_priority_not_hard_filter, [setup(ensure_test_db_ready)]) :-
+    assertion(partner_candidate_allowed_by_name_filters(rotom_wash, [garchomp], [])),
+    assertion(partner_candidate_allowed_by_name_filters(garchomp, [garchomp], [])),
+    \+ partner_candidate_allowed_by_name_filters(garchomp, [garchomp], [garchomp]).
+
+test(compatible_partners_include_name_bonus_is_applied_only_to_selected_name, [setup(ensure_test_db_ready)]) :-
+    once(partner_include_name_bonus(garchomp, [garchomp], Bonus, Reason)),
+    assertion(Bonus > 0),
+    assertion(sub_atom(Reason, _, _, _, 'prioridade no ranking')),
+    once(partner_include_name_bonus(rotom_wash, [garchomp], NoBonus, EmptyReason)),
+    assertion(NoBonus == 0),
+    assertion(EmptyReason == '').
+
+test(compatible_partners_dedupe_keeps_best_entry_per_name, [setup(ensure_test_db_ready)]) :-
+    Pairs = [980-garchomp-[12-a], 940-garchomp-[10-b], 910-rotom_wash-[8-c]],
+    once(partner_dedupe_pairs_by_name(Pairs, Unique)),
+    assertion(Unique == [980-garchomp-[12-a], 910-rotom_wash-[8-c]]).
+
+test(compatible_partners_pending_next_option_prints_followup_line, [setup(ensure_test_db_ready)]) :-
+    once(with_output_to(atom(_PromptOutput), answer_compatible_partners_query(tyranitar, 8))),
+    once(with_output_to(atom(_PrefOutput), handle_pending_partner_preferences("padrao"))),
+    once(with_output_to(atom(Output), handle_pending_partner_options("outra opção"))),
+    assertion(sub_atom(Output, _, _, _, 'Se quiser outra opção')).
+
+test(compatible_partners_pending_options_defers_detail_requests, [setup(ensure_test_db_ready)]) :-
+    once(with_output_to(atom(_PromptOutput), answer_compatible_partners_query(tyranitar, 8))),
+    once(with_output_to(atom(_PrefOutput), handle_pending_partner_preferences("padrao"))),
+    \+ with_output_to(atom(_IgnoredOutput), handle_pending_partner_options("detalhar 1")),
+    with_output_to(atom(Output), handle_pending_synergy_details("detalhar 1")),
+    assertion(sub_atom(Output, _, _, _, 'Detalhamento #1')),
+    assertion(sub_atom(Output, _, _, _, 'Impacto pratico')).
 
 :- end_tests(nlp_token_heuristics).

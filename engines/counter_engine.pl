@@ -141,11 +141,7 @@ answer_counter_generation_query(TargetIdentifier, Generation, TypeFilters, Conte
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
         ),
         PairsRaw),
-    keysort(PairsRaw, Asc),
-    reverse(Asc, DescRaw),
-    dedupe_counter_pairs_by_name(DescRaw, TopUnique),
-    counter_recommendation_limit(Limit),
-    take_first_n(TopUnique, Limit, TopPairs),
+    counter_rank_limit_pairs(PairsRaw, TopPairs),
     TopPairs \= [],
     !,
     display_pokemon_name(TargetName, TargetLabel),
@@ -260,11 +256,7 @@ answer_counter_level_cap_query(TargetIdentifier, LevelConstraint) :-
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
         ),
         PairsRaw),
-    keysort(PairsRaw, Asc),
-    reverse(Asc, DescRaw),
-    dedupe_counter_pairs_by_name(DescRaw, Desc),
-    counter_recommendation_limit(Limit),
-    take_first_n(Desc, Limit, TopPairs),
+    counter_rank_limit_pairs(PairsRaw, TopPairs),
     TopPairs \= [],
     !,
     display_pokemon_name(TargetName, TargetLabel),
@@ -299,12 +291,9 @@ answer_counter_level_cap_query_with_filters(TargetIdentifier, LevelConstraint, T
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
         ),
         PairsRaw),
-    keysort(PairsRaw, Asc),
-    reverse(Asc, DescRaw),
-    dedupe_counter_pairs_by_name(DescRaw, UniquePairs),
-    include(counter_pair_passes_filters(ContextFilters), UniquePairs, FilteredPairs),
-    counter_recommendation_limit(Limit),
-    take_first_n(FilteredPairs, Limit, TopPairs),
+    counter_rank_pairs(PairsRaw, RankedPairs),
+    include(counter_pair_passes_filters(ContextFilters), RankedPairs, FilteredPairs),
+    counter_limit_pairs(FilteredPairs, TopPairs),
     TopPairs \= [],
     !,
     display_pokemon_name(TargetName, TargetLabel),
@@ -331,11 +320,7 @@ answer_counter_composed_query(TargetIdentifier, Generation, TypeFilters, Context
           counter_score(ID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
         ),
         PairsRaw),
-    keysort(PairsRaw, Asc),
-    reverse(Asc, DescRaw),
-    dedupe_counter_pairs_by_name(DescRaw, UniquePairs),
-    counter_recommendation_limit(Limit),
-    take_first_n(UniquePairs, Limit, TopPairs),
+        counter_rank_limit_pairs(PairsRaw, TopPairs),
     TopPairs \= [],
     !,
     extract_counter_names(TopPairs, CounterNames),
@@ -415,11 +400,7 @@ recommend_counters(TargetID, TargetTypes, TargetStats, TopPairs) :-
           counter_score(CandidateID, CandidateStats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
         ),
         PairsRaw),
-    keysort(PairsRaw, PairsAsc),
-    reverse(PairsAsc, PairsDescRaw),
-    dedupe_counter_pairs_by_name(PairsDescRaw, PairsDesc),
-    counter_recommendation_limit(Limit),
-    take_first_n(PairsDesc, Limit, TopPairs).
+    counter_rank_limit_pairs(PairsRaw, TopPairs).
 
 recommend_counters_from_candidates(CandidateNames, TargetID, TargetTypes, TargetStats, TopPairs) :-
     findall(Score-Name-AttackMult-DefenseMult,
@@ -430,11 +411,20 @@ recommend_counters_from_candidates(CandidateNames, TargetID, TargetTypes, Target
           counter_score(CandidateID, Stats, TargetID, TargetStats, AttackPressure, DefensePressure, Score)
         ),
         PairsRaw),
+    counter_rank_limit_pairs(PairsRaw, TopPairs).
+
+counter_rank_limit_pairs(PairsRaw, TopPairs) :-
+    counter_rank_pairs(PairsRaw, RankedPairs),
+    counter_limit_pairs(RankedPairs, TopPairs).
+
+counter_rank_pairs(PairsRaw, RankedPairs) :-
     keysort(PairsRaw, PairsAsc),
     reverse(PairsAsc, PairsDescRaw),
-    dedupe_counter_pairs_by_name(PairsDescRaw, PairsDesc),
+    dedupe_counter_pairs_by_name(PairsDescRaw, RankedPairs).
+
+counter_limit_pairs(Pairs, TopPairs) :-
     counter_recommendation_limit(Limit),
-    take_first_n(PairsDesc, Limit, TopPairs).
+    take_first_n(Pairs, Limit, TopPairs).
 
 dedupe_counter_pairs_by_name(Pairs, UniquePairs) :-
     dedupe_counter_pairs_by_name(Pairs, [], Rev),

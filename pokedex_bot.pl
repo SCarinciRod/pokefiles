@@ -13,6 +13,10 @@
 :- dynamic pending_type_preferences/1.
 :- dynamic pending_list_preferences/1.
 :- dynamic pending_rank_focus/3.
+:- dynamic pending_held_item_options/2.
+:- dynamic pending_partner_preferences/2.
+:- dynamic pending_partner_options/2.
+:- dynamic pending_synergy_details/2.
 :- dynamic cache_type_count/3.
 :- dynamic cache_type_list/3.
 :- dynamic cache_ability_list/3.
@@ -44,6 +48,8 @@
 :- ensure_loaded('engines/ranking_engine.pl').
 :- ensure_loaded('engines/counter_engine.pl').
 :- ensure_loaded('engines/matchup_engine.pl').
+:- ensure_loaded('engines/tournament_rules_engine.pl').
+:- ensure_loaded('engines/doubles_strategy_engine.pl').
 
 % ============================================================
 % BOOTSTRAP E CICLO PRINCIPAL
@@ -74,8 +80,8 @@ load_database :-
     expand_file_name('db/lore_mega_forms.pl', MegaLoreFiles),
     expand_file_name('db/special_forms.pl', SpecialFiles),
     expand_file_name('db/lore_special_forms.pl', SpecialLoreFiles),
-    expand_file_name('db/language_references.pl', LanguageRefFiles),
-    expand_file_name('db/bot_static_lexicon.pl', BotStaticLexiconFiles),
+    expand_file_name('db/language_references*.pl', LanguageRefFiles),
+    expand_file_name('db/bot_static_lexicon*.pl', BotStaticLexiconFiles),
     expand_file_name('db/bot_type_data.pl', BotTypeDataFiles),
     expand_file_name('db/bot_ui_texts.pl', BotUITextFiles),
     expand_file_name('db/bot_response_texts.pl', BotResponseTextFiles),
@@ -83,6 +89,7 @@ load_database :-
     expand_file_name('db/abilities_catalog.pl', AbilitiesCatalogFiles),
     expand_file_name('db/items_catalog.pl', ItemsCatalogFiles),
     expand_file_name('db/moves_catalog.pl', MovesCatalogFiles),
+    expand_file_name('db/move_tactical_catalog.pl', MoveTacticalCatalogFiles),
     expand_file_name('db/pokemon_movelists.pl', PokemonMovelistFiles),
     expand_file_name('db/move_data.pl', MoveDataFallbackFiles),
     ( GenerationFiles \= [] ->
@@ -145,6 +152,10 @@ load_database :-
         maplist(consult, MovesCatalogFiles)
     ; true
     ),
+    ( MoveTacticalCatalogFiles \= [] ->
+        maplist(consult, MoveTacticalCatalogFiles)
+    ; true
+    ),
     ( PokemonMovelistFiles \= [] ->
         maplist(consult, PokemonMovelistFiles)
     ; true
@@ -184,7 +195,11 @@ set_default_generation :-
     retractall(pending_counter_level_preferences(_, _)),
     retractall(pending_type_preferences(_)),
     retractall(pending_list_preferences(_)),
-    retractall(pending_rank_focus(_, _, _)).
+    retractall(pending_rank_focus(_, _, _)),
+    retractall(pending_held_item_options(_, _)),
+    retractall(pending_partner_preferences(_, _)),
+    retractall(pending_partner_options(_, _)),
+    retractall(pending_synergy_details(_, _)).
 
 chat_loop :-
     write('Voce: '),
@@ -252,6 +267,8 @@ clear_query_caches :-
     retractall(cache_pokemon_move_list(_, _, _)),
     retractall(cache_held_item_recommendation(_, _, _, _, _, _)),
     retractall(cache_battle_best_move_choice(_, _, _, _, _, _, _)),
+    retractall(cache_pair_strategy_profile(_, _, _)),
+    retractall(cache_pair_synergy_breakdown(_, _, _, _, _)),
     retractall(cache_scoped_filtered_names(_, _, _, _)),
     retractall(cache_generation_filtered_names(_, _, _, _)).
 
@@ -905,19 +922,46 @@ parse_ability_query(Text, Ability) :-
     \+ starts_with_tokens(Tail, ["do"]),
     \+ starts_with_tokens(Tail, ["da"]),
     extract_ability_token(Tail, Ability).
+parse_ability_query(Text, Ability) :-
+    tokenize_for_match(Text, Tokens),
+    ability_detail_request_signal(Tokens),
+    extract_best_ability_mention_from_tokens(Tokens, Ability),
+    \+ parse_natural_pokemon_query(Text, _).
+
+ability_keyword_signal(Tokens) :-
+    member(Keyword, Tokens),
+    ability_keyword(Keyword),
+    !.
+ability_keyword_signal(Tokens) :-
+    current_predicate(ability_keyword_phrase/1),
+    ability_keyword_phrase(Phrase),
+    contiguous_sublist(Phrase, Tokens),
+    !.
 
 parse_pokemon_ability_details_query(Text, Name) :-
     tokenize_for_match(Text, Tokens),
-    member(Keyword, Tokens),
-    ability_keyword(Keyword),
-    ( member("faz", Tokens)
-    ; member("fazem", Tokens)
-    ; member("efeito", Tokens)
-    ; member("efeitos", Tokens)
-    ; contiguous_sublist(["o", "que"], Tokens)
-    ; contiguous_sublist(["oq"], Tokens)
+    parse_natural_pokemon_query(Text, Name),
+    ( ability_keyword_signal(Tokens)
+    ; extract_best_ability_mention_from_tokens(Tokens, _)
     ),
-    parse_natural_pokemon_query(Text, Name).
+    ( ability_detail_request_signal(Tokens)
+    ; extract_best_ability_mention_from_tokens(Tokens, _)
+    ),
+    !.
+
+ability_detail_request_signal(Tokens) :-
+    member(Token, Tokens),
+    member(Token, ["faz", "fazem", "efeito", "efeitos", "funciona", "detalhe", "detalhes", "explica", "explicacao", "descrição", "descricao", "serve", "info", "informacao", "informacoes", "informações"]),
+    !.
+ability_detail_request_signal(Tokens) :-
+    contiguous_sublist(["o", "que"], Tokens),
+    !.
+ability_detail_request_signal(Tokens) :-
+    contiguous_sublist(["oq"], Tokens),
+    !.
+ability_detail_request_signal(Tokens) :-
+    contiguous_sublist(["como", "funciona"], Tokens),
+    !.
 
 
 parse_pokemon_movelist_query(Text, Name) :-
@@ -934,6 +978,10 @@ parse_move_list_query(Text) :-
                 ; member("todos", Tokens)
                 ; member("presentes", Tokens)
                 ; member("jogo", Tokens)
+                ; member("catalogados", Tokens)
+                ; member("catalogado", Tokens)
+                ; member("catalogo", Tokens)
+                ; member("catálogo", Tokens)
                 )
             )
         ; contiguous_sublist(["lista", "de", "moves"], Tokens)
@@ -942,6 +990,49 @@ parse_move_list_query(Text) :-
     ; contiguous_sublist(["golpes", "presentes"], Tokens)
     ),
     \+ parse_pokemon_movelist_query(Text, _).
+
+parse_specific_move_query(Text, Move) :-
+    tokenize_for_match(Text, Tokens),
+    move_detail_query_signal(Tokens),
+    extract_best_move_mention_from_tokens(Tokens, Move).
+
+parse_specific_item_query(Text, Item) :-
+    tokenize_for_match(Text, Tokens),
+    item_detail_query_signal(Tokens),
+    extract_best_item_mention_from_tokens(Tokens, Item).
+
+move_detail_query_signal(Tokens) :-
+    detail_query_signal(Tokens),
+    !.
+move_detail_query_signal(Tokens) :-
+    token_member_any(Tokens, ["move", "moves", "golpe", "golpes", "poder", "power", "accuracy", "acuracia", "precisao", "pp", "prioridade", "categoria", "tipo"]),
+    !.
+move_detail_query_signal(Tokens) :-
+    length(Tokens, Len),
+    Len =< 4,
+    !.
+
+item_detail_query_signal(Tokens) :-
+    detail_query_signal(Tokens),
+    !.
+item_detail_query_signal(Tokens) :-
+    token_member_any(Tokens, ["item", "itens", "held", "equipar", "equipado", "equipa", "serve", "funciona"]),
+    !.
+item_detail_query_signal(Tokens) :-
+    length(Tokens, Len),
+    Len =< 4,
+    !.
+
+detail_query_signal(Tokens) :-
+    member(Token, Tokens),
+    member(Token, ["faz", "efeito", "efeitos", "serve", "funciona", "detalhe", "detalhes", "explica", "explicacao", "descrição", "descricao", "info", "informacao", "informações", "informacoes"]),
+    !.
+detail_query_signal(Tokens) :-
+    contiguous_sublist(["o", "que"], Tokens),
+    !.
+detail_query_signal(Tokens) :-
+    contiguous_sublist(["como", "funciona"], Tokens),
+    !.
 
 parse_status_query(Text, Stat) :-
     tokenize_for_match(Text, Tokens),
@@ -1116,6 +1207,13 @@ common_typo_token("evolucap", "evolucao").
 common_typo_token("comparacoa", "comparacao").
 common_typo_token("comparcao", "comparacao").
 common_typo_token("habilidae", "habilidade").
+common_typo_token("estrateiga", "estrategia").
+common_typo_token("estragia", "estrategia").
+common_typo_token("synergia", "sinergia").
+common_typo_token("contrra", "contra").
+common_typo_token("simulacaoo", "simulacao").
+common_typo_token("simulaçao", "simulacao").
+common_typo_token("vgcc", "vgc").
 
 pokemon_name_mentioned_in_tokens(Name, Tokens, Len) :-
     ( pokemon_name_index_tokens(Name, NameTokens) ->
@@ -1144,6 +1242,56 @@ extract_ability_token(Tokens, Ability) :-
 valid_ability_word(Token) :-
     Token \= "",
     \+ member(Token, ["com", "de", "do", "da", "que", "tem", "têm", "pokemon", "pokemons", "pokémon", "pokémons"]).
+
+extract_best_ability_mention_from_tokens(Tokens, Ability) :-
+    findall(Len-FoundAbility,
+        ( ability_catalog_entry(FoundAbility),
+          catalog_atom_mentioned_in_tokens(FoundAbility, Tokens, Len)
+        ),
+        Matches),
+    Matches \= [],
+    keysort(Matches, Sorted),
+    reverse(Sorted, [_BestLen-Ability | _]).
+
+extract_best_item_mention_from_tokens(Tokens, Item) :-
+    findall(Len-FoundItem,
+        ( item_catalog_entry(FoundItem),
+          catalog_atom_mentioned_in_tokens(FoundItem, Tokens, Len)
+        ),
+        Matches),
+    Matches \= [],
+    keysort(Matches, Sorted),
+    reverse(Sorted, [_BestLen-Item | _]).
+
+extract_best_move_mention_from_tokens(Tokens, Move) :-
+    findall(Len-FoundMove,
+        ( move_catalog_entry(FoundMove),
+          catalog_atom_mentioned_in_tokens(FoundMove, Tokens, Len)
+        ),
+        Matches),
+    Matches \= [],
+    keysort(Matches, Sorted),
+    reverse(Sorted, [_BestLen-Move | _]).
+
+catalog_atom_mentioned_in_tokens(Atom, Tokens, Len) :-
+    atom_string(Atom, AtomText),
+    split_string(AtomText, "_", "", AtomPartsRaw),
+    include(valid_catalog_word, AtomPartsRaw, AtomParts),
+    AtomParts \= [],
+    contiguous_sublist(AtomParts, Tokens),
+    length(AtomParts, Len).
+
+valid_catalog_word(Token) :-
+    Token \= "",
+    \+ member(Token, ["de", "do", "da", "com", "para", "sem", "e", "ou", "the", "of", "and"]).
+
+ability_catalog_entry(Ability) :-
+    current_predicate(ability_entry/5),
+    ability_entry(Ability, _Generation, _IsMainSeries, _ShortEffect, _Effect).
+
+item_catalog_entry(Item) :-
+    current_predicate(item_entry/6),
+    item_entry(Item, _Category, _Cost, _FlingPower, _FlingEffect, _Description).
 
 extract_stat_from_tokens(Tokens, Stat) :-
     include(non_empty_string, Tokens, Words),
@@ -1306,6 +1454,79 @@ answer_pokemon_movelist_query(NameIdentifier) :-
 answer_pokemon_movelist_query(NameIdentifier) :-
     display_pokemon_name(NameIdentifier, NameLabel),
     format('Bot: Não consegui identificar o Pokémon para mostrar movelist (~w).~n', [NameLabel]).
+
+answer_specific_item_query(ItemIdentifier) :-
+    item_info(ItemIdentifier, item(Item, Category, Cost, FlingPower, FlingEffect, Description)),
+    !,
+    display_label(Item, ItemLabel),
+    display_label(Category, CategoryLabel),
+    item_effect_text(Description, EffectText),
+    format('Bot: Item ~w (~w).~n', [ItemLabel, CategoryLabel]),
+    format('  - Efeito: ~w~n', [EffectText]),
+    format('  - Custo base: ~w~n', [Cost]),
+    format('  - Fling power: ~w | Fling efeito: ~w~n', [FlingPower, FlingEffect]).
+answer_specific_item_query(ItemIdentifier) :-
+    display_label(ItemIdentifier, ItemLabel),
+    format('Bot: Não encontrei detalhes para o item ~w.~n', [ItemLabel]).
+
+answer_specific_move_query(MoveIdentifier) :-
+    move_data(MoveIdentifier, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description),
+    !,
+    display_label(MoveIdentifier, MoveLabel),
+    display_type_label(Type, TypeLabel),
+    display_label(Category, CategoryLabel),
+    move_power_text(Category, BasePower, PowerText),
+    move_accuracy_text(Accuracy, AccuracyText),
+    move_priority_from_tags(Tags, Priority),
+    move_effect_text(Description, MoveEffectText),
+    format('Bot: Move ~w.~n', [MoveLabel]),
+    format('  - Tipo: ~w | Categoria: ~w~n', [TypeLabel, CategoryLabel]),
+    format('  - Poder: ~w | Precisão: ~w | PP: ~w | Prioridade: ~w~n', [PowerText, AccuracyText, PP, Priority]),
+    format('  - Efeito: ~w~n', [MoveEffectText]),
+    format('  - Metadados: chance_efeito=~w | ailment=~w | classe_efeito=~w~n', [EffectChance, Ailment, EffectCategory]).
+answer_specific_move_query(MoveIdentifier) :-
+    display_label(MoveIdentifier, MoveLabel),
+    format('Bot: Não encontrei detalhes para o move ~w.~n', [MoveLabel]).
+
+item_info(Identifier, item(Item, Category, Cost, FlingPower, FlingEffect, Description)) :-
+    downcase_atom(Identifier, Item),
+    current_predicate(item_entry/6),
+    item_entry(Item, Category, Cost, FlingPower, FlingEffect, Description).
+
+item_effect_text(RawDescription, EffectText) :-
+    input_to_string(RawDescription, DescriptionText),
+    normalize_space(string(Normalized), DescriptionText),
+    ( Normalized == "" ->
+        EffectText = 'Sem descrição disponível.'
+    ; EffectText = Normalized
+    ).
+
+move_power_text(status, _BasePower, 'status') :- !.
+move_power_text(_Category, BasePower, '-') :-
+    BasePower =< 0,
+    !.
+move_power_text(_Category, BasePower, BasePower).
+
+move_accuracy_text(0, 'sempre acerta') :- !.
+move_accuracy_text(Accuracy, Text) :-
+    format(atom(Text), '~w%', [Accuracy]).
+
+move_effect_text(DescriptionAtom, EffectText) :-
+    input_to_string(DescriptionAtom, DescriptionText),
+    normalize_space(string(Normalized), DescriptionText),
+    ( Normalized == "" ->
+        EffectText = 'Sem descrição disponível.'
+    ; EffectText = Normalized
+    ).
+
+move_priority_from_tags(Tags, Priority) :-
+    member(Tag, Tags),
+    atom(Tag),
+    atom_string(Tag, TagText),
+    string_concat("priority_", NumberText, TagText),
+    string_number(NumberText, Priority),
+    !.
+move_priority_from_tags(_Tags, 0).
 
 answer_status_query(Stat) :-
     top_pokemon_by_stat(Stat, 8, TopPairs),
