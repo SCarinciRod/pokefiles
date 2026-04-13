@@ -45,6 +45,7 @@
 :- multifile focus_choice_token/2.
 :- multifile move_intent_token/1.
 :- multifile item_intent_token/1.
+:- multifile item_intent_phrase/1.
 :- multifile level_upper_bound_token/1.
 :- multifile level_lower_bound_token/1.
 :- multifile level_upper_bound_phrase/1.
@@ -52,6 +53,15 @@
 :- multifile best_switch_intent_phrase/1.
 :- multifile context_reference_token/1.
 :- multifile team_compare_signal_token/1.
+:- multifile tournament_rules_token/1.
+:- multifile strategy_intent_token/1.
+:- multifile doubles_format_token/1.
+:- multifile speed_control_token/1.
+:- multifile trick_room_token/1.
+:- multifile weather_plan_token/1.
+:- multifile bo3_adaptation_token/1.
+:- multifile positioning_token/1.
+:- multifile synergy_intent_token/1.
 
 negation_token("sem").
 
@@ -152,6 +162,13 @@ counter_intent_token("responder").
 counter_intent_token("lida").
 counter_intent_token("lidar").
 counter_intent_token("bate").
+counter_intent_token("punir").
+counter_intent_token("pune").
+counter_intent_token("punem").
+counter_intent_token("punicao").
+counter_intent_token("resposta").
+counter_intent_token("answer").
+counter_intent_token("anti").
 counter_intent_token("check").
 counter_intent_token("checks").
 counter_intent_token("counterpick").
@@ -173,6 +190,11 @@ counter_intent_phrase(["quem", "vai", "bem", "contra"]).
 counter_intent_phrase(["quem", "responde", "melhor", "a"]).
 counter_intent_phrase(["qual", "responde", "melhor", "a"]).
 counter_intent_phrase(["quem", "lida", "bem", "contra"]).
+counter_intent_phrase(["quem", "segura", "bem", "contra"]).
+counter_intent_phrase(["qual", "segura", "bem", "contra"]).
+counter_intent_phrase(["resposta", "contra"]).
+counter_intent_phrase(["resposta", "para"]).
+counter_intent_phrase(["counter", "de"]).
 
 battle_intent_token("simule").
 battle_intent_token("simular").
@@ -195,6 +217,13 @@ battle_intent_token("mano").
 battle_intent_token("x").
 battle_intent_token("versus").
 battle_intent_token("vs").
+battle_intent_token("simulacao").
+battle_intent_token("simulação").
+battle_intent_token("simulado").
+battle_intent_token("simulada").
+battle_intent_token("mirror").
+battle_intent_token("1x1real").
+battle_intent_token("1v1real").
 
 battle_intent_phrase(["quem", "ganha"]).
 battle_intent_phrase(["quem", "vence"]).
@@ -204,6 +233,10 @@ battle_intent_phrase(["qual", "vence"]).
 battle_intent_phrase(["qual", "leva"]).
 battle_intent_phrase(["quem", "passa", "por"]).
 battle_intent_phrase(["quem", "leva", "a", "melhor"]).
+battle_intent_phrase(["simulacao", "rapida"]).
+battle_intent_phrase(["simulação", "rápida"]).
+battle_intent_phrase(["x1", "real"]).
+battle_intent_phrase(["1v1", "real"]).
 
 legendary_request_token(Token) :- legendary_token(Token).
 legendary_request_token(Token) :- mythical_token(Token).
@@ -218,6 +251,7 @@ generation_prefix("g").
 generation_prefix("gen").
 generation_prefix("geracao").
 generation_prefix("geração").
+generation_prefix("ger").
 
 quantity_intent_token("quantos").
 quantity_intent_token("quantas").
@@ -236,6 +270,10 @@ quantity_intent_token("quanto").
 quantity_intent_token("qtde").
 quantity_intent_token("numero").
 quantity_intent_token("número").
+quantity_intent_token("quantidade").
+quantity_intent_token("contagem").
+quantity_intent_token("total").
+quantity_intent_token("totais").
 
 list_intent_token("quais").
 list_intent_token("lista").
@@ -254,6 +292,11 @@ list_intent_token("exibe").
 list_intent_token("mostrar").
 list_intent_token("traga").
 list_intent_token("traz").
+list_intent_token("manda").
+list_intent_token("solta").
+list_intent_token("puxa").
+list_intent_token("retorna").
+list_intent_token("retorne").
 
 level_cap_indicator_token("abaixo").
 level_cap_indicator_token("ate").
@@ -280,6 +323,7 @@ level_upper_bound_token("max").
 level_upper_bound_token("cap").
 level_upper_bound_token("limite").
 level_upper_bound_token("ateh").
+level_upper_bound_token("teto").
 
 level_lower_bound_token("acima").
 level_lower_bound_token("maior").
@@ -288,11 +332,15 @@ level_lower_bound_token("mínimo").
 level_lower_bound_token("min").
 level_lower_bound_token("desde").
 level_lower_bound_token("apartir").
+level_lower_bound_token("apartirde").
 
 level_upper_bound_phrase(["abaixo", "de"]).
 level_upper_bound_phrase(["no", "maximo"]).
 level_upper_bound_phrase(["no", "máximo"]).
 level_upper_bound_phrase(["no", "max"]).
+level_upper_bound_phrase(["ate", "o"]).
+level_upper_bound_phrase(["ate", "o", "nivel"]).
+level_upper_bound_phrase(["no", "teto"]).
 
 level_lower_bound_phrase(["acima", "de"]).
 level_lower_bound_phrase(["a", "partir", "de"]).
@@ -301,6 +349,7 @@ level_lower_bound_phrase(["depois", "de"]).
 level_lower_bound_phrase(["mais", "de"]).
 level_lower_bound_phrase(["no", "minimo"]).
 level_lower_bound_phrase(["no", "mínimo"]).
+level_lower_bound_phrase(["pelo", "menos"]).
 
 counter_relation_token("de").
 counter_relation_token("do").
@@ -331,22 +380,37 @@ best_switch_intent_phrase(["segura", "melhor", "contra"]).
 context_reference_token("desses").
 context_reference_token("desse").
 context_reference_token("deles").
+context_reference_token("dessas").
+context_reference_token("esse").
+context_reference_token("essa").
+context_reference_token("isso").
+context_reference_token("ele").
+context_reference_token("ela").
+context_reference_token("mesmo").
 
 team_compare_signal_token("melhor").
 team_compare_signal_token("vale").
 team_compare_signal_token("forte").
+team_compare_signal_token("encaixa").
+team_compare_signal_token("funciona").
 
 cancel_token("cancelar").
 cancel_token("cancela").
 cancel_token("pare").
 cancel_token("parar").
 cancel_token("desistir").
+cancel_token("cancele").
+cancel_token("stop").
 
 default_choice_token("padrao").
 default_choice_token("padrão").
 default_choice_token("qualquer").
 default_choice_token("tanto").
 default_choice_token("normal").
+default_choice_token("default").
+default_choice_token("livre").
+default_choice_token("semfiltro").
+default_choice_token("semfiltros").
 
 yes_response_token("sim").
 yes_response_token("s").
@@ -355,12 +419,18 @@ yes_response_token("okay").
 yes_response_token("confirmo").
 yes_response_token("yes").
 yes_response_token("y").
+yes_response_token("claro").
+yes_response_token("bora").
+yes_response_token("pode").
+yes_response_token("manda").
 
 no_response_token("nao").
 no_response_token("não").
 no_response_token("n").
 no_response_token("no").
 no_response_token("negativo").
+no_response_token("nah").
+no_response_token("nem").
 
 level_word_token("lv").
 level_word_token("lvl").
@@ -413,11 +483,14 @@ ranking_intent_token("rankeie").
 ranking_intent_token("rankear").
 ranking_intent_token("ordene").
 ranking_intent_token("ordenar").
+ranking_intent_token("classificar").
+ranking_intent_token("classifica").
 
 top_intent_token("top").
 top_intent_token("melhores").
 top_intent_token("maiores").
 top_intent_token("mais").
+top_intent_token("piores").
 
 team_intent_token("time").
 team_intent_token("times").
@@ -425,6 +498,8 @@ team_intent_token("elenco").
 team_intent_token("roster").
 team_intent_token("squad").
 team_intent_token("meu").
+team_intent_token("lineup").
+team_intent_token("comp").
 
 compare_intent_token("compare").
 compare_intent_token("comparar").
@@ -432,6 +507,7 @@ compare_intent_token("comparacao").
 compare_intent_token("comparação").
 compare_intent_token("comparativo").
 compare_intent_token("comparativa").
+compare_intent_token("comparando").
 compare_intent_token("diferenca").
 compare_intent_token("diferença").
 compare_intent_token("diferencas").
@@ -443,6 +519,10 @@ evolution_structure_token("cadeia").
 evolution_structure_token("final").
 evolution_structure_token("inicial").
 evolution_structure_token("base").
+evolution_structure_token("estagios").
+evolution_structure_token("estágios").
+evolution_structure_token("ramo").
+evolution_structure_token("ramos").
 
 evolution_chain_token("cadeia").
 evolution_chain_token("linha").
@@ -451,6 +531,8 @@ evolution_chain_token("árvore").
 evolution_chain_token("completa").
 evolution_chain_token("completo").
 evolution_chain_token("linhagem").
+evolution_chain_token("cadeias").
+evolution_chain_token("linhas").
 
 evolution_detail_token("como").
 evolution_detail_token("quando").
@@ -466,6 +548,9 @@ evolution_detail_token("item").
 evolution_detail_token("itens").
 evolution_detail_token("felicidade").
 evolution_detail_token("amizade").
+evolution_detail_token("requer").
+evolution_detail_token("exige").
+evolution_detail_token("precisa").
 
 immunity_intent_token("imunidade").
 immunity_intent_token("imunidades").
@@ -473,6 +558,9 @@ immunity_intent_token("imune").
 immunity_intent_token("imunes").
 immunity_intent_token("imun").
 immunity_intent_token("immune").
+immunity_intent_token("invulneravel").
+immunity_intent_token("invulnerável").
+immunity_intent_token("anula").
 
 weak_intent_token("fraco").
 weak_intent_token("fraca").
@@ -485,11 +573,13 @@ weak_intent_token("vulnerável").
 weak_intent_token("vulneraveis").
 weak_intent_token("vulneráveis").
 weak_intent_token("vuln").
+weak_intent_token("apanha").
 
 coverage_intent_token("cobertura").
 coverage_intent_token("cobre").
 coverage_intent_token("cobrem").
 coverage_intent_token("cobrir").
+coverage_intent_token("coberturaofensiva").
 
 % Sinalizadores de ranking
 ranking_signal_token("top").
@@ -499,6 +589,8 @@ ranking_signal_token("rankeie").
 ranking_signal_token("rankear").
 ranking_signal_token("ordene").
 ranking_signal_token("ordenar").
+ranking_signal_token("classifica").
+ranking_signal_token("classificar").
 ranking_signal_token("mais").
 ranking_signal_token("maior").
 ranking_signal_token("maiores").
@@ -616,6 +708,8 @@ move_intent_token("golpe").
 move_intent_token("golpes").
 move_intent_token("skill").
 move_intent_token("skills").
+move_intent_token("movimentos").
+move_intent_token("ataques").
 
 item_intent_token("item").
 item_intent_token("itens").
@@ -625,12 +719,141 @@ item_intent_token("segurar").
 item_intent_token("segurando").
 item_intent_token("equipa").
 item_intent_token("equipar").
+item_intent_token("equipado").
 item_intent_token("focus").
 item_intent_token("sash").
 item_intent_token("orb").
 item_intent_token("boots").
 item_intent_token("choice").
 item_intent_token("vest").
+
+tournament_rules_token("vgc").
+tournament_rules_token("torneio").
+tournament_rules_token("torneios").
+tournament_rules_token("campeonato").
+tournament_rules_token("campeonatos").
+tournament_rules_token("regulamento").
+tournament_rules_token("manual").
+tournament_rules_token("handbook").
+tournament_rules_token("rk9").
+tournament_rules_token("teamlist").
+tournament_rules_token("teamid").
+tournament_rules_token("juiz").
+tournament_rules_token("juizes").
+tournament_rules_token("penalidade").
+tournament_rules_token("penalidades").
+tournament_rules_token("swiss").
+tournament_rules_token("suica").
+tournament_rules_token("suicas").
+tournament_rules_token("eliminacao").
+tournament_rules_token("bo1").
+tournament_rules_token("bo3").
+tournament_rules_token("bo5").
+tournament_rules_token("rodada").
+tournament_rules_token("rodadas").
+tournament_rules_token("topcut").
+tournament_rules_token("judge").
+tournament_rules_token("penalty").
+tournament_rules_token("playpokemon").
+tournament_rules_token("timer").
+tournament_rules_token("suddendeath").
+tournament_rules_token("mortesubita").
+
+strategy_intent_token("estrategia").
+strategy_intent_token("estrategico").
+strategy_intent_token("estrategica").
+strategy_intent_token("plano").
+strategy_intent_token("macro").
+strategy_intent_token("conselho").
+strategy_intent_token("aconselhar").
+strategy_intent_token("guia").
+strategy_intent_token("gameplan").
+strategy_intent_token("macrogame").
+strategy_intent_token("planodejogo").
+strategy_intent_token("pilotagem").
+
+synergy_intent_token("sinergia").
+synergy_intent_token("compativel").
+synergy_intent_token("compativeis").
+synergy_intent_token("compatibilidade").
+synergy_intent_token("parceiro").
+synergy_intent_token("parceiros").
+synergy_intent_token("combina").
+synergy_intent_token("combinar").
+synergy_intent_token("combo").
+synergy_intent_token("core").
+synergy_intent_token("encaixa").
+synergy_intent_token("encaixam").
+
+doubles_format_token("doubles").
+doubles_format_token("dupla").
+doubles_format_token("duplas").
+doubles_format_token("2x2").
+doubles_format_token("vgc").
+doubles_format_token("double").
+doubles_format_token("2v2").
+
+speed_control_token("velocidade").
+speed_control_token("speed").
+speed_control_token("rapidez").
+speed_control_token("tailwind").
+speed_control_token("icy_wind").
+speed_control_token("thunder_wave").
+speed_control_token("prioridade").
+speed_control_token("priority").
+speed_control_token("scarf").
+speed_control_token("speedcontrol").
+
+trick_room_token("trick_room").
+trick_room_token("trick").
+trick_room_token("room").
+trick_room_token("inversao").
+trick_room_token("inverter").
+trick_room_token("lento").
+trick_room_token("lentos").
+trick_room_token("tr").
+
+weather_plan_token("clima").
+weather_plan_token("climas").
+weather_plan_token("weather").
+weather_plan_token("sol").
+weather_plan_token("chuva").
+weather_plan_token("areia").
+weather_plan_token("neve").
+weather_plan_token("sun").
+weather_plan_token("rain").
+weather_plan_token("sand").
+weather_plan_token("snow").
+weather_plan_token("climatico").
+weather_plan_token("climatica").
+
+bo3_adaptation_token("adaptacao").
+bo3_adaptation_token("adaptar").
+bo3_adaptation_token("ajuste").
+bo3_adaptation_token("ajustar").
+bo3_adaptation_token("game1").
+bo3_adaptation_token("game2").
+bo3_adaptation_token("game3").
+bo3_adaptation_token("serie").
+bo3_adaptation_token("bo5").
+
+positioning_token("lead").
+positioning_token("leads").
+positioning_token("abertura").
+positioning_token("posicionamento").
+positioning_token("pivot").
+positioning_token("pivotar").
+positioning_token("protect").
+positioning_token("detect").
+positioning_token("follow_me").
+positioning_token("rage_powder").
+positioning_token("foco").
+positioning_token("alvo").
+positioning_token("troca").
+positioning_token("switch").
+positioning_token("reposicionamento").
+positioning_token("reposition").
+positioning_token("reposiciona").
 
 % Números por extenso (base para geração, nível e limites de ranking)
 number_word_value("zero", 0).

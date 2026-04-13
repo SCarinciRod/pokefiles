@@ -1,10 +1,67 @@
 :- encoding(utf8).
+:- ensure_loaded('../db/move_tactical_catalog.pl').
+
+:- dynamic pending_held_item_options/2.
+
+handle_pending_held_item_options(Text) :-
+    pending_held_item_options(TargetLabel, Remaining),
+    !,
+    tokenize_for_match(Text, Tokens),
+    ( has_cancel_token(Tokens) ->
+        retractall(pending_held_item_options(_, _)),
+        writeln('Bot: Certo, parei as opções de held item por agora.')
+    ; held_item_next_option_request(Tokens) ->
+        held_item_consume_next_option(TargetLabel, Remaining)
+    ; format('Bot: Se quiser seguir no ranking de ~w, diga "outra opção". Para encerrar, diga "cancelar".~n', [TargetLabel])
+    ).
+
+held_item_next_option_request(Tokens) :-
+    is_yes_response_tokens(Tokens),
+    !.
+held_item_next_option_request(Tokens) :-
+    contiguous_sublist(["outra", "opcao"], Tokens),
+    !.
+held_item_next_option_request(Tokens) :-
+    contiguous_sublist(["proxima", "opcao"], Tokens),
+    !.
+held_item_next_option_request(Tokens) :-
+    member(Token, Tokens),
+    held_item_next_option_token(Token),
+    !.
+
+held_item_next_option_token("outra").
+held_item_next_option_token("proxima").
+held_item_next_option_token("proximo").
+held_item_next_option_token("seguinte").
+held_item_next_option_token("alternativa").
+
+held_item_consume_next_option(_TargetLabel, []) :-
+    retractall(pending_held_item_options(_, _)),
+    writeln('Bot: Não há mais opções no ranking atual de held item.').
+held_item_consume_next_option(TargetLabel, [Recommendation | Rest]) :-
+    print_held_item_recommendation_line(Recommendation),
+    retractall(pending_held_item_options(_, _)),
+    ( Rest == [] ->
+        writeln('Bot: Essas eram as principais opções disponíveis neste ranking.')
+    ; assertz(pending_held_item_options(TargetLabel, Rest)),
+      format('Bot: Se quiser outra opção para ~w, peça "outra opção".~n', [TargetLabel])
+    ).
 
 parse_held_item_recommendation_query(Text, Name, Strategy) :-
     tokenize_for_match(Text, Tokens),
-    ( member(Token, Tokens), item_intent_token(Token) ),
+    held_item_intent_signal(Tokens),
     parse_natural_pokemon_query(Text, Name),
     held_item_strategy_from_tokens(Tokens, Strategy).
+
+held_item_intent_signal(Tokens) :-
+    member(Token, Tokens),
+    item_intent_token(Token),
+    !.
+held_item_intent_signal(Tokens) :-
+    current_predicate(item_intent_phrase/1),
+    item_intent_phrase(Phrase),
+    contiguous_sublist(Phrase, Tokens),
+    !.
 
 held_item_strategy_from_tokens(Tokens, balanced) :-
     held_item_tokens_include_any(Tokens, ["forte", "forca", "potencializar", "aumentar", "dano", "ofensivo", "sweeper"]),
@@ -26,20 +83,23 @@ held_item_tokens_include_any(Tokens, Candidates) :-
 answer_held_item_recommendation_query(NameIdentifier, Strategy) :-
     pokemon_info(NameIdentifier, pokemon(ID, NameAtom, _, _, Types, Abilities, Stats)),
     !,
+    retractall(pending_held_item_options(_, _)),
     display_pokemon_name(NameAtom, NameLabel),
     held_item_recommendations_for_pokemon(ID, NameAtom, Types, Abilities, Stats, Strategy, Profile, ContextMatrix, Recommendations),
     held_item_strategy_label(Strategy, StrategyLabel),
     held_item_abilities_text(Abilities, AbilitiesText),
     remember_candidate_list([NameAtom]),
     format('Bot: Recomendação de held items para ~w (~w):~n', [NameLabel, StrategyLabel]),
-    writeln('  - Critério: análise contextual em 4 camadas (sinergia habilidade-item, perfil do Pokémon, quadro de possibilidades e ranking final).'),
+    writeln('  - Critério: análise contextual em 6 camadas (sinergia habilidade-item, perfil oficial, densidade de evidências, quadro de possibilidades, ajuste de estratégia e ranking interno normalizado).'),
     print_held_item_profile_summary(Profile),
     format('  - Habilidades consideradas: ~w.~n', [AbilitiesText]),
     writeln('  - Quadro de possibilidades (perfil + habilidades + sinergias):'),
     print_held_item_context_matrix(ContextMatrix),
     writeln('  - Ranking contextual final:'),
-    print_held_item_recommendation_lines(Recommendations).
+    print_held_item_recommendation_preview(NameLabel, Recommendations),
+    writeln('Bot: Quando eu citar moves, trate como exemplos de execução dentro do movepool possível, não como set obrigatório.').
 answer_held_item_recommendation_query(NameIdentifier, _Strategy) :-
+    retractall(pending_held_item_options(_, _)),
     display_pokemon_name(NameIdentifier, NameLabel),
     format('Bot: Não consegui identificar o Pokémon para analisar held item (~w).~n', [NameLabel]).
 
@@ -106,11 +166,26 @@ print_held_item_recommendation_lines_nonempty([Score-Item-Objective-Reason | Res
     print_held_item_recommendation_line(Score-Item-Objective-Reason),
     print_held_item_recommendation_lines_nonempty(Rest).
 
-print_held_item_recommendation_line(Score-Item-Objective-Reason) :-
+print_held_item_recommendation_preview(_TargetLabel, []) :-
+    print_held_item_recommendation_lines([]),
+    retractall(pending_held_item_options(_, _)).
+print_held_item_recommendation_preview(TargetLabel, Recommendations) :-
+    take_first_n(Recommendations, 3, InitialBatch),
+    print_held_item_recommendation_lines(InitialBatch),
+    ( append(InitialBatch, Remaining, Recommendations),
+      Remaining \= [] ->
+        length(Remaining, RemainingCount),
+        retractall(pending_held_item_options(_, _)),
+        assertz(pending_held_item_options(TargetLabel, Remaining)),
+        format('Bot: Tenho mais ~w opção(ões) para ~w. Se quiser, peça "outra opção".~n', [RemainingCount, TargetLabel])
+    ; retractall(pending_held_item_options(_, _))
+    ).
+
+print_held_item_recommendation_line(_Score-Item-Objective-Reason) :-
     display_label(Item, ItemLabel),
     held_item_objective_label(Objective, ObjectiveLabel),
     held_item_effect_text(Item, EffectText),
-    format('  - ~w (~w, score ~1f): ~w. Efeito: ~w~n', [ItemLabel, ObjectiveLabel, Score, Reason, EffectText]).
+    format('  - ~w (~w): ~w. Efeito: ~w~n', [ItemLabel, ObjectiveLabel, Reason, EffectText]).
 
 held_item_objective_label(strengthen, 'potencializar').
 held_item_objective_label(cover_weakness, 'cobrir fraqueza').
@@ -151,24 +226,96 @@ held_item_recommendations_for_pokemon_uncached(ID, NameAtom, Types, Abilities, S
         held_item_context_weights(Features, Profile, ContextWeights),
         take_first_n(ContextWeights, 4, TopContextWeights),
         held_item_context_matrix(TopContextWeights, Features, ContextMatrix),
-        findall(FinalScore-Item-Objective-FinalReason,
+        findall(RawScore-Item-Objective-FinalReason,
                 ( held_item_candidate_id(Item),
                     held_item_candidate_score(Item, Features, balanced, BaseScore, BaseObjective, BaseReason),
                     held_item_contextual_bonus(Strategy, ContextWeights, Item, Features, ContextBonus, ContextObjective, ContextReason),
                     held_item_ability_item_bonus(Features.abilities, Item, AbilityBonus, AbilityReason),
                     held_item_merge_objective(BaseObjective, ContextObjective, Objective),
                     held_item_strategy_adjustment(Strategy, Objective, StrategyAdj),
-                    FinalScore is BaseScore + ContextBonus + AbilityBonus + StrategyAdj,
-                    FinalScore > 0,
+                    held_item_role_alignment_bonus(Profile, Objective, RoleAlignmentBonus),
+                    held_item_context_match_count(ContextWeights, Item, Features, ContextMatches),
+                    held_item_ability_match_count(Features.abilities, Item, AbilityMatches),
+                    held_item_evidence_density_bonus(ContextMatches, AbilityMatches, EvidenceBonus),
+                    RawScore is BaseScore + ContextBonus + AbilityBonus + StrategyAdj + RoleAlignmentBonus + EvidenceBonus,
+                    RawScore > 0,
                     held_item_compose_reason(BaseReason, ContextReason, AbilityReason, FinalReason)
                 ),
                 ScoredRaw),
     ( ScoredRaw == [] ->
         Recommendations = []
-    ; keysort(ScoredRaw, ScoredAsc),
+    ; held_item_scale_recommendations_to_1000(ScoredRaw, ScaledRaw),
+      keysort(ScaledRaw, ScoredAsc),
       reverse(ScoredAsc, ScoredDesc),
       take_first_n(ScoredDesc, 5, Recommendations)
     ).
+
+held_item_scale_recommendations_to_1000(ScoredRaw, Scaled) :-
+    findall(Score,
+        member(Score-_-_-_, ScoredRaw),
+        Scores),
+    min_list(Scores, MinScore),
+    max_list(Scores, MaxScore),
+    findall(ScaledScore-Item-Objective-Reason,
+        ( member(RawScore-Item-Objective-Reason, ScoredRaw),
+          held_item_scale_score_to_1000(RawScore, MinScore, MaxScore, ScaledScore)
+        ),
+        Scaled).
+
+held_item_scale_score_to_1000(_RawScore, MinScore, MaxScore, 1000) :-
+    MaxScore =:= MinScore,
+    !.
+held_item_scale_score_to_1000(RawScore, MinScore, MaxScore, Scaled) :-
+    Normalized is (RawScore - MinScore) / (MaxScore - MinScore),
+    Scaled0 is round(Normalized * 1000.0),
+    Scaled is max(0, min(1000, Scaled0)).
+
+held_item_role_alignment_bonus(Profile, strengthen, Bonus) :-
+    ( Profile.official_bucket == offensive -> Bonus = 16
+    ; Profile.official_bucket == balanced -> Bonus = 8
+    ; Bonus = 2
+    ).
+held_item_role_alignment_bonus(Profile, cover_weakness, Bonus) :-
+    ( member(Profile.official_bucket, [defensive, support]) -> Bonus = 16
+    ; Profile.official_bucket == balanced -> Bonus = 8
+    ; Bonus = 2
+    ).
+
+held_item_context_match_count(ContextWeights, Item, Features, Count) :-
+    findall(Context,
+        ( member(_Weight-Context, ContextWeights),
+          held_item_item_fit_in_context(Context, Item, Features, Fit, _Objective, _Reason),
+          Fit > 0
+        ),
+        ContextsRaw),
+    sort(ContextsRaw, Contexts),
+    length(Contexts, Count).
+
+held_item_ability_match_count(Abilities, Item, Count) :-
+    findall(Ability,
+        ( member(Ability, Abilities),
+          held_item_ability_item_rule(Ability, Item, _Score, _Text)
+        ),
+        Raw),
+    sort(Raw, Unique),
+    length(Unique, Count).
+
+held_item_evidence_density_bonus(ContextMatches, AbilityMatches, Bonus) :-
+    Raw is (ContextMatches * 6) + (AbilityMatches * 10),
+    Bonus is min(32, Raw).
+
+held_item_feature_value(Features, Key, Default, Value) :-
+    ( get_dict(Key, Features, Raw) -> Value = Raw ; Value = Default ).
+
+held_item_move_labels_text([], 'movimento de execução').
+held_item_move_labels_text(Moves, Text) :-
+    take_first_n(Moves, 2, TopMoves),
+    findall(Label,
+        ( member(Move, TopMoves),
+          display_label(Move, Label)
+        ),
+        Labels),
+    atomic_list_concat(Labels, ', ', Text).
 
 held_item_feature_pack(PokemonID, Types, Abilities, Stats, Moves, Features) :-
     offensive_bias(Stats, Bias),
@@ -181,15 +328,18 @@ held_item_feature_pack(PokemonID, Types, Abilities, Stats, Moves, Features) :-
     OffensePeak is max(Atk, SpAtk),
     BulkAverage is (HP + Def + SpDef) / 3.0,
     combined_multiplier(rock, Types, RockWeakMult),
+    held_item_collect_moves_by_role(Moves, pivot, PivotMoves),
+    held_item_collect_moves_by_role(Moves, protection, ProtectMoves),
+    held_item_bool_nonempty(PivotMoves, HasPivot),
+    held_item_bool_nonempty(ProtectMoves, HasProtectTurn),
     held_item_move_category_counts(Moves, OffensiveCount, StatusCount),
-    held_item_bool_has_any_move(Moves, [swords_dance, dragon_dance, nasty_plot, quiver_dance, calm_mind, bulk_up, shell_smash, agility, coil, work_up, belly_drum], HasSetup),
-    held_item_bool_has_any_move(Moves, [roost, recover, slack_off, soft_boiled, synthesis, morning_sun, moonlight, wish, rest], HasRecovery),
-    held_item_bool_has_any_move(Moves, [u_turn, volt_switch, flip_turn, parting_shot, teleport], HasPivot),
-    held_item_bool_has_any_move(Moves, [reflect, light_screen, aurora_veil], HasScreens),
-    held_item_bool_has_any_move(Moves, [stealth_rock, spikes, toxic_spikes, sticky_web], HasHazards),
+    held_item_bool_has_role_move(Moves, setup_buff, HasSetup),
+    held_item_bool_has_role_move(Moves, recovery, HasRecovery),
+    held_item_bool_has_role_move(Moves, screen_control, HasScreens),
+    held_item_bool_has_role_move(Moves, hazard, HasHazards),
     held_item_bool_has_any_move(Moves, [leech_seed], HasLeechSeed),
-    held_item_bool_has_any_move(Moves, [electric_terrain, psychic_terrain, grassy_terrain, misty_terrain], HasTerrainMove),
-    held_item_bool_has_any_move(Moves, [close_combat, superpower, draco_meteor, leaf_storm, overheat, make_it_rain, v_create], HasSelfDropMove),
+    held_item_bool_has_role_move(Moves, terrain_control, HasTerrainMove),
+    held_item_bool_has_role_move(Moves, self_drop_pressure, HasSelfDropMove),
     held_item_bool_has_any_move(Moves, [facade], HasFacade),
     held_item_bool_has_any_move(Moves, [acrobatics], HasAcrobatics),
     held_item_bool_member(unburden, Abilities, HasUnburden),
@@ -199,6 +349,8 @@ held_item_feature_pack(PokemonID, Types, Abilities, Stats, Moves, Features) :-
     held_item_bool_member(regenerator, Abilities, HasRegenerator),
     held_item_bool_member(multiscale, Abilities, HasMultiscale),
     held_item_bool_member(sturdy, Abilities, HasSturdy),
+    held_item_bool_has_weather_setter_ability(Abilities, HasWeatherSetterAbility),
+    held_item_bool_has_terrain_setter_ability(Abilities, HasTerrainSetterAbility),
     held_item_bool_has_any_ability(Abilities, [iron_barbs, rough_skin, flame_body, static], HasContactPunishAbility),
     held_item_bool_member(poison, Types, IsPoisonType),
     held_item_bool_can_evolve(PokemonID, CanEvolve),
@@ -218,6 +370,9 @@ held_item_feature_pack(PokemonID, Types, Abilities, Stats, Moves, Features) :-
         has_setup:HasSetup,
         has_recovery:HasRecovery,
         has_pivot:HasPivot,
+        pivot_moves:PivotMoves,
+        has_protect_turn:HasProtectTurn,
+        protect_moves:ProtectMoves,
         has_screens:HasScreens,
         has_hazards:HasHazards,
         has_leech_seed:HasLeechSeed,
@@ -232,10 +387,23 @@ held_item_feature_pack(PokemonID, Types, Abilities, Stats, Moves, Features) :-
         has_regenerator:HasRegenerator,
         has_multiscale:HasMultiscale,
         has_sturdy:HasSturdy,
+        has_weather_setter_ability:HasWeatherSetterAbility,
+        has_terrain_setter_ability:HasTerrainSetterAbility,
         has_contact_punish_ability:HasContactPunishAbility,
         is_poison_type:IsPoisonType,
         can_evolve:CanEvolve
     }.
+
+held_item_collect_moves_by_role(Moves, Role, Collected) :-
+    findall(Move,
+        ( member(Move, Moves),
+                    move_has_tactical_role(Move, Role)
+        ),
+        Raw),
+    sort(Raw, Collected).
+
+held_item_bool_nonempty([], false).
+held_item_bool_nonempty([_ | _], true).
 
 held_item_move_category_counts(Moves, OffensiveCount, StatusCount) :-
     findall(Category,
@@ -258,6 +426,12 @@ held_item_bool_has_any_move(Moves, CandidateMoves, true) :-
     !.
 held_item_bool_has_any_move(_, _, false).
 
+held_item_bool_has_role_move(Moves, Role, true) :-
+    member(Move, Moves),
+    move_has_tactical_role(Move, Role),
+    !.
+held_item_bool_has_role_move(_, _, false).
+
 held_item_bool_member(Value, Values, true) :-
     member(Value, Values),
     !.
@@ -268,6 +442,50 @@ held_item_bool_has_any_ability(Abilities, CandidateAbilities, true) :-
     member(Ability, CandidateAbilities),
     !.
 held_item_bool_has_any_ability(_, _, false).
+
+held_item_bool_has_weather_setter_ability(Abilities, true) :-
+    member(Ability, Abilities),
+    held_item_weather_setter_ability(Ability),
+    !.
+held_item_bool_has_weather_setter_ability(_, false).
+
+held_item_bool_has_terrain_setter_ability(Abilities, true) :-
+    member(Ability, Abilities),
+    held_item_terrain_setter_ability(Ability),
+    !.
+held_item_bool_has_terrain_setter_ability(_, false).
+
+held_item_weather_setter_ability(drought).
+held_item_weather_setter_ability(desolate_land).
+held_item_weather_setter_ability(orichalcum_pulse).
+held_item_weather_setter_ability(drizzle).
+held_item_weather_setter_ability(primordial_sea).
+held_item_weather_setter_ability(sand_stream).
+held_item_weather_setter_ability(snow_warning).
+
+held_item_terrain_setter_ability(electric_surge).
+held_item_terrain_setter_ability(grassy_surge).
+held_item_terrain_setter_ability(misty_surge).
+held_item_terrain_setter_ability(psychic_surge).
+held_item_terrain_setter_ability(hadron_engine).
+
+held_item_first_weather_setter_ability(Abilities, Ability) :-
+    member(Ability, Abilities),
+    held_item_weather_setter_ability(Ability),
+    !.
+
+held_item_first_terrain_setter_ability(Abilities, Ability) :-
+    member(Ability, Abilities),
+    held_item_terrain_setter_ability(Ability),
+    !.
+
+held_item_weather_execution_text(drizzle, 'chamando chuva que aumenta a pressao de golpes Water do time e reduz dano de golpes Fire').
+held_item_weather_execution_text(primordial_sea, 'ativando chuva forte para ampliar pressao de golpes Water e travar linhas baseadas em Fire').
+held_item_weather_execution_text(drought, 'chamando sol para elevar pressao de golpes Fire e controlar trocas no mid game').
+held_item_weather_execution_text(desolate_land, 'ativando sol extremo para consolidar pressao ofensiva de Fire no ritmo da dupla').
+held_item_weather_execution_text(orichalcum_pulse, 'chamando sol e reforcando ritmo ofensivo para a dupla').
+held_item_weather_execution_text(sand_stream, 'ativando tempestade de areia para habilitar o plano de chip e resistencia do time').
+held_item_weather_execution_text(snow_warning, 'ativando neve para habilitar planos de controle de ritmo e defesa do time').
 
 held_item_bool_can_evolve(PokemonID, true) :-
     level_gate_species_id(PokemonID, SpeciesID),
@@ -369,16 +587,35 @@ held_item_candidate_score(choice_specs, Features, Strategy, Score, strengthen,
     held_item_strategy_adjustment(Strategy, strengthen, StrategyAdj),
     Score is Base + BiasBonus + OffenseBonus + StatusPenalty + SetupPenalty + StrategyAdj.
 
-held_item_candidate_score(choice_scarf, Features, Strategy, Score, cover_weakness,
-    'corrige matchup de velocidade e melhora revenge kill em perfis ofensivos ou de pivot') :-
+held_item_candidate_score(choice_scarf, Features, Strategy, Score, cover_weakness, Reason) :-
     Base = 12,
     held_item_bonus_if(Features.speed < 95, 18, 0, SpeedLowBonus),
     held_item_bonus_if(Features.speed < 110, 10, -4, SpeedMidBonus),
     SpeedBonus is max(SpeedLowBonus, SpeedMidBonus),
     held_item_bonus_if(Features.offense_peak >= 100, 8, 0, OffenseBonus),
     held_item_bonus_if(Features.has_pivot == true, 6, 0, PivotBonus),
+        held_item_bonus_if(Features.has_weather_setter_ability == true, 16, 0, WeatherSetterBonus),
+        held_item_bonus_if(Features.has_terrain_setter_ability == true, 12, 0, TerrainSetterBonus),
+        held_item_bonus_if((Features.has_pivot == true, Features.has_weather_setter_ability == true), 18, 0, WeatherPivotExecutionBonus),
+        held_item_bonus_if((Features.has_pivot == true, Features.has_terrain_setter_ability == true), 12, 0, TerrainPivotExecutionBonus),
     held_item_strategy_adjustment(Strategy, cover_weakness, StrategyAdj),
-    Score is Base + SpeedBonus + OffenseBonus + PivotBonus + StrategyAdj.
+        Score is Base + SpeedBonus + OffenseBonus + PivotBonus + WeatherSetterBonus + TerrainSetterBonus + WeatherPivotExecutionBonus + TerrainPivotExecutionBonus + StrategyAdj,
+        held_item_feature_value(Features, pivot_moves, [], PivotMoves),
+        held_item_move_labels_text(PivotMoves, PivotMoveText),
+        held_item_feature_value(Features, abilities, [], Abilities),
+        ( Features.has_pivot == true,
+            Features.has_weather_setter_ability == true,
+            held_item_first_weather_setter_ability(Abilities, WeatherAbility),
+            held_item_weather_execution_text(WeatherAbility, WeatherText) ->
+                display_label(WeatherAbility, WeatherAbilityLabel),
+                format(atom(Reason), 'alinha velocidade e execução: ativa a habilidade ~w, ~w, e usa ~w para pivotar com segurança no mesmo ciclo', [WeatherAbilityLabel, WeatherText, PivotMoveText])
+        ; Features.has_pivot == true,
+          Features.has_terrain_setter_ability == true,
+          held_item_first_terrain_setter_ability(Abilities, TerrainAbility) ->
+                display_label(TerrainAbility, TerrainAbilityLabel),
+                format(atom(Reason), 'alinha velocidade e execução: ativa a habilidade ~w para estabelecer terreno e usa ~w para reposicionar com segurança no mesmo ciclo', [TerrainAbilityLabel, PivotMoveText])
+        ; Reason = 'corrige matchup de velocidade e melhora revenge kill em perfis ofensivos ou de pivot'
+        ).
 
 held_item_candidate_score(leftovers, Features, Strategy, Score, cover_weakness,
     'ganho passivo de HP por turno para aumentar consistência em trocas e jogos longos') :-
@@ -429,19 +666,37 @@ held_item_candidate_score(weakness_policy, Features, Strategy, Score, strengthen
     held_item_strategy_adjustment(Strategy, strengthen, StrategyAdj),
     Score is Base + BulkBonus + SetupBonus + OffenseBonus + StrategyAdj.
 
-held_item_candidate_score(flame_orb, Features, Strategy, Score, strengthen,
-    'sinergia situacional com Guts/Facade para transformar status em pressão ofensiva') :-
-    held_item_bonus_if(Features.has_guts == true, 36, -30, Base),
+held_item_candidate_score(flame_orb, Features, Strategy, Score, strengthen, Reason) :-
+    held_item_bonus_if(Features.has_guts == true, 42, -30, Base),
     held_item_bonus_if(Features.has_facade == true, 10, 0, FacadeBonus),
+    held_item_bonus_if(Features.has_protect_turn == true, 12, 0, ProtectActivationBonus),
     held_item_strategy_adjustment(Strategy, strengthen, StrategyAdj),
-    Score is Base + FacadeBonus + StrategyAdj.
+    Score is Base + FacadeBonus + ProtectActivationBonus + StrategyAdj,
+    held_item_feature_value(Features, protect_moves, [], ProtectMoves),
+    held_item_move_labels_text(ProtectMoves, ProtectMoveText),
+    ( Features.has_guts == true,
+      Features.has_protect_turn == true ->
+        format(atom(Reason), 'ativa Guts com alta confiabilidade via ~w e ainda blinda contra outros status negativos', [ProtectMoveText])
+    ; Features.has_guts == true ->
+        Reason = 'ativa Guts e ajuda a blindar contra status negativos concorrentes, convertendo o turno inicial em pressão'
+    ; Reason = 'sinergia situacional com Guts/Facade para transformar status em pressão ofensiva'
+    ).
 
-held_item_candidate_score(toxic_orb, Features, Strategy, Score, cover_weakness,
-    'sinergia situacional com Poison Heal para recuperação contínua e maior longevidade') :-
-    held_item_bonus_if(Features.has_poison_heal == true, 36, -30, Base),
+held_item_candidate_score(toxic_orb, Features, Strategy, Score, cover_weakness, Reason) :-
+    held_item_bonus_if(Features.has_poison_heal == true, 40, -30, Base),
     held_item_bonus_if(Features.has_facade == true, 8, 0, FacadeBonus),
+    held_item_bonus_if(Features.has_protect_turn == true, 10, 0, ProtectActivationBonus),
     held_item_strategy_adjustment(Strategy, cover_weakness, StrategyAdj),
-    Score is Base + FacadeBonus + StrategyAdj.
+    Score is Base + FacadeBonus + ProtectActivationBonus + StrategyAdj,
+    held_item_feature_value(Features, protect_moves, [], ProtectMoves),
+    held_item_move_labels_text(ProtectMoves, ProtectMoveText),
+    ( Features.has_poison_heal == true,
+      Features.has_protect_turn == true ->
+        format(atom(Reason), 'ativa Poison Heal com consistência via ~w, estabilizando sustain desde o início', [ProtectMoveText])
+    ; Features.has_poison_heal == true ->
+        Reason = 'ativa Poison Heal para recuperação contínua e aumenta longevidade em trocas longas'
+    ; Reason = 'sinergia situacional com Poison Heal para recuperação contínua e maior longevidade'
+    ).
 
 held_item_candidate_score(black_sludge, Features, Strategy, Score, cover_weakness,
     'recuperação passiva sólida para tipos Poison em jogos longos') :-
@@ -703,12 +958,20 @@ held_item_ability_item_rule(unburden, psychic_seed, 36, 'ativa Unburden em times
 held_item_ability_item_rule(unburden, grassy_seed, 36, 'ativa Unburden em times com Grassy Terrain').
 held_item_ability_item_rule(unburden, misty_seed, 36, 'ativa Unburden em times com Misty Terrain').
 held_item_ability_item_rule(unburden, white_herb, 28, 'consumo do item pode ativar Unburden em sequência de pressão').
-held_item_ability_item_rule(guts, flame_orb, 40, 'converte burn em pressão ofensiva estável').
-held_item_ability_item_rule(poison_heal, toxic_orb, 40, 'ativa recuperação por turno com consistência').
+held_item_ability_item_rule(guts, flame_orb, 54, 'ativa Guts com consistência e reduz risco de receber outro status disruptivo').
+held_item_ability_item_rule(poison_heal, toxic_orb, 52, 'ativa recuperação por turno com consistência e melhora o jogo longo').
 held_item_ability_item_rule(magic_guard, life_orb, 30, 'mantém boost ofensivo sem recuo de Life Orb').
 held_item_ability_item_rule(regenerator, assault_vest, 18, 'compensa ausência de recovery no pivot').
 held_item_ability_item_rule(multiscale, heavy_duty_boots, 20, 'preserva HP cheio e ativa Multiscale com mais frequência').
 held_item_ability_item_rule(sturdy, heavy_duty_boots, 14, 'facilita manutenção de HP cheio para manter Sturdy ativo').
+held_item_ability_item_rule(drizzle, choice_scarf, 24, 'facilita lead de chuva com ativação de campo e pivot seguro no mesmo ciclo').
+held_item_ability_item_rule(drought, choice_scarf, 22, 'facilita lead de sol com ativação de campo e reposicionamento mais seguro').
+held_item_ability_item_rule(sand_stream, choice_scarf, 20, 'facilita ativação da areia e saída rápida para encaixar o abusador do clima').
+held_item_ability_item_rule(snow_warning, choice_scarf, 18, 'facilita ativação de neve e controle de ritmo via entrada/saída').
+held_item_ability_item_rule(electric_surge, choice_scarf, 18, 'facilita ativação de terreno elétrico com reposicionamento imediato').
+held_item_ability_item_rule(grassy_surge, choice_scarf, 18, 'facilita ativação de terreno de grama com reposicionamento imediato').
+held_item_ability_item_rule(misty_surge, choice_scarf, 18, 'facilita ativação de terreno místico com reposicionamento imediato').
+held_item_ability_item_rule(psychic_surge, choice_scarf, 18, 'facilita ativação de terreno psíquico com reposicionamento imediato').
 
 held_item_merge_objective(BaseObjective, none, BaseObjective).
 held_item_merge_objective(_BaseObjective, ContextObjective, ContextObjective).
@@ -789,8 +1052,11 @@ held_item_item_fit_in_context(breaker, choice_specs, Features, Fit, strengthen,
 held_item_item_fit_in_context(breaker, weakness_policy, _Features, 64, strengthen,
     'pico de dano quando ativado na troca certa').
 
-held_item_item_fit_in_context(speed_control, choice_scarf, _Features, 96, cover_weakness,
-    'corrige speed tier e habilita revenge kill').
+held_item_item_fit_in_context(speed_control, choice_scarf, Features, Fit, cover_weakness,
+    'corrige speed tier e, em setters de campo com pivot, garante execução consistente de entrada e reposicionamento') :-
+    held_item_bonus_if((Features.has_weather_setter_ability == true ; Features.has_terrain_setter_ability == true), 98, 96, BaseFit),
+    held_item_bonus_if(Features.has_pivot == true, 2, 0, PivotFitBonus),
+    Fit is min(100, BaseFit + PivotFitBonus).
 held_item_item_fit_in_context(speed_control, focus_sash, _Features, 48, cover_weakness,
     'ganha turno contra ameaças mais rápidas').
 held_item_item_fit_in_context(speed_control, heavy_duty_boots, Features, Fit, cover_weakness,

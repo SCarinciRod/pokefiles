@@ -1,13 +1,22 @@
 :- encoding(utf8).
 
+:- multifile ability_keyword/1.
+:- multifile ability_keyword_phrase/1.
+
 ability_keyword("habilidade").
 ability_keyword("habilidades").
 ability_keyword("ability").
 ability_keyword("talento").
 ability_keyword("talentos").
+ability_keyword("passiva").
+ability_keyword("passivas").
+ability_keyword("trait").
+ability_keyword("traits").
 
 name_stopword("o").
 name_stopword("a").
+name_stopword("e").
+name_stopword("ou").
 name_stopword("os").
 name_stopword("as").
 name_stopword("um").
@@ -20,6 +29,8 @@ name_stopword("na").
 name_stopword("em").
 name_stopword("pra").
 name_stopword("para").
+name_stopword("com").
+name_stopword("me").
 name_stopword("qual").
 name_stopword("que").
 name_stopword("bom").
@@ -39,6 +50,20 @@ name_stopword("levaria").
 name_stopword("vencedor").
 name_stopword("vencedora").
 name_stopword("entre").
+name_stopword("tambem").
+name_stopword("também").
+name_stopword("alem").
+name_stopword("além").
+name_stopword("disso").
+name_stopword("depois").
+name_stopword("seguida").
+name_stopword("junto").
+name_stopword("mesmo").
+name_stopword("isso").
+name_stopword("esse").
+name_stopword("essa").
+name_stopword("entao").
+name_stopword("então").
 name_stopword("time").
 name_stopword("equipe").
 name_stopword("comp").
@@ -58,6 +83,10 @@ name_stopword("pokemon").
 name_stopword("pokémon").
 name_stopword("pokemons").
 name_stopword("pokémons").
+name_stopword("moves").
+name_stopword("golpes").
+name_stopword("habilidade").
+name_stopword("habilidades").
 
 stat_pair_alias("special", "attack", special_attack).
 stat_pair_alias("ataque", "especial", special_attack).
