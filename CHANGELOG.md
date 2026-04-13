@@ -171,3 +171,114 @@
 - Matriz de confusão sintética: `54/54` corretos (`100.00%`).
 - Mismatches na matriz: `nenhum`.
 - Carga do entrypoint principal (`pokedex_bot.pl`) validada sem erros.
+
+## 0.88b - 2026-04-13
+
+### Objetivo
+
+- Padronizar o tipo de busca de entidades de catálogo (`ability`, `item`, `move`) para reduzir latência de extração em intents de detalhe.
+- Preservar semântica atual com fallback para varredura completa quando não houver evidência indexada.
+
+### Alterações
+
+- Criada etapa única de bootstrap de índices com `rebuild_name_indexes/0` durante `load_database/0`.
+- Mantido índice existente de Pokémon e adicionados índices de catálogo por token:
+  - `ability_name_index_tokens/2`, `ability_name_index_token/2`
+  - `item_name_index_tokens/2`, `item_name_index_token/2`
+  - `move_name_index_tokens/2`, `move_name_index_token/2`
+- Extração de melhor menção passou para pipeline index-first:
+  - `extract_best_ability_mention_from_tokens/2`
+  - `extract_best_item_mention_from_tokens/2`
+  - `extract_best_move_mention_from_tokens/2`
+- Novo funil de candidatos com desempate por melhor sequência contínua:
+  - `indexed_catalog_candidates/3`
+  - `catalog_best_mention_from_candidates/3`
+- `catalog_atom_mentioned_in_tokens/3` agora reaproveita tokens já indexados via `catalog_atom_tokens_from_index/2` antes de recomputar.
+
+### Impacto de complexidade (estrutural)
+
+- Antes: extração por varredura de catálogo completo em cada consulta (`O(C * L)`).
+- Depois: extração por índice + shortlist (`O(T * H + K * L)`), onde em geral `K << C`.
+- Pior caso preservado por fallback: `O(C * L)` quando nenhum token indexado for elegível.
+
+### Validação
+
+- Suite NLP: `113/113` passando (`tests/nlp_token_heuristics_tests.pl`).
+- Suite de regressão de engine: `7/7` passando (`tests/engine_regression_tests.pl`).
+
+## 0.89a - 2026-04-13
+
+### Objetivo
+
+- Entregar interface gráfica desktop estilo Pokédex para uso sem navegador.
+- Preparar empacotamento para executável Windows portátil.
+
+### Adições
+
+- Nova pasta `gui/` com app Electron integrado ao motor Prolog.
+- Bridge dedicada `gui/prolog_bridge.pl` para troca de mensagens entre UI e bot.
+- Runtime desktop:
+  - `gui/main.js`
+  - `gui/preload.js`
+- Frontend Pokédex desktop:
+  - `gui/public/index.html`
+  - `gui/public/styles.css`
+  - `gui/public/renderer.js`
+- Layout em duas colunas:
+  - painel visual de sprites à esquerda;
+  - chat do bot à direita.
+- Scripts utilitários:
+  - `gui/run_gui.cmd` para execução local.
+  - `gui/build_gui.cmd` para gerar `.exe` portátil.
+
+### Empacotamento
+
+- Configuração de build adicionada em `gui/package.json` com `electron-builder`.
+- Target inicial: Windows `portable`.
+- Adicionado modo `dir` (win-unpacked) para gerar executável local sem etapa NSIS em redes restritas.
+- `build_gui.cmd` atualizado para executar build via `PowerShell -NoProfile -ExecutionPolicy Bypass` e produzir `gui/dist/win-unpacked/Pokedex Desktop.exe`.
+
+### Observações
+
+- O app desktop depende de `swipl` acessível no ambiente para iniciar o bridge Prolog.
+- As sprites exibidas no painel esquerdo são lidas de `temp_sprites/`.
+
+## 0.89b - 2026-04-13
+
+### Objetivo
+
+- Substituir grade de sprites por um navegador Pokédex mais funcional para consulta rápida.
+- Separar claramente o uso de UI rápida (dados base) e chat estratégico (consultas complexas).
+
+### Adições
+
+- Painel esquerdo remodelado para lista clicável de Pokémon ordenada por número da Pokédex.
+- Central de filtros no painel esquerdo:
+  - busca por nome ou número;
+  - filtro por tipo.
+- Modal de detalhes ao clicar em um Pokémon da lista, com:
+  - sprite (quando disponível em `temp_sprites/`);
+  - nome, número, altura, peso, tipos e habilidades;
+  - descrição e lore;
+  - barras visuais para status base;
+  - seção recolhível para relações de tipo;
+  - seção recolhível para movelist.
+- Movelist interativa no modal: clique em um golpe para abrir balão com tipo, categoria, poder, precisão, PP, prioridade e descrição do golpe.
+- Tags de tipo com cor temática aplicadas nos golpes da movelist e nas caixas da seção de relações de tipo (fraquezas, resistências e imunidades).
+- Navegador de evolução no modal com estágios e transições clicáveis para trocar rapidamente o Pokémon exibido.
+- Mensagens do bot no chat agora reconhecem nomes de Pokémon e tornam esses nomes clicáveis para abrir o modal de detalhes.
+- Botão no modal para enviar query básica ao chat (`pokemon <nome>`), usando a lista como gerador de consulta.
+
+### Arquitetura técnica
+
+- Bridge Prolog expandida com endpoints estruturados em JSON:
+  - `__POKEDEX_LIST_JSON__`
+  - `__POKEDEX_DETAIL_JSON__:<identifier>`
+- IPC Electron expandido para dados estruturados:
+  - `pokedex:list`
+  - `pokedex:detail`
+
+### Resultado de UX
+
+- Consulta básica de dados ficou orientada por navegação visual e filtros rápidos.
+- Chat permanece focado em análises avançadas (held items, sinergias, counters, etc.).

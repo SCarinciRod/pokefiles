@@ -29,6 +29,30 @@ Também possui catálogos completos de metadados competitivos:
 
 ## Como executar
 
+### GUI desktop (executável)
+
+Você pode rodar o bot como aplicativo desktop (sem abrir navegador), com layout estilo Pokédex:
+
+1. Entre na pasta `gui`.
+2. Execute `run_gui.cmd` para abrir o app.
+
+Para gerar o executável portátil (`.exe`):
+
+1. Entre na pasta `gui`.
+2. Execute `build_gui.cmd`.
+3. O executável desktop será gerado em `gui/dist/win-unpacked/Pokedex Desktop.exe`.
+
+Observação de rede restrita:
+
+- O fluxo padrão de `build_gui.cmd` gera o app em `win-unpacked` (sem NSIS), reduzindo dependências de downloads externos.
+- Se quiser tentar o pacote portátil único, rode `npm run pack:win` dentro de `gui`.
+
+Uso da GUI desktop:
+
+- Painel esquerdo: lista Pokédex clicável com filtros por nome/número e tipo.
+- Clique em um Pokémon para abrir modal com dados completos, barras de status, relações de tipo e movelist recolhível.
+- Painel direito (chat): recomendado para consultas complexas (sinergia, counter, itemização, estratégia).
+
 ### 1) Setup automático (dependências + gerações 1..9)
 
 No terminal, dentro da pasta `pokefiles`, execute:

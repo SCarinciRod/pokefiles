@@ -1,0 +1,49 @@
+{
+  "name": "pokedex-desktop",
+  "version": "0.1.0",
+  "description": "Desktop Pokedex chatbot powered by SWI-Prolog",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "pack:win": "electron-builder --win portable --config.electronDist=node_modules/electron/dist",
+    "pack:dir": "electron-builder --win dir --config.electronDist=node_modules/electron/dist"
+  },
+  "devDependencies": {
+    "electron": "^33.3.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.scarincirod.pokedex.desktop",
+    "productName": "Pokedex Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "public/**/*",
+      "prolog_bridge.pl",
+      "../db/**/*",
+      "../engines/**/*",
+      "../intent_router.pl",
+      "../intents_catalog.pl",
+      "../intents_guards.pl",
+      "../pokedex_bot.pl",
+      "../pokemon_db.pl",
+      "../temp_sprites/**/*"
+    ],
+    "asarUnpack": [
+      "../db/**/*",
+      "../engines/**/*",
+      "../temp_sprites/**/*"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable"
+      ]
+    }
+  }
+}
