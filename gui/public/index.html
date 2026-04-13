@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pokedex Desktop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="pokedex-panel">
+      <div class="dex-header">
+        <h1 class="dex-title">Pokedex</h1>
+        <p class="dex-subtitle">Lista e filtros inteligentes</p>
+      </div>
+
+      <div class="dex-controls">
+        <label class="control-label" for="pokemon-filter-name">Nome ou número</label>
+        <input id="pokemon-filter-name" class="dex-input" type="text" placeholder="Ex.: pikachu ou 25" />
+
+        <label class="control-label" for="pokemon-filter-type">Tipo</label>
+        <select id="pokemon-filter-type" class="dex-select">
+          <option value="">Todos os tipos</option>
+        </select>
+
+        <div class="dex-actions">
+          <button id="clear-filters" class="dex-action-button" type="button">Limpar filtros</button>
+        </div>
+      </div>
+
+      <div class="dex-status" id="dex-status">Carregando lista Pokédex...</div>
+      <div class="dex-count" id="dex-count"></div>
+
+      <div class="pokemon-list" id="pokemon-list"></div>
+    </aside>
+
+    <main class="chat-panel">
+      <header class="chat-header">
+        <div>
+          <h2>Chat Estratégico</h2>
+          <p>Use o chat para perguntas complexas: counters, itens, sinergias e análise.</p>
+        </div>
+        <button id="reset-button" class="action-button" type="button">Resetar contexto</button>
+      </header>
+
+      <section id="chat-log" class="chat-log" aria-live="polite"></section>
+
+      <form id="chat-form" class="chat-form">
+        <input
+          id="chat-input"
+          class="chat-input"
+          type="text"
+          placeholder="Ex.: melhor item para hawlucha em doubles"
+          autocomplete="off"
+          required
+        />
+        <button class="send-button" type="submit">Enviar</button>
+      </form>
+    </main>
+  </div>
+
+  <div id="pokemon-modal" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-name">
+      <header class="modal-header">
+        <div>
+          <h3 id="modal-name" class="modal-name">Pokémon</h3>
+          <p id="modal-number" class="modal-number">#000</p>
+        </div>
+        <button id="modal-close" class="modal-close" type="button" aria-label="Fechar">×</button>
+      </header>
+
+      <div class="modal-body">
+        <div class="modal-top-grid">
+          <div class="modal-sprite-wrap">
+            <img id="modal-sprite" class="modal-sprite" alt="Sprite do Pokémon" />
+          </div>
+
+          <div class="modal-main-info">
+            <div class="info-row"><strong>Altura:</strong> <span id="modal-height"></span></div>
+            <div class="info-row"><strong>Peso:</strong> <span id="modal-weight"></span></div>
+            <div class="info-row"><strong>Tipos:</strong> <span id="modal-types"></span></div>
+            <div class="info-row"><strong>Habilidades:</strong> <span id="modal-abilities"></span></div>
+          </div>
+        </div>
+
+        <section class="modal-section">
+          <h4>Status base</h4>
+          <div id="modal-stats" class="stats-grid"></div>
+        </section>
+
+        <details class="modal-fold" open>
+          <summary>Descrição e lore</summary>
+          <p id="modal-description" class="modal-text"></p>
+          <p id="modal-lore" class="modal-text modal-lore"></p>
+        </details>
+
+        <details class="modal-fold">
+          <summary>Relações de tipo</summary>
+          <div class="type-grid">
+            <div>
+              <h5>Fraquezas</h5>
+              <div id="modal-weaknesses" class="badge-group"></div>
+            </div>
+            <div>
+              <h5>Resistências</h5>
+              <div id="modal-resistances" class="badge-group"></div>
+            </div>
+            <div>
+              <h5>Imunidades</h5>
+              <div id="modal-immunities" class="badge-group"></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="modal-fold" open>
+          <summary>Navegador de evolução</summary>
+          <div id="modal-evolution-stages" class="evolution-stage-grid"></div>
+          <div id="modal-evolution-transitions" class="evolution-transition-list"></div>
+        </details>
+
+        <details class="modal-fold">
+          <summary id="modal-moves-summary">Movelist</summary>
+          <p id="modal-moves-source" class="modal-move-source"></p>
+          <div id="modal-moves" class="moves-grid"></div>
+        </details>
+      </div>
+
+      <footer class="modal-footer">
+        <button id="modal-chat-button" class="modal-chat-button" type="button">Usar este Pokémon no chat</button>
+      </footer>
+    </section>
+  </div>
+
+  <div id="move-popover" class="move-popover hidden" aria-hidden="true"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

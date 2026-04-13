@@ -35,6 +35,12 @@
 :- dynamic cache_battle_best_move_choice/7.
 :- dynamic pokemon_name_index_tokens/2.
 :- dynamic pokemon_name_index_token/2.
+:- dynamic ability_name_index_tokens/2.
+:- dynamic ability_name_index_token/2.
+:- dynamic item_name_index_tokens/2.
+:- dynamic item_name_index_token/2.
+:- dynamic move_name_index_tokens/2.
+:- dynamic move_name_index_token/2.
 :- multifile pokemon/7.
 :- multifile pokemon_lore/2.
 :- multifile pokemon_mega_base/2.
@@ -164,7 +170,13 @@ load_database :-
         maplist(consult, MoveDataFallbackFiles)
     ; true
     ),
-    rebuild_pokemon_name_index.
+    rebuild_name_indexes.
+
+rebuild_name_indexes :-
+    rebuild_pokemon_name_index,
+    rebuild_ability_name_index,
+    rebuild_item_name_index,
+    rebuild_move_name_index.
 
 rebuild_pokemon_name_index :-
     retractall(pokemon_name_index_tokens(_, _)),
@@ -183,6 +195,50 @@ index_pokemon_name_tokens(Name) :-
     forall(member(Token, NameTokens), assertz(pokemon_name_index_token(Token, Name))),
     !.
 index_pokemon_name_tokens(_).
+
+rebuild_ability_name_index :-
+    retractall(ability_name_index_tokens(_, _)),
+    retractall(ability_name_index_token(_, _)),
+    findall(Ability, ability_catalog_entry(Ability), AbilitiesRaw),
+    sort(AbilitiesRaw, Abilities),
+    forall(member(Ability, Abilities), index_ability_name_tokens(Ability)).
+
+index_ability_name_tokens(Ability) :-
+    catalog_atom_tokens(Ability, AbilityTokens),
+    AbilityTokens \= [],
+    assertz(ability_name_index_tokens(Ability, AbilityTokens)),
+    forall(member(Token, AbilityTokens), assertz(ability_name_index_token(Token, Ability))),
+    !.
+index_ability_name_tokens(_).
+
+rebuild_item_name_index :-
+    retractall(item_name_index_tokens(_, _)),
+    retractall(item_name_index_token(_, _)),
+    findall(Item, item_catalog_entry(Item), ItemsRaw),
+    sort(ItemsRaw, Items),
+    forall(member(Item, Items), index_item_name_tokens(Item)).
+
+index_item_name_tokens(Item) :-
+    catalog_atom_tokens(Item, ItemTokens),
+    ItemTokens \= [],
+    assertz(item_name_index_tokens(Item, ItemTokens)),
+    forall(member(Token, ItemTokens), assertz(item_name_index_token(Token, Item))),
+    !.
+index_item_name_tokens(_).
+
+rebuild_move_name_index :-
+    retractall(move_name_index_tokens(_, _)),
+    retractall(move_name_index_token(_, _)),
+    ( move_catalog(Moves) -> true ; Moves = [] ),
+    forall(member(Move, Moves), index_move_name_tokens(Move)).
+
+index_move_name_tokens(Move) :-
+    catalog_atom_tokens(Move, MoveTokens),
+    MoveTokens \= [],
+    assertz(move_name_index_tokens(Move, MoveTokens)),
+    forall(member(Token, MoveTokens), assertz(move_name_index_token(Token, Move))),
+    !.
+index_move_name_tokens(_).
 
 set_default_generation :-
     retractall(active_generation(_)),
@@ -1244,42 +1300,68 @@ valid_ability_word(Token) :-
     \+ member(Token, ["com", "de", "do", "da", "que", "tem", "têm", "pokemon", "pokemons", "pokémon", "pokémons"]).
 
 extract_best_ability_mention_from_tokens(Tokens, Ability) :-
-    findall(Len-FoundAbility,
-        ( ability_catalog_entry(FoundAbility),
-          catalog_atom_mentioned_in_tokens(FoundAbility, Tokens, Len)
-        ),
-        Matches),
-    Matches \= [],
-    keysort(Matches, Sorted),
-    reverse(Sorted, [_BestLen-Ability | _]).
+    indexed_catalog_candidates(Tokens, ability_name_index_token, Candidates),
+    catalog_best_mention_from_candidates(Candidates, Tokens, Ability),
+    !.
+extract_best_ability_mention_from_tokens(Tokens, Ability) :-
+    findall(FoundAbility, ability_catalog_entry(FoundAbility), Candidates),
+    catalog_best_mention_from_candidates(Candidates, Tokens, Ability).
 
 extract_best_item_mention_from_tokens(Tokens, Item) :-
-    findall(Len-FoundItem,
-        ( item_catalog_entry(FoundItem),
-          catalog_atom_mentioned_in_tokens(FoundItem, Tokens, Len)
-        ),
-        Matches),
-    Matches \= [],
-    keysort(Matches, Sorted),
-    reverse(Sorted, [_BestLen-Item | _]).
+    indexed_catalog_candidates(Tokens, item_name_index_token, Candidates),
+    catalog_best_mention_from_candidates(Candidates, Tokens, Item),
+    !.
+extract_best_item_mention_from_tokens(Tokens, Item) :-
+    findall(FoundItem, item_catalog_entry(FoundItem), Candidates),
+    catalog_best_mention_from_candidates(Candidates, Tokens, Item).
 
 extract_best_move_mention_from_tokens(Tokens, Move) :-
-    findall(Len-FoundMove,
-        ( move_catalog_entry(FoundMove),
-          catalog_atom_mentioned_in_tokens(FoundMove, Tokens, Len)
+    indexed_catalog_candidates(Tokens, move_name_index_token, Candidates),
+    catalog_best_mention_from_candidates(Candidates, Tokens, Move),
+    !.
+extract_best_move_mention_from_tokens(Tokens, Move) :-
+    findall(FoundMove, move_catalog_entry(FoundMove), Candidates),
+    catalog_best_mention_from_candidates(Candidates, Tokens, Move).
+
+indexed_catalog_candidates(Tokens, IndexPredicate, Candidates) :-
+    findall(Candidate,
+        ( member(Token, Tokens),
+          Goal =.. [IndexPredicate, Token, Candidate],
+          call(Goal)
+        ),
+        RawCandidates),
+    sort(RawCandidates, Candidates),
+    Candidates \= [].
+
+catalog_best_mention_from_candidates(Candidates, Tokens, Match) :-
+    findall(Len-Candidate,
+        ( member(Candidate, Candidates),
+          catalog_atom_mentioned_in_tokens(Candidate, Tokens, Len)
         ),
         Matches),
     Matches \= [],
     keysort(Matches, Sorted),
-    reverse(Sorted, [_BestLen-Move | _]).
+    reverse(Sorted, [_BestLen-Match | _]).
 
 catalog_atom_mentioned_in_tokens(Atom, Tokens, Len) :-
-    atom_string(Atom, AtomText),
-    split_string(AtomText, "_", "", AtomPartsRaw),
-    include(valid_catalog_word, AtomPartsRaw, AtomParts),
+    catalog_atom_tokens_from_index(Atom, AtomParts),
     AtomParts \= [],
     contiguous_sublist(AtomParts, Tokens),
     length(AtomParts, Len).
+
+catalog_atom_tokens_from_index(Atom, AtomParts) :-
+    ( ability_name_index_tokens(Atom, AtomParts)
+    ; item_name_index_tokens(Atom, AtomParts)
+    ; move_name_index_tokens(Atom, AtomParts)
+    ),
+    !.
+catalog_atom_tokens_from_index(Atom, AtomParts) :-
+    catalog_atom_tokens(Atom, AtomParts).
+
+catalog_atom_tokens(Atom, AtomParts) :-
+    atom_string(Atom, AtomText),
+    split_string(AtomText, "_", "", AtomPartsRaw),
+    include(valid_catalog_word, AtomPartsRaw, AtomParts).
 
 valid_catalog_word(Token) :-
     Token \= "",
