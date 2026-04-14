@@ -104,6 +104,8 @@ pokemon_detail_dict(Identifier, DetailDict) :-
     safe_display_pokemon_name(Name, DisplayName),
     maplist(display_type_label, Types, TypeLabels),
     maplist(display_label, Abilities, AbilityLabels),
+    ability_options_dict(Types, Abilities, AbilityOptions),
+    preferred_ability_identifier(Abilities, SelectedAbility),
     HeightM is Height / 10,
     WeightKg is Weight / 10,
     type_effectiveness_summary(Types, Weaknesses, Resistances, Immunities),
@@ -133,6 +135,9 @@ pokemon_detail_dict(Identifier, DetailDict) :-
         types:Types,
         type_labels:TypeLabels,
         abilities:AbilityLabels,
+        ability_identifiers:Abilities,
+        ability_options:AbilityOptions,
+        selected_ability:SelectedAbility,
         description:Description,
         lore:LoreText,
         moves_count:MoveCount,
@@ -149,6 +154,98 @@ pokemon_detail_dict(Identifier, DetailDict) :-
         stats:StatEntries,
         max_stat:MaxStat
     }.
+
+preferred_ability_identifier([Ability | _], Ability) :- !.
+preferred_ability_identifier([], '').
+
+ability_options_dict(_Types, [], []).
+ability_options_dict(Types, [Ability | Rest], [Entry | Tail]) :-
+    display_label(Ability, AbilityLabel),
+    ability_catalog_text(Ability, ShortEffect, Effect),
+    type_effectiveness_summary_with_ability(Types, Ability, Weaknesses, Resistances, Immunities),
+    effect_entries_dict(Weaknesses, WeakEntries),
+    effect_entries_dict(Resistances, ResistEntries),
+    maplist(type_only_entry_dict, Immunities, ImmunityEntries),
+    Entry = _{
+        identifier:Ability,
+        label:AbilityLabel,
+        short_effect:ShortEffect,
+        effect:Effect,
+        type_relations:_{
+            weaknesses:WeakEntries,
+            resistances:ResistEntries,
+            immunities:ImmunityEntries
+        }
+    },
+    ability_options_dict(Types, Rest, Tail).
+
+ability_catalog_text(Ability, ShortEffect, Effect) :-
+    ( ability_entry(Ability, _Generation, _IsMainSeries, ShortRaw, EffectRaw) ->
+        ShortEffect = ShortRaw,
+        Effect = EffectRaw
+    ; ShortEffect = 'Sem descrição curta disponível.',
+      Effect = 'Sem descrição detalhada disponível.'
+    ).
+
+type_effectiveness_summary_with_ability(DefenseTypes, Ability, Weaknesses, Resistances, Immunities) :-
+    all_types(AttackTypes),
+    findall(Type-M,
+        ( member(Type, AttackTypes),
+          combined_multiplier(Ability, Type, DefenseTypes, M),
+          M > 1.0
+        ),
+        Weaknesses),
+    findall(Type-M,
+        ( member(Type, AttackTypes),
+          combined_multiplier(Ability, Type, DefenseTypes, M),
+          M > 0.0,
+          M < 1.0
+        ),
+        Resistances),
+    findall(Type,
+        ( member(Type, AttackTypes),
+          combined_multiplier(Ability, Type, DefenseTypes, 0.0)
+        ),
+        Immunities).
+
+combined_multiplier(Ability, AttackType, DefenseTypes, Multiplier) :-
+    combined_multiplier(AttackType, DefenseTypes, BaseMultiplier),
+    ability_multiplier_adjustment(Ability, AttackType, BaseMultiplier, Multiplier).
+
+ability_multiplier_adjustment(Ability, AttackType, _BaseMultiplier, 0.0) :-
+    ability_grants_type_immunity(Ability, AttackType),
+    !.
+ability_multiplier_adjustment(Ability, AttackType, BaseMultiplier, Multiplier) :-
+    findall(Factor,
+        ( ability_effect(Ability, _Category, _Trigger, CombatModel, _Description),
+          member(damage_multiplier-AttackType-Factor, CombatModel),
+          number(Factor)
+        ),
+        Factors),
+    multiply_factors(Factors, FactorMultiplier),
+    Multiplier is BaseMultiplier * FactorMultiplier.
+
+ability_grants_type_immunity(Ability, AttackType) :-
+        ability_effect(Ability, _Category, _Trigger, CombatModel, _Description),
+        member(immunity-AttackType, CombatModel),
+        !.
+ability_grants_type_immunity(Ability, AttackType) :-
+        ability_catalog_absorb_immunity(Ability, AttackType).
+
+ability_catalog_absorb_immunity(Ability, AttackType) :-
+        ability_catalog_text(Ability, ShortEffect, Effect),
+        format(atom(CombinedRaw), '~w ~w', [ShortEffect, Effect]),
+        downcase_atom(CombinedRaw, Combined),
+        ( format(atom(PatternA), 'absorbs ~w moves', [AttackType]),
+            sub_atom(Combined, _, _, _, PatternA)
+        ; format(atom(PatternB), 'absorbs ~w-type moves', [AttackType]),
+            sub_atom(Combined, _, _, _, PatternB)
+        ).
+
+multiply_factors([], 1.0).
+multiply_factors([Factor | Rest], Product) :-
+    multiply_factors(Rest, TailProduct),
+    Product is Factor * TailProduct.
 
 effect_entries_dict([], []).
 effect_entries_dict([Type-Multiplier | Rest], [Entry | Tail]) :-

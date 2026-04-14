@@ -16,10 +16,13 @@ const modalClose = document.getElementById('modal-close');
 const modalName = document.getElementById('modal-name');
 const modalNumber = document.getElementById('modal-number');
 const modalSprite = document.getElementById('modal-sprite');
+const modalSpriteToggle = document.getElementById('modal-sprite-toggle');
 const modalHeight = document.getElementById('modal-height');
 const modalWeight = document.getElementById('modal-weight');
 const modalTypes = document.getElementById('modal-types');
 const modalAbilities = document.getElementById('modal-abilities');
+const modalAbilitySelect = document.getElementById('modal-ability-select');
+const modalAbilityDescription = document.getElementById('modal-ability-description');
 const modalStats = document.getElementById('modal-stats');
 const modalDescription = document.getElementById('modal-description');
 const modalLore = document.getElementById('modal-lore');
@@ -43,6 +46,10 @@ const STAT_BAR_SCALE_MAX = 175;
 let activeMoveChip = null;
 let pokemonLinkRegex = null;
 const pokemonAliasToIdentifier = new Map();
+let currentModalAbilityOptions = [];
+let currentModalBaseTypeRelations = { weaknesses: [], resistances: [], immunities: [] };
+let currentModalSpriteSet = { normal: null, shiny: null, active: 'normal' };
+let currentModalSpriteLabel = 'Pokémon';
 
 const TYPE_THEME = {
   normal: { bg: '#f4f4df', border: '#9f9f7c', text: '#55553b' },
@@ -229,25 +236,83 @@ function normalizeText(text) {
     .trim();
 }
 
+function normalizeSpriteLookupKey(text) {
+  return normalizeText(text).replace(/[^a-z0-9]+/g, '');
+}
+
 function mapSpritesByKey(sprites) {
   spriteMap = new Map();
   for (const sprite of sprites || []) {
-    const key = normalizeText(sprite.id).replace(/[\s-]+/g, '_');
-    spriteMap.set(key, sprite.url);
+    const rawId = String(sprite?.id || '').trim();
+    if (!rawId) {
+      continue;
+    }
+
+    const key = normalizeSpriteLookupKey(rawId);
+    if (!key) {
+      continue;
+    }
+
+    const variant = normalizeText(sprite?.variant) === 'shiny' ? 'shiny' : 'normal';
+    const current = spriteMap.get(key) || { normal: null, shiny: null };
+    current[variant] = sprite.url;
+    spriteMap.set(key, current);
   }
 }
 
-function findSpriteUrl(detail) {
+function findSpriteUrls(detail) {
   const candidates = [detail.identifier, detail.display_name, String(detail.id)];
 
   for (const candidate of candidates) {
-    const normalized = normalizeText(candidate).replace(/[\s-]+/g, '_');
+    const normalized = normalizeSpriteLookupKey(candidate);
     if (spriteMap.has(normalized)) {
       return spriteMap.get(normalized);
     }
   }
 
   return null;
+}
+
+function updateModalSpriteToggleState() {
+  const hasShiny = !!currentModalSpriteSet.shiny;
+  modalSpriteToggle.disabled = !hasShiny;
+
+  if (!hasShiny) {
+    modalSpriteToggle.textContent = 'Shiny indisponivel';
+    modalSpriteToggle.setAttribute('aria-pressed', 'false');
+    return;
+  }
+
+  const isShiny = currentModalSpriteSet.active === 'shiny';
+  modalSpriteToggle.textContent = isShiny ? 'Ver sprite normal' : 'Ver sprite shiny';
+  modalSpriteToggle.setAttribute('aria-pressed', isShiny ? 'true' : 'false');
+}
+
+function applyModalSpriteVariant(variant) {
+  const wantsShiny = variant === 'shiny';
+  const targetVariant = wantsShiny && currentModalSpriteSet.shiny ? 'shiny' : 'normal';
+  currentModalSpriteSet.active = targetVariant;
+
+  const nextSprite = currentModalSpriteSet[targetVariant] || placeholderSprite;
+  modalSprite.src = nextSprite;
+  modalSprite.alt =
+    targetVariant === 'shiny'
+      ? `Sprite shiny de ${currentModalSpriteLabel}`
+      : `Sprite de ${currentModalSpriteLabel}`;
+
+  updateModalSpriteToggleState();
+}
+
+function setupModalSprites(detail) {
+  const resolved = findSpriteUrls(detail) || { normal: null, shiny: null };
+  currentModalSpriteLabel = detail.display_name || 'Pokémon';
+  currentModalSpriteSet = {
+    normal: resolved.normal || resolved.shiny || null,
+    shiny: resolved.shiny || null,
+    active: 'normal',
+  };
+
+  applyModalSpriteVariant('normal');
 }
 
 function buildTypeOptions(entries) {
@@ -407,6 +472,99 @@ function renderRelationBadges(container, entries) {
     applyTypeTheme(badge, data.type);
     container.appendChild(badge);
   }
+}
+
+function normalizeTypeRelations(relations) {
+  return {
+    weaknesses: Array.isArray(relations?.weaknesses) ? relations.weaknesses : [],
+    resistances: Array.isArray(relations?.resistances) ? relations.resistances : [],
+    immunities: Array.isArray(relations?.immunities) ? relations.immunities : [],
+  };
+}
+
+function normalizeAbilityOption(option, fallbackLabel = '') {
+  const label = moveFieldText(option?.label || fallbackLabel, fallbackLabel || '-');
+  const rawIdentifier = moveFieldText(option?.identifier, normalizeText(label).replace(/\s+/g, '_'));
+
+  return {
+    identifier: rawIdentifier,
+    label,
+    short_effect: moveFieldText(option?.short_effect, ''),
+    effect: moveFieldText(option?.effect, ''),
+    type_relations: normalizeTypeRelations(option?.type_relations),
+  };
+}
+
+function abilityDescriptionText(option) {
+  const shortText = moveFieldText(option?.short_effect, '');
+  const longText = moveFieldText(option?.effect, '');
+
+  if (shortText && longText && normalizeText(shortText) !== normalizeText(longText)) {
+    return `${shortText} ${longText}`;
+  }
+
+  return longText || shortText || 'Sem descrição detalhada disponível.';
+}
+
+function renderRelationsForSelectedAbility() {
+  const selectedAbility = modalAbilitySelect.value;
+  const selectedOption = currentModalAbilityOptions.find((option) => option.identifier === selectedAbility);
+  const relations = selectedOption
+    ? normalizeTypeRelations(selectedOption.type_relations)
+    : normalizeTypeRelations(currentModalBaseTypeRelations);
+
+  renderRelationBadges(modalWeaknesses, relations.weaknesses);
+  renderRelationBadges(modalResistances, relations.resistances);
+  renderRelationBadges(modalImmunities, relations.immunities);
+
+  modalAbilityDescription.textContent = selectedOption
+    ? abilityDescriptionText(selectedOption)
+    : 'Sem descrição detalhada disponível.';
+}
+
+function setupAbilitySelection(detail) {
+  const rawAbilityOptions = Array.isArray(detail.ability_options) ? detail.ability_options : [];
+  currentModalAbilityOptions = rawAbilityOptions.map((option) => normalizeAbilityOption(option));
+  currentModalBaseTypeRelations = normalizeTypeRelations(detail.type_relations);
+
+  if (currentModalAbilityOptions.length === 0) {
+    const fallbackLabels = Array.isArray(detail.abilities) ? detail.abilities : [];
+    currentModalAbilityOptions = fallbackLabels.map((label) =>
+      normalizeAbilityOption({ label, identifier: normalizeText(label).replace(/\s+/g, '_') }, label)
+    );
+  }
+
+  const abilityLabels = currentModalAbilityOptions.map((option) => option.label);
+  modalAbilities.textContent = abilityLabels.length > 0 ? abilityLabels.join(', ') : 'sem dados';
+
+  modalAbilitySelect.innerHTML = '';
+  if (currentModalAbilityOptions.length === 0) {
+    const optionElement = document.createElement('option');
+    optionElement.value = '';
+    optionElement.textContent = 'Sem habilidade disponível';
+    modalAbilitySelect.appendChild(optionElement);
+    modalAbilitySelect.disabled = true;
+    modalAbilityDescription.textContent = 'Sem dados de habilidade para este Pokémon.';
+
+    const baseRelations = normalizeTypeRelations(currentModalBaseTypeRelations);
+    renderRelationBadges(modalWeaknesses, baseRelations.weaknesses);
+    renderRelationBadges(modalResistances, baseRelations.resistances);
+    renderRelationBadges(modalImmunities, baseRelations.immunities);
+    return;
+  }
+
+  for (const option of currentModalAbilityOptions) {
+    const optionElement = document.createElement('option');
+    optionElement.value = option.identifier;
+    optionElement.textContent = option.label;
+    modalAbilitySelect.appendChild(optionElement);
+  }
+
+  const selectedAbility = moveFieldText(detail.selected_ability, '');
+  const hasSelectedAbility = currentModalAbilityOptions.some((option) => option.identifier === selectedAbility);
+  modalAbilitySelect.value = hasSelectedAbility ? selectedAbility : currentModalAbilityOptions[0].identifier;
+  modalAbilitySelect.disabled = currentModalAbilityOptions.length <= 1;
+  renderRelationsForSelectedAbility();
 }
 
 function moveFieldText(value, fallback = '-') {
@@ -689,18 +847,13 @@ async function openPokemonModal(identifier) {
     modalHeight.textContent = `${detail.height_m.toFixed(1)} m (${detail.height_dm} dm)`;
     modalWeight.textContent = `${detail.weight_kg.toFixed(1)} kg (${detail.weight_hg} hg)`;
     modalTypes.textContent = (detail.type_labels || []).join(', ');
-    modalAbilities.textContent = (detail.abilities || []).join(', ');
     modalDescription.textContent = detail.description || 'Sem descrição disponível.';
     modalLore.textContent = detail.lore || 'Sem lore disponível.';
 
-    const spriteUrl = findSpriteUrl(detail) || placeholderSprite;
-    modalSprite.src = spriteUrl;
-    modalSprite.alt = `Sprite de ${detail.display_name}`;
+    setupModalSprites(detail);
 
     renderStatBars(detail);
-    renderRelationBadges(modalWeaknesses, detail.type_relations?.weaknesses || []);
-    renderRelationBadges(modalResistances, detail.type_relations?.resistances || []);
-    renderRelationBadges(modalImmunities, detail.type_relations?.immunities || []);
+    setupAbilitySelection(detail);
     renderEvolution(detail);
     renderMoves(detail);
 
@@ -789,8 +942,17 @@ clearFiltersButton.addEventListener('click', () => {
   pokemonFilterName.focus();
 });
 
+modalSpriteToggle.addEventListener('click', () => {
+  if (!currentModalSpriteSet.shiny) {
+    return;
+  }
+  const nextVariant = currentModalSpriteSet.active === 'shiny' ? 'normal' : 'shiny';
+  applyModalSpriteVariant(nextVariant);
+});
+
 modalBackdrop.addEventListener('click', closeModal);
 modalClose.addEventListener('click', closeModal);
+modalAbilitySelect.addEventListener('change', renderRelationsForSelectedAbility);
 pokemonModal.addEventListener('scroll', hideMovePopover, true);
 
 document.addEventListener('click', (event) => {

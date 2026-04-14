@@ -112,9 +112,9 @@ parse_multi_compare_query(Text, Names) :-
 parse_rank_team_vs_target_query(Text, TeamNames, TargetName) :-
     tokenize_for_match(Text, Tokens),
     has_ranking_signal(Tokens),
-    ( member(Token, Tokens), team_intent_token(Token) ),
-    ( member(Token, Tokens), counter_relation_token(Token)
-    ; member(Token, Tokens), counter_intent_token(Token)
+    ( member(TeamToken, Tokens), team_intent_token(TeamToken) ),
+    ( member(RelationToken, Tokens), counter_relation_token(RelationToken)
+    ; member(IntentToken, Tokens), counter_intent_token(IntentToken)
     ),
     extract_target_name_after_relation(Text, TargetName),
     extract_all_pokemon_mentions(Text, Mentions),
@@ -385,9 +385,10 @@ answer_rank_team_vs_target_query(TeamNames, TargetIdentifier) :-
     display_pokemon_name(TargetName, TargetLabel),
     format('Bot: Ranking do seu time contra ~w:~n', [TargetLabel]),
     print_ranked_metric_lines(team_matchup, Ranked, 1).
-answer_rank_team_vs_target_query(_, TargetIdentifier) :-
+answer_rank_team_vs_target_query(TeamNames, TargetIdentifier) :-
     display_pokemon_name(TargetIdentifier, TargetLabel),
-    format('Bot: Não consegui ranquear seu time contra ~w com os nomes informados.~n', [TargetLabel]).
+    format('Bot: Não consegui ranquear seu time contra ~w com os nomes informados.~n', [TargetLabel]),
+    print_suggestion_for_identifier(rank_team_vs_target(TeamNames), TargetIdentifier).
 
 answer_best_team_member_vs_target_query(TeamNames, TargetIdentifier) :-
     answer_rank_team_vs_target_query(TeamNames, TargetIdentifier),
@@ -404,9 +405,10 @@ answer_best_team_member_vs_target_query(TeamNames, TargetIdentifier) :-
     reverse(Asc, [BestScore-BestName | _]),
     display_pokemon_name(BestName, BestLabel),
     format('Bot: Melhor entrada do seu time nesse cenário: ~w (score ~2f).~n', [BestLabel, BestScore]).
-answer_best_team_member_vs_target_query(_TeamNames, TargetIdentifier) :-
+answer_best_team_member_vs_target_query(TeamNames, TargetIdentifier) :-
     display_pokemon_name(TargetIdentifier, TargetLabel),
-    format('Bot: Não consegui apontar a melhor entrada do seu time contra ~w.~n', [TargetLabel]).
+    format('Bot: Não consegui apontar a melhor entrada do seu time contra ~w.~n', [TargetLabel]),
+    print_suggestion_for_identifier(best_team_member_vs_target(TeamNames), TargetIdentifier).
 
 ranked_metric_pairs(Metric, Generation, OrderedPairs) :-
     findall(Value-Name,

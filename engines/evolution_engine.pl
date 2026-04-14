@@ -4,14 +4,18 @@ parse_evolution_level_query(Text, Name) :-
     tokenize_for_match(Text, Tokens),
     ( member(Token, Tokens), evolution_intent_token(Token) ),
     evolution_details_focus_tokens(Tokens),
-    parse_natural_pokemon_query(Text, Name).
+    ( parse_natural_pokemon_query(Text, Name)
+    ; pokemon_identifier_after_preposition(Tokens, Name)
+    ).
 
 parse_evolution_should_have_query(Text, Name, CurrentLevel) :-
     tokenize_for_match(Text, Tokens),
     ( member(Token, Tokens), evolution_intent_token(Token) ),
     evolution_should_have_tokens(Tokens),
     level_word_tokens(Tokens),
-    parse_natural_pokemon_query(Text, Name),
+    ( parse_natural_pokemon_query(Text, Name)
+    ; pokemon_identifier_after_preposition(Tokens, Name)
+    ),
     extract_levels_from_tokens(Tokens, Levels),
     Levels = [CurrentLevel | _].
 
@@ -56,8 +60,9 @@ answer_evolution_should_have_query(NameIdentifier, CurrentLevel) :-
         ; summarize_evolution_options(Evolutions, Summary),
             format('Bot: ~w não evolui apenas por nível. Possíveis evoluções:~n~w~n', [NameLabel, Summary])
     ).
-answer_evolution_should_have_query(_, _CurrentLevel) :-
-    writeln('Bot: Não consegui identificar o Pokémon para verificar se já deveria ter evoluído.').
+answer_evolution_should_have_query(NameIdentifier, CurrentLevel) :-
+    writeln('Bot: Não consegui identificar o Pokémon para verificar se já deveria ter evoluído.'),
+    print_suggestion_for_identifier(evolution_should_have(CurrentLevel), NameIdentifier).
 
 answer_evolution_should_have_guaranteed(NameLabel, Evolutions, CurrentLevel, MinGuaranteed) :-
     ( CurrentLevel >= MinGuaranteed ->
@@ -169,8 +174,9 @@ answer_evolution_level_query(NameIdentifier) :-
     ; format('Bot: Não encontrei dados de evolução para ~w no momento.~n', [NameLabel])
       )
     ).
-answer_evolution_level_query(_) :-
-    writeln('Bot: Não consegui identificar o Pokémon para consultar nível de evolução.').
+answer_evolution_level_query(NameIdentifier) :-
+    writeln('Bot: Não consegui identificar o Pokémon para consultar nível de evolução.'),
+    print_suggestion_for_identifier(evolution_level, NameIdentifier).
 
 print_evolution_options([]).
 print_evolution_options([detailed(ToID, Trigger, MinLevel, Condition) | Rest]) :-
@@ -401,7 +407,9 @@ parse_evolution_chain_query(Text, Name) :-
     ; member(Token, Tokens), evolution_chain_token(Token)
     ),
     ( member(Token, Tokens), evolution_chain_token(Token) ),
-    parse_natural_pokemon_query(Text, Name).
+    ( parse_natural_pokemon_query(Text, Name)
+    ; pokemon_identifier_after_preposition(Tokens, Name)
+    ).
 
 has_evolution_intent_tokens(Tokens) :-
     member(Token, Tokens),
@@ -510,8 +518,9 @@ answer_evolution_chain_query(NameIdentifier) :-
         print_evolution_tree_edges(FamilyTransitions)
     ; writeln('Bot: Não há transições registradas para essa família na base atual.')
     ).
-answer_evolution_chain_query(_) :-
-    writeln('Bot: Não consegui identificar o Pokémon para montar a cadeia evolutiva.').
+answer_evolution_chain_query(NameIdentifier) :-
+    writeln('Bot: Não consegui identificar o Pokémon para montar a cadeia evolutiva.'),
+    print_suggestion_for_identifier(evolution_chain, NameIdentifier).
 
 evolution_structure_names(three_stage, Generation, Names) :-
     scoped_species_ids(Generation, SpeciesIDs),

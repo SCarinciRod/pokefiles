@@ -429,7 +429,44 @@ body {
   width: 132px;
   height: 132px;
   object-fit: contain;
-  image-rendering: pixelated;
+  image-rendering: auto;
+}
+
+.modal-sprite-controls {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.sprite-toggle-button {
+  border: 1px solid #70532c;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #f7e8c5, #edd39f);
+  color: #4a3214;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.sprite-toggle-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(64, 47, 22, 0.2);
+}
+
+.sprite-toggle-button[aria-pressed='true'] {
+  border-color: #34659a;
+  background: #dbeeff;
+  color: #1f4370;
+}
+
+.sprite-toggle-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .modal-main-info {
@@ -444,6 +481,34 @@ body {
 .info-row {
   font-size: 14px;
   color: #4d3a1f;
+}
+
+.ability-selector-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.ability-select {
+  border: 1px solid #8f7648;
+  border-radius: 8px;
+  background: #fff6df;
+  color: #4b3312;
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+.ability-select:disabled {
+  opacity: 0.75;
+}
+
+.ability-description {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6b4b22;
 }
 
 .modal-section {

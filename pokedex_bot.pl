@@ -687,6 +687,26 @@ execute_pending_confirmation(compare(NameA, NameB)) :-
     answer_compare_query(NameA, NameB).
 execute_pending_confirmation(battle(NameA, NameB)) :-
     answer_battle_sim_query(NameA, NameB).
+execute_pending_confirmation(held_item(Name, Strategy)) :-
+    answer_held_item_recommendation_query(Name, Strategy).
+execute_pending_confirmation(ability_details(Name)) :-
+    answer_pokemon_ability_details_query(Name).
+execute_pending_confirmation(movelist(Name)) :-
+    answer_pokemon_movelist_query(Name).
+execute_pending_confirmation(evolution_level(Name)) :-
+    answer_evolution_level_query(Name).
+execute_pending_confirmation(evolution_chain(Name)) :-
+    answer_evolution_chain_query(Name).
+execute_pending_confirmation(evolution_should_have(Name, CurrentLevel)) :-
+    answer_evolution_should_have_query(Name, CurrentLevel).
+execute_pending_confirmation(compatible_partners(Name, Limit)) :-
+    answer_compatible_partners_query(Name, Limit).
+execute_pending_confirmation(rank_team_vs_target(TeamNames, TargetName)) :-
+    answer_rank_team_vs_target_query(TeamNames, TargetName).
+execute_pending_confirmation(best_team_member_vs_target(TeamNames, TargetName)) :-
+    answer_best_team_member_vs_target_query(TeamNames, TargetName).
+execute_pending_confirmation(synergy(NameA, NameB)) :-
+    answer_pair_synergy_query(NameA, NameB).
 
 handle_pending_level_roster(Text) :-
     pending_level_roster(TargetName, TargetLevel, OwnLevel),
@@ -1004,6 +1024,16 @@ parse_pokemon_ability_details_query(Text, Name) :-
     ; extract_best_ability_mention_from_tokens(Tokens, _)
     ),
     !.
+parse_pokemon_ability_details_query(Text, Name) :-
+    tokenize_for_match(Text, Tokens),
+    ( ability_keyword_signal(Tokens)
+    ; extract_best_ability_mention_from_tokens(Tokens, _)
+    ),
+    ( ability_detail_request_signal(Tokens)
+    ; extract_best_ability_mention_from_tokens(Tokens, _)
+    ),
+    pokemon_identifier_after_preposition(Tokens, Name),
+    !.
 
 ability_detail_request_signal(Tokens) :-
     member(Token, Tokens),
@@ -1025,6 +1055,10 @@ parse_pokemon_movelist_query(Text, Name) :-
     ( member(Token, Tokens), move_intent_token(Token) ),
     extract_all_pokemon_mentions(Text, Mentions),
     Mentions = [Name | _].
+parse_pokemon_movelist_query(Text, Name) :-
+    tokenize_for_match(Text, Tokens),
+    ( member(Token, Tokens), move_intent_token(Token) ),
+    pokemon_identifier_after_preposition(Tokens, Name).
 
 parse_move_list_query(Text) :-
     tokenize_for_match(Text, Tokens),
@@ -1122,7 +1156,16 @@ extract_target_name_after_relation(Text, TargetName) :-
     tokenize_for_match(Text, Tokens),
     append(_, [Rel | Tail], Tokens),
     ( counter_relation_token(Rel) ; compare_separator_token(Rel) ),
+    \+ ( append(_, [NextRel | _], Tail), ( counter_relation_token(NextRel) ; compare_separator_token(NextRel) ) ),
     find_best_pokemon_mention_in_tokens(Tail, TargetName),
+    !.
+extract_target_name_after_relation(Text, TargetName) :-
+    tokenize_for_match(Text, Tokens),
+    append(_, [Rel | Tail], Tokens),
+    ( counter_relation_token(Rel) ; compare_separator_token(Rel) ),
+    \+ ( append(_, [NextRel | _], Tail), ( counter_relation_token(NextRel) ; compare_separator_token(NextRel) ) ),
+    extract_name_from_tokens(Tail, TargetName),
+    \+ pokemon_identifier_noise_name(TargetName),
     !.
 
 find_best_pokemon_mention_in_tokens(Tokens, Name) :-
@@ -1165,6 +1208,27 @@ extract_name_from_tokens(RawTokens, Name) :-
         NameTokens),
     NameTokens \= [],
     atomic_list_concat(NameTokens, '_', Name).
+
+pokemon_identifier_after_preposition(Tokens, Name) :-
+    append(_, [Prep | Tail], Tokens),
+    pokemon_identifier_preposition(Prep),
+    \+ ( append(_, [NextPrep | _], Tail), pokemon_identifier_preposition(NextPrep) ),
+    extract_name_from_tokens(Tail, Candidate),
+    Candidate \= '',
+    \+ pokemon_identifier_noise_name(Candidate),
+    Name = Candidate.
+
+pokemon_identifier_preposition("de").
+pokemon_identifier_preposition("do").
+pokemon_identifier_preposition("da").
+pokemon_identifier_preposition("para").
+pokemon_identifier_preposition("pra").
+pokemon_identifier_preposition("pro").
+pokemon_identifier_preposition("com").
+pokemon_identifier_preposition("contra").
+
+pokemon_identifier_noise_name(Name) :-
+    member(Name, ["jogo", "jogos", "catalogo", "catalogado", "catalogados", "lista", "listar", "todos", "todas", "moves", "golpes"]).
 
 normalize_name_token(RawToken, Normalized) :-
     input_to_string(RawToken, RawText),
@@ -1496,7 +1560,8 @@ answer_pokemon_ability_details_query(NameIdentifier) :-
     ).
 answer_pokemon_ability_details_query(NameIdentifier) :-
     display_pokemon_name(NameIdentifier, NameLabel),
-    format('Bot: Não consegui identificar o Pokémon para consultar habilidades (~w).~n', [NameLabel]).
+    format('Bot: Não consegui identificar o Pokémon para consultar habilidades (~w).~n', [NameLabel]),
+    print_suggestion_for_identifier(ability_details, NameIdentifier).
 
 print_ability_effect_lines([]).
 print_ability_effect_lines([Ability | Rest]) :-
@@ -1535,7 +1600,8 @@ answer_pokemon_movelist_query(NameIdentifier) :-
     ).
 answer_pokemon_movelist_query(NameIdentifier) :-
     display_pokemon_name(NameIdentifier, NameLabel),
-    format('Bot: Não consegui identificar o Pokémon para mostrar movelist (~w).~n', [NameLabel]).
+    format('Bot: Não consegui identificar o Pokémon para mostrar movelist (~w).~n', [NameLabel]),
+    print_suggestion_for_identifier(movelist, NameIdentifier).
 
 answer_specific_item_query(ItemIdentifier) :-
     item_info(ItemIdentifier, item(Item, Category, Cost, FlingPower, FlingEffect, Description)),
