@@ -25,7 +25,7 @@ Também possui catálogos completos de metadados competitivos:
 ## Requisitos
 
 - Windows + PowerShell
-- Internet (somente no setup inicial para baixar dependências e montar as gerações)
+- Internet (somente no setup inicial para baixar dependências, montar as geracoes e sincronizar sprites)
 
 ## Como executar
 
@@ -68,6 +68,9 @@ Esse setup:
 - se ainda faltar, instala via `scoop` (modo sem instalador gráfico);
 - roda o gerador e cria `db/generation_1.pl` até `db/generation_9.pl`;
 - gera também lore local por geração em `db/lore_generation_1.pl` até `db/lore_generation_9.pl`.
+- sincroniza sprites da PokemonDB em `temp_sprites/` com preferencia por estilo Home (Gen 8), incluindo normal e shiny.
+	- durante a sincronizacao, tambem expande slugs de formas (mega, gmax, etc.) lendo as paginas individuais de cada especie.
+	- a etapa de setup aplica atualizacao forcada de sprites para substituir arquivos antigos/inconsistentes.
 - pode gerar base completa de moves/movelists com script dedicado.
 
 Local de instalação (somente usuário):
@@ -157,6 +160,18 @@ node tools/generate_generation_db.js all
 
 ```bash
 node tools/generate_moves_db.js
+```
+
+- Para sincronizar novamente sprites locais (PokemonDB Home normal/shiny):
+
+```bash
+node tools/sync_home_sprites.js
+```
+
+- Opcional: para uma sincronizacao mais rapida sem varredura de formas embutidas:
+
+```bash
+node tools/sync_home_sprites.js --skip-form-scan
 ```
 
 - Para gerar novamente catálogos completos de abilities e itens:

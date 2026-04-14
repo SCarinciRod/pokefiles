@@ -22,6 +22,17 @@ function getSpriteDir() {
   return path.join(getRepoRoot(), 'temp_sprites');
 }
 
+function parseSpriteIdentity(fileName) {
+  const baseName = path.parse(fileName).name;
+  if (baseName.endsWith('_shiny')) {
+    return { id: baseName.slice(0, -6), variant: 'shiny' };
+  }
+  if (baseName.endsWith('-shiny')) {
+    return { id: baseName.slice(0, -6), variant: 'shiny' };
+  }
+  return { id: baseName, variant: 'normal' };
+}
+
 function normalizeOutput(text) {
   const normalized = text.replace(/\r\n/g, '\n').trim();
   return normalized || 'Bot: Sem resposta.';
@@ -176,10 +187,11 @@ function getLocalSprites() {
 
   return files.map((name) => {
     const absolutePath = path.join(spriteDir, name);
-    const id = path.parse(name).name;
+    const { id, variant } = parseSpriteIdentity(name);
     return {
       id,
       name: id.replace(/[_-]/g, ' '),
+      variant,
       url: pathToFileURL(absolutePath).href
     };
   });

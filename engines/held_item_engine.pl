@@ -12,8 +12,36 @@ handle_pending_held_item_options(Text) :-
         writeln('Bot: Certo, parei as opções de held item por agora.')
     ; held_item_next_option_request(Tokens) ->
         held_item_consume_next_option(TargetLabel, Remaining)
+    ; held_item_pending_should_yield(Tokens) ->
+        retractall(pending_held_item_options(_, _)),
+        fail
     ; format('Bot: Se quiser seguir no ranking de ~w, diga "outra opção". Para encerrar, diga "cancelar".~n', [TargetLabel])
     ).
+
+held_item_pending_should_yield(Tokens) :-
+    held_item_pending_yield_signal(Tokens),
+    !.
+
+held_item_pending_yield_signal(Tokens) :-
+    held_item_pending_yield_predicate(PredicateName),
+    current_predicate(PredicateName/1),
+    Goal =.. [PredicateName, Tokens],
+    call(Goal),
+    !.
+
+held_item_pending_yield_predicate(counter_domain_signal).
+held_item_pending_yield_predicate(compare_or_battle_domain_signal).
+held_item_pending_yield_predicate(type_domain_signal).
+held_item_pending_yield_predicate(generation_domain_signal).
+held_item_pending_yield_predicate(ranking_domain_signal).
+held_item_pending_yield_predicate(evolution_domain_signal).
+held_item_pending_yield_predicate(status_domain_signal).
+held_item_pending_yield_predicate(move_or_ability_domain_signal).
+held_item_pending_yield_predicate(strategy_domain_signal).
+held_item_pending_yield_predicate(tournament_rules_domain_signal).
+held_item_pending_yield_predicate(level_domain_signal).
+held_item_pending_yield_predicate(modifier_domain_signal).
+held_item_pending_yield_predicate(item_domain_signal).
 
 held_item_next_option_request(Tokens) :-
     is_yes_response_tokens(Tokens),
@@ -50,8 +78,62 @@ held_item_consume_next_option(TargetLabel, [Recommendation | Rest]) :-
 parse_held_item_recommendation_query(Text, Name, Strategy) :-
     tokenize_for_match(Text, Tokens),
     held_item_intent_signal(Tokens),
-    parse_natural_pokemon_query(Text, Name),
+    parse_held_item_target_name(Text, Tokens, Name),
     held_item_strategy_from_tokens(Tokens, Strategy).
+
+parse_held_item_target_name(Text, _Tokens, Name) :-
+    parse_natural_pokemon_query(Text, Name),
+    !.
+parse_held_item_target_name(_Text, Tokens, Name) :-
+    held_item_guess_name_after_preposition(Tokens, Name),
+    !.
+parse_held_item_target_name(_Text, Tokens, Name) :-
+    held_item_guess_name_from_tokens(Tokens, Name).
+
+held_item_guess_name_after_preposition(Tokens, Name) :-
+    append(_, [Prep | Tail], Tokens),
+    member(Prep, ["de", "do", "da", "para", "pra", "pro"]),
+    extract_name_from_tokens(Tail, Name),
+    Name \= "".
+
+held_item_guess_name_from_tokens(Tokens, Name) :-
+    findall(Token,
+        ( member(Token, Tokens),
+          held_item_name_candidate_token(Token)
+        ),
+        CandidateTokens),
+    CandidateTokens \= [],
+    extract_name_from_tokens(CandidateTokens, Name),
+    Name \= "".
+
+held_item_name_candidate_token(Token) :-
+    Token \= "",
+    \+ name_stopword(Token),
+    \+ item_intent_token(Token),
+    \+ held_item_name_noise_token(Token).
+
+held_item_name_noise_token("held").
+held_item_name_noise_token("item").
+held_item_name_noise_token("itens").
+held_item_name_noise_token("melhor").
+held_item_name_noise_token("recomendacao").
+held_item_name_noise_token("recomendacoes").
+held_item_name_noise_token("recomendar").
+held_item_name_noise_token("recomendado").
+held_item_name_noise_token("recomendados").
+held_item_name_noise_token("forte").
+held_item_name_noise_token("forca").
+held_item_name_noise_token("potencializar").
+held_item_name_noise_token("aumentar").
+held_item_name_noise_token("dano").
+held_item_name_noise_token("ofensivo").
+held_item_name_noise_token("defensivo").
+held_item_name_noise_token("balanceado").
+held_item_name_noise_token("cobrir").
+held_item_name_noise_token("cobertura").
+held_item_name_noise_token("fraqueza").
+held_item_name_noise_token("segurar").
+held_item_name_noise_token("bulk").
 
 held_item_intent_signal(Tokens) :-
     member(Token, Tokens),
@@ -98,10 +180,11 @@ answer_held_item_recommendation_query(NameIdentifier, Strategy) :-
     writeln('  - Ranking contextual final:'),
     print_held_item_recommendation_preview(NameLabel, Recommendations),
     writeln('Bot: Quando eu citar moves, trate como exemplos de execução dentro do movepool possível, não como set obrigatório.').
-answer_held_item_recommendation_query(NameIdentifier, _Strategy) :-
+answer_held_item_recommendation_query(NameIdentifier, Strategy) :-
     retractall(pending_held_item_options(_, _)),
     display_pokemon_name(NameIdentifier, NameLabel),
-    format('Bot: Não consegui identificar o Pokémon para analisar held item (~w).~n', [NameLabel]).
+    format('Bot: Não consegui identificar o Pokémon para analisar held item (~w).~n', [NameLabel]),
+    print_suggestion_for_identifier(held_item(Strategy), NameIdentifier).
 
 held_item_abilities_text([], 'nenhuma habilidade catalogada').
 held_item_abilities_text(Abilities, Text) :-

@@ -76,7 +76,7 @@ parse_counter_compound_query(Text, TargetName, TypeFilters, ContextFilters) :-
     tokenize_for_match(Text, Tokens),
     \+ parse_battle_pair_from_tokens(Tokens, _, _),
     counter_intent_tokens(Tokens),
-    parse_natural_pokemon_query(Text, TargetName),
+    parse_counter_query(Text, TargetName),
     ( extract_type_filters(Tokens, TypeFilters) ; TypeFilters = [] ),
     extract_context_filters(Tokens, ContextFilters),
     ( TypeFilters \= [] ; ContextFilters \= [] ).
@@ -100,7 +100,7 @@ parse_counter_with_filters_query(Text, TargetName, ContextFilters) :-
         RawFilters),
     sort(RawFilters, ContextFilters),
     ContextFilters \= [],
-    parse_natural_pokemon_query(Text, TargetName).
+    parse_counter_query(Text, TargetName).
 
 parse_filtered_counter_query(Text, TypeFilters, TargetName) :-
     tokenize_for_match(Text, Tokens),
@@ -108,8 +108,7 @@ parse_filtered_counter_query(Text, TypeFilters, TargetName) :-
     extract_type_filters(Tokens, TypeFilters),
     TypeFilters \= [],
     append(_, ["contra" | Tail], Tokens),
-    extract_name_from_tokens(Tail, TargetName),
-    pokemon_info(TargetName, _).
+    extract_name_from_tokens(Tail, TargetName).
 
 answer_counter_with_level2_modifiers(TargetIdentifier, Generation, LevelConstraint, TypeFilters, ContextFilters) :-
     Generation \= none,

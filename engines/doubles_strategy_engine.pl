@@ -14,6 +14,9 @@ handle_pending_partner_preferences(Text) :-
     ( has_cancel_token(Tokens) ->
         retractall(pending_partner_preferences(_, _)),
         writeln('Bot: Certo, cancelei o refinamento de parceiros por agora.')
+    ; partner_pending_should_yield(Tokens) ->
+        retractall(pending_partner_preferences(_, _)),
+        fail
     ; partner_preferences_from_text(Text, TargetIdentifier, Preferences) ->
         retractall(pending_partner_preferences(_, _)),
         answer_compatible_partners_query_with_preferences(TargetIdentifier, Limit, Preferences)
@@ -147,6 +150,10 @@ handle_pending_partner_options(Text) :-
         consume_next_partner_option(TargetLabel, Remaining)
     ; synergy_detail_request(Tokens, Text, _Request) ->
         fail
+    ; partner_pending_should_yield(Tokens) ->
+        retractall(pending_partner_options(_, _)),
+        retractall(pending_synergy_details(_, _)),
+        fail
     ; format('Bot: Se quiser seguir a lista de parceiros para ~w, diga "outra opção". Para encerrar, diga "cancelar".~n', [TargetLabel])
     ).
 
@@ -192,8 +199,38 @@ handle_pending_synergy_details(Text) :-
         writeln('Bot: Certo, parei o detalhamento de sinergia por agora.')
     ; synergy_detail_request(Tokens, Text, Request) ->
         answer_synergy_detail_request(Context, Entries, Request)
+    ; partner_pending_should_yield(Tokens) ->
+        retractall(pending_partner_options(_, _)),
+        retractall(pending_partner_preferences(_, _)),
+        retractall(pending_synergy_details(_, _)),
+        fail
     ; synergy_detail_help_message(Context)
     ).
+
+partner_pending_should_yield(Tokens) :-
+    partner_pending_yield_signal(Tokens),
+    !.
+
+partner_pending_yield_signal(Tokens) :-
+    partner_pending_yield_predicate(PredicateName),
+    current_predicate(PredicateName/1),
+    Goal =.. [PredicateName, Tokens],
+    call(Goal),
+    !.
+
+partner_pending_yield_predicate(item_domain_signal).
+partner_pending_yield_predicate(counter_domain_signal).
+partner_pending_yield_predicate(compare_or_battle_domain_signal).
+partner_pending_yield_predicate(type_domain_signal).
+partner_pending_yield_predicate(generation_domain_signal).
+partner_pending_yield_predicate(ranking_domain_signal).
+partner_pending_yield_predicate(evolution_domain_signal).
+partner_pending_yield_predicate(status_domain_signal).
+partner_pending_yield_predicate(move_or_ability_domain_signal).
+partner_pending_yield_predicate(tournament_rules_domain_signal).
+partner_pending_yield_predicate(level_domain_signal).
+partner_pending_yield_predicate(modifier_domain_signal).
+partner_pending_yield_predicate(strategy_domain_signal).
 
 synergy_detail_request(Tokens, _Text, all) :-
     is_yes_response_tokens(Tokens),
@@ -472,13 +509,25 @@ parse_pair_synergy_query(Text, NameA, NameB) :-
     extract_all_pokemon_mentions(Text, Mentions),
     Mentions = [NameA, NameB | _],
     NameA \= NameB.
+parse_pair_synergy_query(Text, NameA, NameB) :-
+    tokenize_for_match(Text, Tokens),
+    pair_synergy_query_signal(Tokens),
+    ( append(_, ["entre" | Tail], Tokens), split_compare_tokens(Tail, LeftTokens, RightTokens)
+    ; split_compare_tokens(Tokens, LeftTokens, RightTokens)
+    ; append(LeftTokens, ["e" | RightTokens], Tokens), LeftTokens \= [], RightTokens \= []
+    ),
+    extract_name_from_tokens(LeftTokens, NameA),
+    extract_name_from_tokens(RightTokens, NameB),
+    NameA \= NameB.
 
 parse_compatible_partners_query(Text, Name, Limit) :-
     tokenize_for_match(Text, Tokens),
     compatible_partners_query_signal(Tokens),
     extract_all_pokemon_mentions(Text, Mentions),
     ( Mentions = [] ; Mentions = [_] ),
-    parse_natural_pokemon_query(Text, Name),
+    ( parse_natural_pokemon_query(Text, Name)
+    ; pokemon_identifier_after_preposition(Tokens, Name)
+    ),
     strategy_partner_limit_from_tokens(Tokens, Limit).
 
 pair_synergy_query_signal(Tokens) :-
@@ -551,7 +600,8 @@ answer_pair_synergy_query(IdentifierA, IdentifierB) :-
     retractall(pending_synergy_details(_, _)),
     display_pokemon_name(IdentifierA, LabelA),
     display_pokemon_name(IdentifierB, LabelB),
-    format('Bot: Nao consegui resolver a dupla para sinergia (~w e ~w).~n', [LabelA, LabelB]).
+    format('Bot: Nao consegui resolver a dupla para sinergia (~w e ~w).~n', [LabelA, LabelB]),
+    print_suggestion_for_pair(synergy, IdentifierA, IdentifierB).
 
 answer_compatible_partners_query(Identifier, Limit) :-
     retractall(pending_partner_options(_, _)),
@@ -567,12 +617,13 @@ answer_compatible_partners_query(Identifier, Limit) :-
     writeln('  - Se quer filtros como "sem lendarios", "sem mega" ou foco de tipo (ex.: "tipo agua").'),
     writeln('  - Se ja tem alguem em mente ou alguem para excluir.'),
     writeln('Bot: Exemplo: "principal, sem lendarios, com rotom wash, sem garchomp". Se quiser seguir sem filtro, diga "padrao".').
-answer_compatible_partners_query(Identifier, _Limit) :-
+answer_compatible_partners_query(Identifier, Limit) :-
     retractall(pending_partner_options(_, _)),
     retractall(pending_partner_preferences(_, _)),
     retractall(pending_synergy_details(_, _)),
     display_pokemon_name(Identifier, TargetLabel),
-    format('Bot: Nao encontrei parceiros claros para ~w com os sinais de sinergia modelados agora.~n', [TargetLabel]).
+    format('Bot: Nao encontrei parceiros claros para ~w com os sinais de sinergia modelados agora.~n', [TargetLabel]),
+    print_suggestion_for_identifier(compatible_partners(Limit), Identifier).
 
 answer_compatible_partners_query_with_preferences(Identifier, Limit, Preferences) :-
     retractall(pending_partner_options(_, _)),

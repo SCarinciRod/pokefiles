@@ -37,6 +37,12 @@ ability_effect(flash_fire, defensive, on_hit, [immunity-fire, next_fire_multipli
 ability_effect(levitate, defensive, passive, [immunity-ground], 'Imunidade a golpes Ground (salvo exceções modernas).').
 ability_effect(water_absorb, defensive, on_hit, [immunity-water, heal_fraction-0.25], 'Imunidade a Water e recupera HP ao ser atingido.').
 ability_effect(lightning_rod, defensive, on_hit, [redirect-electric, immunity-electric, special_attack_stages-1], 'Redireciona golpes Electric e concede imunidade; pode aumentar Sp. Atk.').
+ability_effect(motor_drive, defensive, on_hit, [immunity-electric, speed_stages-1], 'Absorve golpes Electric, concede imunidade e aumenta Speed.').
+ability_effect(sap_sipper, defensive, on_hit, [immunity-grass, attack_stages-1], 'Absorve golpes Grass, concede imunidade e aumenta Attack.').
+ability_effect(volt_absorb, defensive, on_hit, [immunity-electric, heal_fraction-0.25], 'Imunidade a Electric e recupera HP ao ser atingido.').
+ability_effect(storm_drain, defensive, on_hit, [immunity-water, special_attack_stages-1], 'Imunidade a Water e aumenta Sp. Atk ao ser atingido.').
+ability_effect(earth_eater, defensive, on_hit, [immunity-ground, heal_fraction-0.25], 'Imunidade a Ground e recupera HP ao ser atingido.').
+ability_effect(dry_skin, defensive, on_hit, [immunity-water, heal_fraction-0.25, damage_multiplier-fire-1.25], 'Imunidade a Water com recuperação de HP; recebe mais dano de Fire.').
 ability_effect(magic_guard, defensive, passive, [indirect_damage_immunity-true], 'Não sofre dano indireto (hazards, status chip etc.).').
 ability_effect(multiscale, defensive, passive, [full_hp_damage_multiplier-0.5], 'Com HP cheio, reduz dano recebido pela metade.').
 ability_effect(inner_focus, defensive, passive, [flinch_immunity-true], 'Imune a flinch.').

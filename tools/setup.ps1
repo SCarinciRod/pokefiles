@@ -1,5 +1,6 @@
 param(
-    [switch]$SkipGenerationBuild
+    [switch]$SkipGenerationBuild,
+    [switch]$SkipSpriteSync
 )
 
 $ErrorActionPreference = 'Stop'
@@ -221,11 +222,41 @@ function Build-AllGenerations {
     }
 }
 
+function Build-SpriteCatalog {
+    $nodeCmd = Resolve-NodeCommand
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para sincronizar sprites.'
+    }
+
+    Write-Step 'Sincronizando sprites locais (PokemonDB Home: normal + shiny)...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\sync_home_sprites.js --force
+        if ($LASTEXITCODE -ne 0) {
+            Write-Step 'Falha na sincronizacao de sprites com TLS padrao. Tentando fallback para rede com inspecao SSL...'
+            $env:POKEDEX_INSECURE_TLS = '1'
+            & $nodeCmd .\tools\sync_home_sprites.js --force
+            Remove-Item Env:POKEDEX_INSECURE_TLS -ErrorAction SilentlyContinue
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Falha ao sincronizar sprites locais mesmo com fallback TLS inseguro.'
+            }
+        }
+    }
+    finally {
+        Remove-Item Env:POKEDEX_INSECURE_TLS -ErrorAction SilentlyContinue
+        Pop-Location
+    }
+}
+
 Write-Step 'Iniciando verificacao de dependencias...'
 Ensure-Dependencies
 
 if (-not $SkipGenerationBuild) {
     Build-AllGenerations
+}
+
+if (-not $SkipSpriteSync) {
+    Build-SpriteCatalog
 }
 
 Write-Step 'Setup concluido com sucesso.'

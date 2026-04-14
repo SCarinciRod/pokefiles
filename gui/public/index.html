@@ -77,13 +77,23 @@
         <div class="modal-top-grid">
           <div class="modal-sprite-wrap">
             <img id="modal-sprite" class="modal-sprite" alt="Sprite do Pokémon" />
+            <div class="modal-sprite-controls">
+              <button id="modal-sprite-toggle" class="sprite-toggle-button" type="button" aria-pressed="false">
+                Ver sprite shiny
+              </button>
+            </div>
           </div>
 
           <div class="modal-main-info">
             <div class="info-row"><strong>Altura:</strong> <span id="modal-height"></span></div>
             <div class="info-row"><strong>Peso:</strong> <span id="modal-weight"></span></div>
             <div class="info-row"><strong>Tipos:</strong> <span id="modal-types"></span></div>
-            <div class="info-row"><strong>Habilidades:</strong> <span id="modal-abilities"></span></div>
+            <div class="info-row"><strong>Habilidades possíveis:</strong> <span id="modal-abilities"></span></div>
+            <div class="info-row ability-selector-row">
+              <strong>Habilidade ativa:</strong>
+              <select id="modal-ability-select" class="ability-select" aria-label="Selecionar habilidade ativa"></select>
+            </div>
+            <p id="modal-ability-description" class="ability-description"></p>
           </div>
         </div>
 

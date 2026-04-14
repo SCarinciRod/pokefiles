@@ -12,6 +12,15 @@ ensure_test_db_ready :-
     ),
     set_default_generation.
 
+assert_similarity_feedback(Output) :-
+    ( sub_atom(Output, _, _, _, 'inferência de nome por similaridade')
+    ; sub_atom(Output, _, _, _, 'inferência de nomes por similaridade')
+    ; sub_atom(Output, _, _, _, 'Corrigi automaticamente o nome com alta confiança e vou continuar.')
+    ; sub_atom(Output, _, _, _, 'Corrigi automaticamente os nomes com alta confiança e vou continuar.')
+    ),
+    !,
+    assertion(sub_atom(Output, _, _, _, 'Peliper -> Pelipper')).
+
 :- begin_tests(nlp_token_heuristics).
 
 test(token_typos_are_normalized, [setup(ensure_test_db_ready)]) :-
@@ -375,6 +384,11 @@ test(parse_held_item_recommendation_query_with_item_phrase, [setup(ensure_test_d
     assertion(Name == toxapex),
     assertion(Strategy == balanced).
 
+test(parse_held_item_recommendation_query_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    once(parse_held_item_recommendation_query("melhor held item para peliper", Name, Strategy)),
+    assertion(Name == peliper),
+    assertion(Strategy == balanced).
+
 test(resolve_intent_routes_held_item_query_with_item_phrase, [setup(ensure_test_db_ready)]) :-
     Text = "melhor black sludge para toxapex",
     once(tokenize_for_match(Text, Tokens)),
@@ -470,6 +484,83 @@ test(held_item_pending_next_option_prints_followup_line, [setup(ensure_test_db_r
     answer_held_item_recommendation_query(hawlucha, balanced),
     with_output_to(atom(Output), handle_pending_held_item_options("outra opção")),
     assertion(sub_atom(Output, _, _, _, 'Se quiser outra opção')).
+
+test(held_item_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_held_item_recommendation_query(peliper, balanced)),
+    assertion(sub_atom(Output, _, _, _, 'inferência de nome por similaridade')),
+    assertion(sub_atom(Output, _, _, _, 'Quer que eu continue usando Pelipper?')).
+
+test(resolve_intent_routes_movelist_query_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    Text = "moves do peliper",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_pokemon_movelist_query(peliper)).
+
+test(movelist_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pokemon_movelist_query(peliper)),
+    assert_similarity_feedback(Output).
+
+test(resolve_intent_routes_ability_details_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    once(parse_pokemon_ability_details_query("o que faz a habilidade do peliper", Name)),
+    assertion(Name == peliper).
+
+test(ability_details_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pokemon_ability_details_query(peliper)),
+    assert_similarity_feedback(Output).
+
+test(resolve_intent_routes_evolution_level_query_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    Text = "nivel de evolucao do peliper",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_evolution_level_query(peliper)).
+
+test(evolution_level_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_evolution_level_query(peliper)),
+    assert_similarity_feedback(Output).
+
+test(resolve_intent_routes_compatible_partners_query_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    Text = "pokemons compativeis com peliper",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    Goal = answer_compatible_partners_query(peliper, _).
+
+test(compatible_partners_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_compatible_partners_query(peliper, 6)),
+    assert_similarity_feedback(Output).
+
+test(resolve_intent_routes_pair_synergy_query_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    Text = "sinergia entre peliper e tyranitar",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    Goal = answer_pair_synergy_query(NameA, NameB),
+    assertion(member(NameA, [peliper, tyranitar])),
+    assertion(member(NameB, [peliper, tyranitar])),
+    assertion(NameA \= NameB).
+
+test(pair_synergy_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_pair_synergy_query(peliper, tyranitar)),
+    assert_similarity_feedback(Output),
+    assertion(sub_atom(Output, _, _, _, 'Pelipper')),
+    assertion(sub_atom(Output, _, _, _, 'Tyranitar')).
+
+test(parse_rank_team_vs_target_with_typo_target_name, [setup(ensure_test_db_ready)]) :-
+    Text = "ranking do meu time pikachu e raichu contra peliper",
+    once(parse_rank_team_vs_target_query(Text, TeamNames, TargetName)),
+    assertion(TargetName == peliper),
+    assertion(member(pikachu, TeamNames)),
+    assertion(member(raichu, TeamNames)).
+
+test(rank_team_vs_target_typo_name_prompts_similarity_confirmation, [setup(ensure_test_db_ready)]) :-
+    with_output_to(atom(Output), answer_rank_team_vs_target_query([pikachu, raichu], peliper)),
+    assert_similarity_feedback(Output).
+
+test(pending_synergy_detail_yields_to_new_item_query, [setup(ensure_test_db_ready)]) :-
+    once(with_output_to(atom(_PairOutput), answer_pair_synergy_query(tyranitar, garchomp))),
+    \+ with_output_to(atom(_IgnoredOutput), handle_pending_synergy_details("melhor held item para pelipper")),
+    Text = "melhor held item para pelipper",
+    once(tokenize_for_match(Text, Tokens)),
+    once(resolve_intent(guarded, Text, Tokens, Goal)),
+    assertion(Goal = answer_held_item_recommendation_query(pelipper, balanced)).
 
 test(held_item_output_prioritizes_rocky_helmet_for_ferrothorn, [setup(ensure_test_db_ready)]) :-
     with_output_to(atom(Output), answer_held_item_recommendation_query(ferrothorn, balanced)),

@@ -728,6 +728,9 @@ handle_identifier_inference(ActionKey, Input, Resolved, Status) :-
     status_requires_confirmation(Status),
     !,
     queue_identifier_confirmation(ActionKey, Input, Resolved).
+handle_identifier_inference(held_item(Strategy), Input, Resolved, _Status) :-
+    !,
+    queue_identifier_confirmation(held_item(Strategy), Input, Resolved).
 handle_identifier_inference(ActionKey, Input, Resolved, _Status) :-
     identifier_action_term(ActionKey, Resolved, ActionTerm),
     writeln('Bot: Corrigi automaticamente o nome com alta confiança e vou continuar.'),
@@ -749,6 +752,7 @@ queue_pair_confirmation(ActionKey, InputA, ResolvedA, InputB, ResolvedB) :-
 
 pair_action_term(compare, NameA, NameB, compare(NameA, NameB)).
 pair_action_term(battle, NameA, NameB, battle(NameA, NameB)).
+pair_action_term(synergy, NameA, NameB, synergy(NameA, NameB)).
 
 queue_identifier_confirmation(ActionKey, Input, Resolved) :-
     retractall(pending_confirmation(_)),
@@ -763,6 +767,15 @@ identifier_action_term(info, Name, info(Name)).
 identifier_action_term(counter, Name, counter(Name)).
 identifier_action_term(best_switch, Name, best_switch(Name)).
 identifier_action_term(filtered_counter(TypeFilters), Name, filtered_counter(TypeFilters, Name)).
+identifier_action_term(held_item(Strategy), Name, held_item(Name, Strategy)).
+identifier_action_term(ability_details, Name, ability_details(Name)).
+identifier_action_term(movelist, Name, movelist(Name)).
+identifier_action_term(evolution_level, Name, evolution_level(Name)).
+identifier_action_term(evolution_chain, Name, evolution_chain(Name)).
+identifier_action_term(evolution_should_have(CurrentLevel), Name, evolution_should_have(Name, CurrentLevel)).
+identifier_action_term(compatible_partners(Limit), Name, compatible_partners(Name, Limit)).
+identifier_action_term(rank_team_vs_target(TeamNames), Name, rank_team_vs_target(TeamNames, Name)).
+identifier_action_term(best_team_member_vs_target(TeamNames), Name, best_team_member_vs_target(TeamNames, Name)).
 
 print_correction_line(Input, Resolved) :-
     normalize_identifier_for_match(Input, InputNorm),
