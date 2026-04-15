@@ -312,34 +312,34 @@ pokemon_form_kind(10244, hisui).
 pokemon(10253, wooper_paldea, 4, 110, [poison, ground], [poison_point, water_absorb, unaware], [attack-45, defense-45, hp-55, special_attack-25, special_defense-25, speed-15]).
 pokemon_form_base(10253, 194).
 pokemon_form_kind(10253, paldea).
-pokemon(10278, clefable_mega, 17, 423, [fairy, flying], [], [attack-80, defense-93, hp-95, special_attack-135, special_defense-110, speed-70]).
+pokemon(10278, clefable_mega, 17, 423, [fairy, flying], [magic_bounce], [attack-80, defense-93, hp-95, special_attack-135, special_defense-110, speed-70]).
 pokemon_form_base(10278, 36).
 pokemon_form_kind(10278, mega).
-pokemon(10279, victreebel_mega, 45, 1255, [grass, poison], [], [attack-125, defense-85, hp-80, special_attack-135, special_defense-95, speed-70]).
+pokemon(10279, victreebel_mega, 45, 1255, [grass, poison], [innards_out], [attack-125, defense-85, hp-80, special_attack-135, special_defense-95, speed-70]).
 pokemon_form_base(10279, 71).
 pokemon_form_kind(10279, mega).
-pokemon(10280, starmie_mega, 23, 800, [water, psychic], [], [attack-140, defense-105, hp-60, special_attack-130, special_defense-105, speed-120]).
+pokemon(10280, starmie_mega, 23, 800, [water, psychic], [huge_power], [attack-100, defense-105, hp-60, special_attack-130, special_defense-105, speed-120]).
 pokemon_form_base(10280, 121).
 pokemon_form_kind(10280, mega).
-pokemon(10281, dragonite_mega, 22, 2900, [dragon, flying], [], [attack-124, defense-115, hp-91, special_attack-145, special_defense-125, speed-100]).
+pokemon(10281, dragonite_mega, 22, 2900, [dragon, flying], [multiscale], [attack-124, defense-115, hp-91, special_attack-145, special_defense-125, speed-100]).
 pokemon_form_base(10281, 149).
 pokemon_form_kind(10281, mega).
-pokemon(10282, meganium_mega, 24, 2010, [grass, fairy], [], [attack-92, defense-115, hp-80, special_attack-143, special_defense-115, speed-80]).
+pokemon(10282, meganium_mega, 24, 2010, [grass, fairy], [mega_sol], [attack-92, defense-115, hp-80, special_attack-143, special_defense-115, speed-80]).
 pokemon_form_base(10282, 154).
 pokemon_form_kind(10282, mega).
-pokemon(10283, feraligatr_mega, 23, 1088, [water, dragon], [], [attack-160, defense-125, hp-85, special_attack-89, special_defense-93, speed-78]).
+pokemon(10283, feraligatr_mega, 23, 1088, [water, dragon], [dragonize], [attack-160, defense-125, hp-85, special_attack-89, special_defense-93, speed-78]).
 pokemon_form_base(10283, 160).
 pokemon_form_kind(10283, mega).
-pokemon(10284, skarmory_mega, 17, 404, [steel, flying], [], [attack-140, defense-110, hp-65, special_attack-40, special_defense-100, speed-110]).
+pokemon(10284, skarmory_mega, 17, 404, [steel, flying], [stalwart], [attack-140, defense-110, hp-65, special_attack-40, special_defense-100, speed-110]).
 pokemon_form_base(10284, 227).
 pokemon_form_kind(10284, mega).
-pokemon(10285, froslass_mega, 26, 296, [ice, ghost], [], [attack-80, defense-70, hp-70, special_attack-140, special_defense-100, speed-120]).
+pokemon(10285, froslass_mega, 26, 296, [ice, ghost], [snow_warning], [attack-80, defense-70, hp-70, special_attack-140, special_defense-100, speed-120]).
 pokemon_form_base(10285, 478).
 pokemon_form_kind(10285, mega).
-pokemon(10286, emboar_mega, 18, 1803, [fire, fighting], [], [attack-148, defense-75, hp-110, special_attack-110, special_defense-110, speed-75]).
+pokemon(10286, emboar_mega, 18, 1803, [fire, fighting], [mold_breaker], [attack-148, defense-75, hp-110, special_attack-110, special_defense-110, speed-75]).
 pokemon_form_base(10286, 500).
 pokemon_form_kind(10286, mega).
-pokemon(10287, excadrill_mega, 9, 600, [ground, steel], [], [attack-165, defense-100, hp-110, special_attack-65, special_defense-65, speed-103]).
+pokemon(10287, excadrill_mega, 9, 600, [ground, steel], [piercing_drill], [attack-165, defense-100, hp-110, special_attack-65, special_defense-65, speed-103]).
 pokemon_form_base(10287, 530).
 pokemon_form_kind(10287, mega).
 pokemon(10288, scolipede_mega, 32, 2305, [bug, poison], [], [attack-140, defense-149, hp-60, special_attack-75, special_defense-99, speed-62]).
@@ -351,22 +351,22 @@ pokemon_form_kind(10289, mega).
 pokemon(10290, eelektross_mega, 30, 1800, [electric], [], [attack-145, defense-80, hp-85, special_attack-135, special_defense-90, speed-80]).
 pokemon_form_base(10290, 604).
 pokemon_form_kind(10290, mega).
-pokemon(10291, chandelure_mega, 25, 696, [ghost, fire], [], [attack-75, defense-110, hp-60, special_attack-175, special_defense-110, speed-90]).
+pokemon(10291, chandelure_mega, 25, 696, [ghost, fire], [infiltrator], [attack-75, defense-110, hp-60, special_attack-175, special_defense-110, speed-90]).
 pokemon_form_base(10291, 609).
 pokemon_form_kind(10291, mega).
-pokemon(10292, chesnaught_mega, 16, 900, [grass, fighting], [], [attack-137, defense-172, hp-88, special_attack-74, special_defense-115, speed-44]).
+pokemon(10292, chesnaught_mega, 16, 900, [grass, fighting], [bulletproof], [attack-137, defense-172, hp-88, special_attack-74, special_defense-115, speed-44]).
 pokemon_form_base(10292, 652).
 pokemon_form_kind(10292, mega).
-pokemon(10293, delphox_mega, 15, 390, [fire, psychic], [], [attack-69, defense-72, hp-75, special_attack-159, special_defense-125, speed-134]).
+pokemon(10293, delphox_mega, 15, 390, [fire, psychic], [levitate], [attack-69, defense-72, hp-75, special_attack-159, special_defense-125, speed-134]).
 pokemon_form_base(10293, 655).
 pokemon_form_kind(10293, mega).
-pokemon(10294, greninja_mega, 15, 400, [water, dark], [], [attack-125, defense-77, hp-72, special_attack-133, special_defense-81, speed-142]).
+pokemon(10294, greninja_mega, 15, 400, [water, dark], [protean], [attack-125, defense-77, hp-72, special_attack-133, special_defense-81, speed-142]).
 pokemon_form_base(10294, 658).
 pokemon_form_kind(10294, mega).
 pokemon(10295, pyroar_mega, 15, 933, [fire, normal], [], [attack-88, defense-92, hp-86, special_attack-129, special_defense-86, speed-126]).
 pokemon_form_base(10295, 668).
 pokemon_form_kind(10295, mega).
-pokemon(10296, floette_mega, 2, 1008, [fairy], [], [attack-85, defense-87, hp-74, special_attack-155, special_defense-148, speed-102]).
+pokemon(10296, floette_mega, 2, 1008, [fairy], [fairy_aura], [attack-85, defense-87, hp-74, special_attack-155, special_defense-148, speed-102]).
 pokemon_form_base(10296, 670).
 pokemon_form_kind(10296, mega).
 pokemon(10297, malamar_mega, 29, 698, [dark, psychic], [], [attack-102, defense-88, hp-86, special_attack-98, special_defense-120, speed-88]).
@@ -378,13 +378,13 @@ pokemon_form_kind(10298, mega).
 pokemon(10299, dragalge_mega, 21, 1003, [poison, dragon], [], [attack-85, defense-105, hp-65, special_attack-132, special_defense-163, speed-44]).
 pokemon_form_base(10299, 691).
 pokemon_form_kind(10299, mega).
-pokemon(10300, hawlucha_mega, 10, 250, [fighting, flying], [], [attack-137, defense-100, hp-78, special_attack-74, special_defense-93, speed-118]).
+pokemon(10300, hawlucha_mega, 10, 250, [fighting, flying], [no_guard], [attack-137, defense-100, hp-78, special_attack-74, special_defense-93, speed-118]).
 pokemon_form_base(10300, 701).
 pokemon_form_kind(10300, mega).
 pokemon(10301, zygarde_mega, 77, 6100, [dragon, ground], [], [attack-70, defense-91, hp-216, special_attack-216, special_defense-85, speed-100]).
 pokemon_form_base(10301, 718).
 pokemon_form_kind(10301, mega).
-pokemon(10302, drampa_mega, 30, 2405, [normal, dragon], [], [attack-85, defense-110, hp-78, special_attack-160, special_defense-116, speed-36]).
+pokemon(10302, drampa_mega, 30, 2405, [normal, dragon], [berserk], [attack-85, defense-110, hp-78, special_attack-160, special_defense-116, speed-36]).
 pokemon_form_base(10302, 780).
 pokemon_form_kind(10302, mega).
 pokemon(10303, falinks_mega, 16, 990, [fighting], [], [attack-135, defense-135, hp-65, special_attack-70, special_defense-65, speed-100]).
@@ -396,7 +396,7 @@ pokemon_form_kind(10304, mega).
 pokemon(10305, raichu_mega_y, 10, 260, [electric], [], [attack-100, defense-55, hp-60, special_attack-160, special_defense-80, speed-130]).
 pokemon_form_base(10305, 26).
 pokemon_form_kind(10305, mega).
-pokemon(10306, chimecho_mega, 12, 80, [psychic, steel], [], [attack-50, defense-110, hp-75, special_attack-135, special_defense-120, speed-65]).
+pokemon(10306, chimecho_mega, 12, 80, [psychic, steel], [levitate], [attack-50, defense-110, hp-75, special_attack-135, special_defense-120, speed-65]).
 pokemon_form_base(10306, 358).
 pokemon_form_kind(10306, mega).
 pokemon(10307, absol_mega_z, 12, 490, [dark, ghost], [], [attack-154, defense-60, hp-65, special_attack-75, special_defense-60, speed-151]).
@@ -417,13 +417,13 @@ pokemon_form_kind(10311, mega).
 pokemon(10312, darkrai_mega, 30, 2400, [dark], [], [attack-120, defense-130, hp-70, special_attack-165, special_defense-130, speed-85]).
 pokemon_form_base(10312, 491).
 pokemon_form_kind(10312, mega).
-pokemon(10313, golurk_mega, 40, 3300, [ground, ghost], [], [attack-159, defense-105, hp-89, special_attack-70, special_defense-105, speed-55]).
+pokemon(10313, golurk_mega, 40, 3300, [ground, ghost], [unseen_fist], [attack-159, defense-105, hp-89, special_attack-70, special_defense-105, speed-55]).
 pokemon_form_base(10313, 623).
 pokemon_form_kind(10313, mega).
-pokemon(10314, meowstic_mega, 8, 101, [psychic], [], [attack-48, defense-76, hp-74, special_attack-143, special_defense-101, speed-124]).
+pokemon(10314, meowstic_mega, 8, 101, [psychic], [trace], [attack-48, defense-76, hp-74, special_attack-143, special_defense-101, speed-124]).
 pokemon_form_base(10314, 678).
 pokemon_form_kind(10314, mega).
-pokemon(10315, crabominable_mega, 26, 2528, [fighting, ice], [], [attack-157, defense-122, hp-97, special_attack-62, special_defense-107, speed-33]).
+pokemon(10315, crabominable_mega, 26, 2528, [fighting, ice], [iron_fist], [attack-157, defense-122, hp-97, special_attack-62, special_defense-107, speed-33]).
 pokemon_form_base(10315, 740).
 pokemon_form_kind(10315, mega).
 pokemon(10316, golisopod_mega, 23, 1480, [bug, steel], [], [attack-150, defense-175, hp-75, special_attack-70, special_defense-120, speed-40]).
@@ -438,10 +438,10 @@ pokemon_form_kind(10318, mega).
 pokemon(10319, zeraora_mega, 15, 445, [electric], [], [attack-157, defense-75, hp-88, special_attack-147, special_defense-80, speed-153]).
 pokemon_form_base(10319, 807).
 pokemon_form_kind(10319, mega).
-pokemon(10320, scovillain_mega, 12, 220, [grass, fire], [], [attack-138, defense-85, hp-65, special_attack-138, special_defense-85, speed-75]).
+pokemon(10320, scovillain_mega, 12, 220, [grass, fire], [spicy_spray], [attack-138, defense-85, hp-65, special_attack-138, special_defense-85, speed-75]).
 pokemon_form_base(10320, 952).
 pokemon_form_kind(10320, mega).
-pokemon(10321, glimmora_mega, 28, 770, [rock, poison], [], [attack-90, defense-105, hp-83, special_attack-150, special_defense-96, speed-101]).
+pokemon(10321, glimmora_mega, 28, 770, [rock, poison], [adaptability], [attack-90, defense-105, hp-83, special_attack-150, special_defense-96, speed-101]).
 pokemon_form_base(10321, 970).
 pokemon_form_kind(10321, mega).
 pokemon(10322, tatsugiri_curly_mega, 6, 240, [dragon, water], [], [attack-65, defense-90, hp-68, special_attack-135, special_defense-125, speed-92]).

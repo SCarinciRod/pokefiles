@@ -1,5 +1,5 @@
 :- encoding(utf8).
-:- ensure_loaded('../pokedex_bot.pl').
+:- ensure_loaded('../prolog/pokedex_bot.pl').
 
 :- dynamic confusion_count/3.
 :- dynamic mismatch_case/4.

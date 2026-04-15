@@ -56,6 +56,7 @@ function parseArgs(argv) {
     formScan: true,
     force: false,
     dryRun: false,
+    outputDir: null,
   };
 
   for (const arg of argv) {
@@ -87,6 +88,12 @@ function parseArgs(argv) {
       continue;
     }
 
+    if (arg.startsWith('--output-dir=')) {
+      const rawPath = arg.slice('--output-dir='.length).trim();
+      options.outputDir = rawPath || null;
+      continue;
+    }
+
     if (arg === '--skip-form-scan') {
       options.formScan = false;
       continue;
@@ -108,9 +115,18 @@ function printHelp() {
   console.log('  --limit=<N>          Processa apenas os primeiros N slugs da lista');
   console.log('  --concurrency=<N>    Numero de downloads em paralelo (padrao: 8)');
   console.log('  --forms-concurrency=<N>  Numero de paginas de especies em paralelo (padrao: 12)');
+  console.log('  --output-dir=<PATH>  Diretorio de saida para sprites e manifesto');
   console.log('  --skip-form-scan     Nao expande slugs de formas via paginas individuais');
   console.log('  --force              Rebaixa sprites mesmo quando arquivo local existe');
   console.log('  --dry-run            Apenas lista quantos slugs serao processados');
+}
+
+function getDefaultOutputDir() {
+  const localAppData = process.env.LOCALAPPDATA || process.env.APPDATA;
+  if (localAppData && localAppData.trim()) {
+    return path.join(localAppData, 'PokedexChatbot', 'sprites');
+  }
+  return path.resolve(__dirname, '..', '.local_cache', 'sprites');
 }
 
 function ensureDirectory(dirPath) {
@@ -412,9 +428,12 @@ async function runWithConcurrency(items, concurrency, worker) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const outputDir = path.resolve(__dirname, '..', 'temp_sprites');
+  const outputDir = options.outputDir
+    ? path.resolve(options.outputDir)
+    : getDefaultOutputDir();
 
   ensureDirectory(outputDir);
+  console.log(`[sprites] Diretorio local: ${outputDir}`);
 
   if (useInsecureTls) {
     console.warn('[warn] TLS inseguro habilitado (POKEDEX_INSECURE_TLS=1). Use apenas quando necessario.');

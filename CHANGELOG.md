@@ -1,5 +1,81 @@
 # Changelog
 
+## 0.91a - 2026-04-14
+
+### Organização de código
+
+- Arquivos Prolog de entrada/roteamento foram movidos da raiz para `prolog/`:
+  - `prolog/pokedex_bot.pl`
+  - `prolog/pokemon_db.pl`
+  - `prolog/intent_router.pl`
+  - `prolog/intents_catalog.pl`
+  - `prolog/intents_guards.pl`
+- Referências atualizadas em bridge da GUI, testes, scripts de setup/benchmark e documentação.
+
+### Execução e launchers
+
+- `run_gui.exe` passa a ser gerado na raiz do projeto (`pokefiles/run_gui.exe`) pelo `tools/build_launchers.ps1`.
+- Removido launcher legado de CLI `run_chatbot.cmd` para manter fluxo `.exe` único e diretório mais limpo.
+- Empacotamento Electron atualizado para copiar arquivos Prolog de `prolog/` para `resources/runtime/prolog/`.
+
+### Pegada de disco da GUI
+
+- `tools/setup.ps1` agora detecta se o app GUI instalado já está atualizado e evita reempacotamento desnecessário.
+- `tools/setup.ps1` passou a limpar automaticamente artefatos locais de build (`gui/dist*`) para evitar crescimento da pasta `gui`.
+- Novo utilitário `tools/clean_gui_workspace.ps1` para limpeza manual (incluindo opção de remover `gui/node_modules`).
+
+## 0.90a - 2026-04-14
+
+### Objetivo
+
+- Consolidar o fluxo desktop em um setup único e um executor único.
+- Remover fricção de UX no startup (sem terminal aparente no uso diário).
+- Fortalecer baseline de segurança da GUI e reduzir overhead de inicialização.
+
+### Setup e empacotamento unificados
+
+- `setup.exe` (launcher) + `tools/setup.ps1` passou a executar o fluxo completo da GUI:
+  - validação e provisionamento de Node/SWI-Prolog,
+  - instalação de dependências GUI,
+  - empacotamento Electron (`win-unpacked`),
+  - instalação do app em `%LOCALAPPDATA%\PokedexChatbot\app\win-unpacked\`.
+- Runtime Prolog da GUI foi movido para `resources/runtime/` via `extraResources`, evitando falha de inicialização ao tentar carregar `prolog_bridge.pl` dentro de `app.asar`.
+- `setup.exe` virou o ponto único de setup/build para desktop.
+- Mantido suporte a flags de skip para cenários específicos (`SkipGenerationBuild`, `SkipSpriteSync`, `SkipGuiDependencies`, `SkipGuiPackaging`).
+
+### Executor único e UX de inicialização
+
+- Novo launcher recomendado sem terminal: `run_gui.exe` na raiz do projeto.
+- Removidos wrappers legados de execução (`run_gui.cmd`, `run_gui.vbs`, `run_gui_launcher.ps1`) para manter diretório limpo.
+- Startup da Electron ganhou splash/patcher com status:
+  - janela de boot dedicada,
+  - mensagens de progresso para validação de sprites, init Prolog e carregamento da UI.
+
+### Segurança (hardening)
+
+- CSP adicionada na UI principal (`gui/public/index.html`).
+- Bloqueio de `window.open` com abertura externa controlada via shell.
+- Bloqueio de navegação para fora de `file://` no renderer.
+- Bloqueio explícito de `webview` attach.
+- Política default de permissões Electron: deny-all via `setPermissionRequestHandler`.
+
+### Performance
+
+- Cache em memória da lista de sprites no processo principal para reduzir leituras repetidas de disco.
+- Invalidação de cache após sincronização de sprites.
+- Launcher prioriza execução direta do binário Electron empacotado (reduzindo overhead de startup via npm).
+
+### Dependências e toolchain
+
+- Baseline atualizado para Node LTS moderno (Node `>= 22.12.0`; ambiente validado em `24.14.1`).
+- GUI atualizada para `electron@^41.2.0` e `electron-builder@^26.8.1`.
+
+### Validação
+
+- `npm outdated --depth=0`: sem pendências.
+- `npm audit`: sem vulnerabilidades reportadas.
+- Build `pack:dir` validado com sucesso em saída limpa (`dist-runtime`).
+
 ## 0.85a - 2026-03-16
 
 ### Adições
@@ -241,7 +317,7 @@
 ### Observações
 
 - O app desktop depende de `swipl` acessível no ambiente para iniciar o bridge Prolog.
-- As sprites exibidas no painel esquerdo são lidas de `temp_sprites/`.
+- As sprites exibidas no painel esquerdo são lidas do cache local de sprites do usuário.
 
 ## 0.89b - 2026-04-13
 
@@ -257,7 +333,7 @@
   - busca por nome ou número;
   - filtro por tipo.
 - Modal de detalhes ao clicar em um Pokémon da lista, com:
-  - sprite (quando disponível em `temp_sprites/`);
+  - sprite (quando disponível no cache local de sprites);
   - nome, número, altura, peso, tipos e habilidades;
   - descrição e lore;
   - barras visuais para status base;

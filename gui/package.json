@@ -4,6 +4,9 @@
   "description": "Desktop Pokedex chatbot powered by SWI-Prolog",
   "main": "main.js",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
@@ -11,8 +14,8 @@
     "pack:dir": "electron-builder --win dir --config.electronDist=node_modules/electron/dist"
   },
   "devDependencies": {
-    "electron": "^33.3.0",
-    "electron-builder": "^24.13.3"
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.scarincirod.pokedex.desktop",
@@ -22,22 +25,54 @@
     },
     "files": [
       "main.js",
+      "boot_preload.js",
       "preload.js",
       "public/**/*",
-      "prolog_bridge.pl",
-      "../db/**/*",
-      "../engines/**/*",
-      "../intent_router.pl",
-      "../intents_catalog.pl",
-      "../intents_guards.pl",
-      "../pokedex_bot.pl",
-      "../pokemon_db.pl",
-      "../temp_sprites/**/*"
+      "prolog_bridge.pl"
     ],
-    "asarUnpack": [
-      "../db/**/*",
-      "../engines/**/*",
-      "../temp_sprites/**/*"
+    "extraResources": [
+      {
+        "from": "prolog_bridge.pl",
+        "to": "runtime/gui/prolog_bridge.pl"
+      },
+      {
+        "from": "../prolog/pokedex_bot.pl",
+        "to": "runtime/prolog/pokedex_bot.pl"
+      },
+      {
+        "from": "../prolog/pokemon_db.pl",
+        "to": "runtime/prolog/pokemon_db.pl"
+      },
+      {
+        "from": "../prolog/intent_router.pl",
+        "to": "runtime/prolog/intent_router.pl"
+      },
+      {
+        "from": "../prolog/intents_catalog.pl",
+        "to": "runtime/prolog/intents_catalog.pl"
+      },
+      {
+        "from": "../prolog/intents_guards.pl",
+        "to": "runtime/prolog/intents_guards.pl"
+      },
+      {
+        "from": "../db",
+        "to": "runtime/db",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../engines",
+        "to": "runtime/engines",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../tools/sync_home_sprites.js",
+        "to": "runtime/tools/sync_home_sprites.js"
+      }
     ],
     "win": {
       "signAndEditExecutable": false,

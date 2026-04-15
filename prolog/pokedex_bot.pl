@@ -47,15 +47,15 @@
 :- multifile pokemon_form_base/2.
 :- multifile pokemon_evolution/5.
 :- ensure_loaded('intent_router.pl').
-:- ensure_loaded('engines/role_engine.pl').
-:- ensure_loaded('engines/held_item_engine.pl').
-:- ensure_loaded('engines/evolution_engine.pl').
-:- ensure_loaded('engines/generation_engine.pl').
-:- ensure_loaded('engines/ranking_engine.pl').
-:- ensure_loaded('engines/counter_engine.pl').
-:- ensure_loaded('engines/matchup_engine.pl').
-:- ensure_loaded('engines/tournament_rules_engine.pl').
-:- ensure_loaded('engines/doubles_strategy_engine.pl').
+:- ensure_loaded('../engines/role_engine.pl').
+:- ensure_loaded('../engines/held_item_engine.pl').
+:- ensure_loaded('../engines/evolution_engine.pl').
+:- ensure_loaded('../engines/generation_engine.pl').
+:- ensure_loaded('../engines/ranking_engine.pl').
+:- ensure_loaded('../engines/counter_engine.pl').
+:- ensure_loaded('../engines/matchup_engine.pl').
+:- ensure_loaded('../engines/tournament_rules_engine.pl').
+:- ensure_loaded('../engines/doubles_strategy_engine.pl').
 
 % ============================================================
 % BOOTSTRAP E CICLO PRINCIPAL
@@ -78,7 +78,20 @@ configure_text_encoding :-
     catch(set_stream(user_output, encoding(utf8)), _, true),
     catch(set_stream(user_error, encoding(utf8)), _, true).
 
+project_root_dir(RootDir) :-
+    source_file(load_database, SourceFile),
+    file_directory_name(SourceFile, PrologDir),
+    file_directory_name(PrologDir, RootDir).
+
+with_project_root(Goal) :-
+    project_root_dir(RootDir),
+    working_directory(OldDir, RootDir),
+    call_cleanup(Goal, working_directory(_, OldDir)).
+
 load_database :-
+    with_project_root(load_database_from_root).
+
+load_database_from_root :-
     expand_file_name('db/generation_*.pl', GenerationFiles),
     expand_file_name('db/lore_generation_*.pl', LoreFiles),
     expand_file_name('db/evolution_generation_*.pl', EvolutionFiles),
@@ -100,7 +113,7 @@ load_database :-
     expand_file_name('db/move_data.pl', MoveDataFallbackFiles),
     ( GenerationFiles \= [] ->
         maplist(consult, GenerationFiles)
-    ; consult('pokemon_db.pl')
+    ; consult('prolog/pokemon_db.pl')
     ),
     ( LoreFiles \= [] ->
         maplist(consult, LoreFiles)
