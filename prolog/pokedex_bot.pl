@@ -92,25 +92,29 @@ load_database :-
     with_project_root(load_database_from_root).
 
 load_database_from_root :-
-    expand_file_name('db/generation_*.pl', GenerationFiles),
-    expand_file_name('db/lore_generation_*.pl', LoreFiles),
-    expand_file_name('db/evolution_generation_*.pl', EvolutionFiles),
-    expand_file_name('db/mega_forms.pl', MegaFiles),
-    expand_file_name('db/lore_mega_forms.pl', MegaLoreFiles),
-    expand_file_name('db/special_forms.pl', SpecialFiles),
-    expand_file_name('db/lore_special_forms.pl', SpecialLoreFiles),
-    expand_file_name('db/language_references*.pl', LanguageRefFiles),
-    expand_file_name('db/bot_static_lexicon*.pl', BotStaticLexiconFiles),
-    expand_file_name('db/bot_type_data.pl', BotTypeDataFiles),
-    expand_file_name('db/bot_ui_texts.pl', BotUITextFiles),
-    expand_file_name('db/bot_response_texts.pl', BotResponseTextFiles),
-    expand_file_name('db/ability_data.pl', AbilityDataFiles),
-    expand_file_name('db/abilities_catalog.pl', AbilitiesCatalogFiles),
-    expand_file_name('db/items_catalog.pl', ItemsCatalogFiles),
-    expand_file_name('db/moves_catalog.pl', MovesCatalogFiles),
-    expand_file_name('db/move_tactical_catalog.pl', MoveTacticalCatalogFiles),
-    expand_file_name('db/pokemon_movelists.pl', PokemonMovelistFiles),
-    expand_file_name('db/move_data.pl', MoveDataFallbackFiles),
+    expand_file_name('db/generations/core/generation_*.pl', GenerationFiles),
+    expand_file_name('db/generations/lore/lore_generation_*.pl', LoreFiles),
+    expand_file_name('db/generations/evolution/evolution_generation_*.pl', EvolutionFiles),
+    expand_file_name('db/forms/mega_forms.pl', MegaFiles),
+    expand_file_name('db/forms/lore_mega_forms.pl', MegaLoreFiles),
+    expand_file_name('db/forms/special_forms.pl', SpecialFiles),
+    expand_file_name('db/forms/lore_special_forms.pl', SpecialLoreFiles),
+    expand_file_name('db/runtime/language_references*.pl', LanguageRefFiles),
+    expand_file_name('db/runtime/bot_static_lexicon*.pl', BotStaticLexiconFiles),
+    expand_file_name('db/runtime/bot_type_data.pl', BotTypeDataFiles),
+    expand_file_name('db/runtime/bot_ui_texts.pl', BotUITextFiles),
+    expand_file_name('db/runtime/bot_response_texts.pl', BotResponseTextFiles),
+    expand_file_name('db/manual/ability_data.pl', AbilityDataFiles),
+    expand_file_name('db/generated/ability_data_auto.pl', AbilityDataAutoFiles),
+    expand_file_name('db/generated/ability_markers.pl', AbilityMarkersFiles),
+    expand_file_name('db/catalogs/abilities_catalog.pl', AbilitiesCatalogFiles),
+    expand_file_name('db/generated/held_item_data_auto.pl', HeldItemDataAutoFiles),
+    expand_file_name('db/generated/item_markers.pl', ItemMarkersFiles),
+    expand_file_name('db/catalogs/items_catalog.pl', ItemsCatalogFiles),
+    expand_file_name('db/catalogs/moves_catalog.pl', MovesCatalogFiles),
+    expand_file_name('db/catalogs/move_tactical_catalog.pl', MoveTacticalCatalogFiles),
+    expand_file_name('db/catalogs/pokemon_movelists.pl', PokemonMovelistFiles),
+    expand_file_name('db/manual/move_data.pl', MoveDataFallbackFiles),
     ( GenerationFiles \= [] ->
         maplist(consult, GenerationFiles)
     ; consult('prolog/pokemon_db.pl')
@@ -155,8 +159,14 @@ load_database_from_root :-
         maplist(consult, BotResponseTextFiles)
     ; true
     ),
-    ( AbilityDataFiles \= [] ->
+    ( AbilityDataAutoFiles \= [] ->
+        maplist(consult, AbilityDataAutoFiles)
+    ; AbilityDataFiles \= [] ->
         maplist(consult, AbilityDataFiles)
+    ; true
+    ),
+    ( AbilityMarkersFiles \= [] ->
+        maplist(consult, AbilityMarkersFiles)
     ; true
     ),
     ( AbilitiesCatalogFiles \= [] ->
@@ -165,6 +175,14 @@ load_database_from_root :-
     ),
     ( ItemsCatalogFiles \= [] ->
         maplist(consult, ItemsCatalogFiles)
+    ; true
+    ),
+    ( HeldItemDataAutoFiles \= [] ->
+        maplist(consult, HeldItemDataAutoFiles)
+    ; true
+    ),
+    ( ItemMarkersFiles \= [] ->
+        maplist(consult, ItemMarkersFiles)
     ; true
     ),
     ( MovesCatalogFiles \= [] ->

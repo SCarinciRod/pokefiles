@@ -5,11 +5,11 @@ Projeto de faculdade: chatbot Pokédex feito em Prolog, com suporte para:
 - Buscar informações completas de um Pokémon por **nome** ou **número da Pokédex**.
 - Informar quantos Pokémon diferentes existem de um determinado **tipo** (fogo, grama, inseto, etc.).
 
-O projeto usa base local em Prolog (modo offline), separada por geração em `db/generation_1.pl`, `db/generation_2.pl`, etc.
+O projeto usa base local em Prolog (modo offline), separada por geração em `db/generations/core/generation_1.pl`, `db/generations/core/generation_2.pl`, etc.
 Também possui base de golpes separada em:
 
-- `db/moves_catalog.pl` (catálogo global de moves)
-- `db/pokemon_movelists.pl` (movelist por Pokémon)
+- `db/catalogs/moves_catalog.pl` (catálogo global de moves)
+- `db/catalogs/pokemon_movelists.pl` (movelist por Pokémon)
 
 O catálogo global de moves inclui metadados de efeito secundário vindos da PokéAPI:
 
@@ -19,8 +19,8 @@ O catálogo global de moves inclui metadados de efeito secundário vindos da Pok
 
 Também possui catálogos completos de metadados competitivos:
 
-- `db/abilities_catalog.pl` (abilities completas da PokéAPI)
-- `db/items_catalog.pl` (itens completos da PokéAPI)
+- `db/catalogs/abilities_catalog.pl` (abilities completas da PokéAPI)
+- `db/catalogs/items_catalog.pl` (itens completos da PokéAPI)
 
 ## Requisitos
 
@@ -93,8 +93,9 @@ Esse setup:
 - verifica se `node` e `swipl` já existem;
 - se faltar algo, tenta primeiro arquivos portáteis locais em `vendor/`;
 - se ainda faltar, instala via `scoop` (modo sem instalador gráfico);
-- roda o gerador e cria `db/generation_1.pl` até `db/generation_9.pl`;
-- gera também lore local por geração em `db/lore_generation_1.pl` até `db/lore_generation_9.pl`.
+- roda o gerador e cria `db/generations/core/generation_1.pl` até `db/generations/core/generation_9.pl`;
+- gera também lore local por geração em `db/generations/lore/lore_generation_1.pl` até `db/generations/lore/lore_generation_9.pl`.
+- gera dados de evolução por geração em `db/generations/evolution/evolution_generation_1.pl` até `db/generations/evolution/evolution_generation_9.pl`.
 - sincroniza sprites da PokemonDB no cache local `%LOCALAPPDATA%\PokedexChatbot\sprites` (fallback: `.local_cache/sprites`) com preferencia por estilo Home (Gen 8), incluindo normal e shiny.
   - durante a sincronizacao, tambem expande slugs de formas (mega, gmax, etc.) lendo as paginas individuais de cada especie.
   - a etapa de setup aplica atualizacao forcada de sprites para substituir arquivos antigos/inconsistentes.
@@ -215,6 +216,59 @@ node tools/sync_home_sprites.js --skip-form-scan
 ```bash
 node tools/generate_abilities_items_db.js
 ```
+
+- Para gerar marcadores automáticos de abilities a partir das descrições (heurístico):
+
+```bash
+node tools/generate_ability_markers.js
+```
+
+Isso gera `db/generated/ability_markers.pl` com fatos no formato:
+
+```prolog
+ability_marker(Ability, Marker, Value).
+```
+
+- Para gerar marcadores automáticos de itens com schema semântico próprio (uso, gatilho, condição, papel e ganchos de relação):
+
+```bash
+node tools/generate_item_markers.js
+```
+
+Isso gera `db/generated/item_markers.pl` com fatos no formato:
+
+```prolog
+item_marker(Item, Marker, Value).
+```
+
+Se o catálogo vier com `Sem descrição disponível.` em itens relevantes, o gerador também consulta `db/references/item_description_fallbacks.json` para preencher descrições de referência antes de inferir marcadores.
+
+Exemplos de marcadores de itens gerados: `usage_mode`, `item_role`, `trigger`, `condition`, `modifier_kind`, `relation_hook`, `type_hint`, `status_hint`, `combat_relevance`.
+
+- Para gerar automaticamente efeitos base de abilities (fallback competitivo) a partir dos marcadores:
+
+```bash
+node tools/generate_ability_data_auto.js
+```
+
+Isso gera `db/generated/ability_data_auto.pl` com fatos `ability_effect/5` para todas as abilities catalogadas.
+No runtime, `ability_data_auto.pl` e a fonte principal; `db/manual/ability_data.pl` fica como fallback de compatibilidade quando o auto ainda nao foi gerado.
+
+- Para gerar curadoria automatica de held items (somente itens com `relation_hook=held_item_slot`, foco competitivo):
+
+```bash
+node tools/generate_held_item_data_auto.js
+```
+
+Isso gera `db/generated/held_item_data_auto.pl` com fatos no formato:
+
+```prolog
+held_item_effect(Item, Category, Trigger, CombatModel, Description, Confidence).
+```
+
+Esse gerador também aplica fallback de descrição via `db/references/item_description_fallbacks.json` quando necessário.
+
+No runtime, o engine de held item prioriza essa curadoria para descrever o efeito do item, com fallback para `db/catalogs/items_catalog.pl` quando necessario.
 
 Se houver problema de certificado TLS na sua rede local:
 

@@ -1,5 +1,5 @@
 :- encoding(utf8).
-:- ensure_loaded('../db/move_tactical_catalog.pl').
+:- ensure_loaded('../db/catalogs/move_tactical_catalog.pl').
 
 :- dynamic pending_partner_options/2.
 :- dynamic pending_partner_preferences/2.

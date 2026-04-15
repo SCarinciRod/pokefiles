@@ -485,10 +485,15 @@ async function generateOneGeneration(generation) {
   }
 
   const dbDir = path.resolve(__dirname, '..', 'db');
-  fs.mkdirSync(dbDir, { recursive: true });
-  const filePath = path.join(dbDir, `generation_${generation}.pl`);
-  const loreFilePath = path.join(dbDir, `lore_generation_${generation}.pl`);
-  const evolutionFilePath = path.join(dbDir, `evolution_generation_${generation}.pl`);
+  const generationCoreDir = path.join(dbDir, 'generations', 'core');
+  const generationLoreDir = path.join(dbDir, 'generations', 'lore');
+  const generationEvolutionDir = path.join(dbDir, 'generations', 'evolution');
+  fs.mkdirSync(generationCoreDir, { recursive: true });
+  fs.mkdirSync(generationLoreDir, { recursive: true });
+  fs.mkdirSync(generationEvolutionDir, { recursive: true });
+  const filePath = path.join(generationCoreDir, `generation_${generation}.pl`);
+  const loreFilePath = path.join(generationLoreDir, `lore_generation_${generation}.pl`);
+  const evolutionFilePath = path.join(generationEvolutionDir, `evolution_generation_${generation}.pl`);
   fs.writeFileSync(filePath, lines.join('\n') + '\n', 'utf8');
   fs.writeFileSync(loreFilePath, loreLines.join('\n') + '\n', 'utf8');
   fs.writeFileSync(evolutionFilePath, evolutionLines.join('\n') + '\n', 'utf8');
@@ -580,9 +585,10 @@ async function generateSpecialForms() {
   }
 
   const dbDir = path.resolve(__dirname, '..', 'db');
-  fs.mkdirSync(dbDir, { recursive: true });
-  const formsFilePath = path.join(dbDir, 'special_forms.pl');
-  const formsLoreFilePath = path.join(dbDir, 'lore_special_forms.pl');
+  const formsDir = path.join(dbDir, 'forms');
+  fs.mkdirSync(formsDir, { recursive: true });
+  const formsFilePath = path.join(formsDir, 'special_forms.pl');
+  const formsLoreFilePath = path.join(formsDir, 'lore_special_forms.pl');
   fs.writeFileSync(formsFilePath, formLines.join('\n') + '\n', 'utf8');
   fs.writeFileSync(formsLoreFilePath, formLoreLines.join('\n') + '\n', 'utf8');
 

@@ -4,9 +4,12 @@ const https = require('https');
 
 const ROOT = path.resolve(__dirname, '..');
 const DB_DIR = path.join(ROOT, 'db');
+const DB_CATALOGS_DIR = path.join(DB_DIR, 'catalogs');
+const DB_GENERATIONS_CORE_DIR = path.join(DB_DIR, 'generations', 'core');
+const DB_FORMS_DIR = path.join(DB_DIR, 'forms');
 
-const MOVE_OUTPUT = path.join(DB_DIR, 'moves_catalog.pl');
-const MOVESET_OUTPUT = path.join(DB_DIR, 'pokemon_movelists.pl');
+const MOVE_OUTPUT = path.join(DB_CATALOGS_DIR, 'moves_catalog.pl');
+const MOVESET_OUTPUT = path.join(DB_CATALOGS_DIR, 'pokemon_movelists.pl');
 
 const useInsecureTls = process.env.POKEDEX_INSECURE_TLS === '1';
 const PARALLEL = Number(process.env.POKEDEX_FETCH_PARALLEL || 10);
@@ -82,12 +85,12 @@ function parsePokemonNamesFromContent(content) {
 function collectAllPokemonNames() {
   const sources = [
     path.join(ROOT, 'prolog', 'pokemon_db.pl'),
-    path.join(DB_DIR, 'special_forms.pl'),
-    path.join(DB_DIR, 'mega_forms.pl'),
+    path.join(DB_FORMS_DIR, 'special_forms.pl'),
+    path.join(DB_FORMS_DIR, 'mega_forms.pl'),
   ];
 
   for (let generation = 1; generation <= 9; generation += 1) {
-    sources.push(path.join(DB_DIR, `generation_${generation}.pl`));
+    sources.push(path.join(DB_GENERATIONS_CORE_DIR, `generation_${generation}.pl`));
   }
 
   const names = new Set();

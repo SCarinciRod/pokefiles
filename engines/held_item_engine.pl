@@ -1,5 +1,5 @@
 :- encoding(utf8).
-:- ensure_loaded('../db/move_tactical_catalog.pl').
+:- ensure_loaded('../db/catalogs/move_tactical_catalog.pl').
 
 :- dynamic pending_held_item_options/2.
 
@@ -274,8 +274,20 @@ held_item_objective_label(strengthen, 'potencializar').
 held_item_objective_label(cover_weakness, 'cobrir fraqueza').
 
 held_item_effect_text(Item, EffectText) :-
+    held_item_curated_description(Item, Description),
+    !,
+    held_item_short_effect(Description, EffectText).
+held_item_effect_text(Item, EffectText) :-
     held_item_description(Item, Description),
     held_item_short_effect(Description, EffectText).
+
+held_item_curated_description(Item, Description) :-
+    current_predicate(held_item_effect/6),
+    held_item_effect(Item, _Category, _Trigger, _CombatModel, RawDescription, _Confidence),
+    input_to_string(RawDescription, CuratedDescription),
+    normalize_space(string(Normalized), CuratedDescription),
+    Normalized \= "",
+    Description = Normalized.
 
 held_item_description(Item, Description) :-
     current_predicate(item_entry/6),
@@ -309,29 +321,79 @@ held_item_recommendations_for_pokemon_uncached(ID, NameAtom, Types, Abilities, S
         held_item_context_weights(Features, Profile, ContextWeights),
         take_first_n(ContextWeights, 4, TopContextWeights),
         held_item_context_matrix(TopContextWeights, Features, ContextMatrix),
-        findall(RawScore-Item-Objective-FinalReason,
-                ( held_item_candidate_id(Item),
-                    held_item_candidate_score(Item, Features, balanced, BaseScore, BaseObjective, BaseReason),
-                    held_item_contextual_bonus(Strategy, ContextWeights, Item, Features, ContextBonus, ContextObjective, ContextReason),
-                    held_item_ability_item_bonus(Features.abilities, Item, AbilityBonus, AbilityReason),
-                    held_item_merge_objective(BaseObjective, ContextObjective, Objective),
-                    held_item_strategy_adjustment(Strategy, Objective, StrategyAdj),
-                    held_item_role_alignment_bonus(Profile, Objective, RoleAlignmentBonus),
-                    held_item_context_match_count(ContextWeights, Item, Features, ContextMatches),
-                    held_item_ability_match_count(Features.abilities, Item, AbilityMatches),
-                    held_item_evidence_density_bonus(ContextMatches, AbilityMatches, EvidenceBonus),
-                    RawScore is BaseScore + ContextBonus + AbilityBonus + StrategyAdj + RoleAlignmentBonus + EvidenceBonus,
-                    RawScore > 0,
-                    held_item_compose_reason(BaseReason, ContextReason, AbilityReason, FinalReason)
-                ),
-                ScoredRaw),
-    ( ScoredRaw == [] ->
-        Recommendations = []
-    ; held_item_scale_recommendations_to_1000(ScoredRaw, ScaledRaw),
-      keysort(ScaledRaw, ScoredAsc),
-      reverse(ScoredAsc, ScoredDesc),
-      take_first_n(ScoredDesc, 5, Recommendations)
+    ( held_item_forced_slot_item(ID, NameAtom, ForcedItem, ForcedReason) ->
+        Recommendations = [1000-ForcedItem-strengthen-ForcedReason]
+    ; findall(RawScore-Item-Objective-FinalReason,
+            ( held_item_candidate_id(Item),
+                held_item_candidate_score(Item, Features, balanced, BaseScore, BaseObjective, BaseReason),
+                held_item_contextual_bonus(Strategy, ContextWeights, Item, Features, ContextBonus, ContextObjective, ContextReason),
+                held_item_ability_item_bonus(Features.abilities, Item, AbilityBonus, AbilityReason),
+                held_item_merge_objective(BaseObjective, ContextObjective, Objective),
+                held_item_strategy_adjustment(Strategy, Objective, StrategyAdj),
+                held_item_role_alignment_bonus(Profile, Objective, RoleAlignmentBonus),
+                held_item_context_match_count(ContextWeights, Item, Features, ContextMatches),
+                held_item_ability_match_count(Features.abilities, Item, AbilityMatches),
+                held_item_evidence_density_bonus(ContextMatches, AbilityMatches, EvidenceBonus),
+                RawScore is BaseScore + ContextBonus + AbilityBonus + StrategyAdj + RoleAlignmentBonus + EvidenceBonus,
+                RawScore > 0,
+                held_item_compose_reason(BaseReason, ContextReason, AbilityReason, FinalReason)
+            ),
+            ScoredRaw),
+      ( ScoredRaw == [] ->
+          Recommendations = []
+      ; held_item_scale_recommendations_to_1000(ScoredRaw, ScaledRaw),
+        keysort(ScaledRaw, ScoredAsc),
+        reverse(ScoredAsc, ScoredDesc),
+        take_first_n(ScoredDesc, 5, Recommendations)
+      )
     ).
+
+held_item_forced_slot_item(PokemonID, NameAtom, ForcedItem, Reason) :-
+    held_item_required_mega_stone(PokemonID, NameAtom, ForcedItem),
+    display_label(ForcedItem, ItemLabel),
+    format(atom(Reason), 'forma Mega detectada: slot de held item fixo em ~w para manter a transformação', [ItemLabel]).
+
+held_item_required_mega_stone(PokemonID, NameAtom, Item) :-
+    held_item_mega_base_name(PokemonID, NameAtom, BaseName),
+    held_item_mega_stone_for_base(BaseName, Item),
+    held_item_is_competitive_slot_item(Item),
+    !.
+
+held_item_mega_base_name(PokemonID, _NameAtom, BaseName) :-
+    current_predicate(pokemon_mega_base/2),
+    current_predicate(pokemon/7),
+    pokemon_mega_base(PokemonID, BaseID),
+    pokemon(BaseID, BaseName, _Height, _Weight, _Types, _Abilities, _Stats),
+    !.
+held_item_mega_base_name(_PokemonID, NameAtom, BaseName) :-
+    atom(NameAtom),
+    sub_atom(NameAtom, Before, _Length, _After, '_mega'),
+    sub_atom(NameAtom, 0, Before, _Rest, BaseName).
+
+held_item_mega_stone_for_base(BaseName, Item) :-
+    current_predicate(item_entry/6),
+    item_entry(Item, mega_stones, _Cost, _FlingPower, _FlingEffect, RawDescription),
+    held_item_extract_mega_stone_base_name(RawDescription, DescBaseName),
+    held_item_species_key(BaseName, BaseKey),
+    held_item_species_key(DescBaseName, DescKey),
+    BaseKey == DescKey,
+    !.
+
+held_item_extract_mega_stone_base_name(RawDescription, BaseName) :-
+    input_to_string(RawDescription, Description),
+    split_string(Description, " ", ".,:;()[]\"'", TokensRaw),
+    exclude(=(""), TokensRaw, Tokens),
+    append(_, ["Allows", BaseToken | _], Tokens),
+    BaseToken \= "",
+    atom_string(BaseName, BaseToken).
+
+held_item_species_key(Value, Key) :-
+    input_to_string(Value, Raw),
+    normalize_space(string(Spaced), Raw),
+    string_lower(Spaced, Lower),
+    split_string(Lower, " _-", "", PartsRaw),
+    exclude(=(""), PartsRaw, Parts),
+    atomic_list_concat(Parts, '_', Key).
 
 held_item_scale_recommendations_to_1000(ScoredRaw, Scaled) :-
     findall(Score,
@@ -1015,6 +1077,8 @@ held_item_contextual_bonus(Strategy, ContextWeights, Item, Features, Bonus, Obje
     ).
 
 held_item_ability_item_bonus(Abilities, Item, Bonus, Reason) :-
+        held_item_is_competitive_slot_item(Item),
+        !,
     findall(Score-Ability-Text,
         ( member(Ability, Abilities),
           held_item_ability_item_rule(Ability, Item, Score, Text)
@@ -1030,6 +1094,13 @@ held_item_ability_item_bonus(Abilities, Item, Bonus, Reason) :-
       display_label(TopAbility, AbilityLabel),
       format(atom(Reason), 'sinergia direta com ~w: ~w', [AbilityLabel, TopText])
     ).
+held_item_ability_item_bonus(_Abilities, _Item, 0, '').
+
+held_item_is_competitive_slot_item(Item) :-
+    current_predicate(item_marker/3),
+    !,
+    item_marker(Item, relation_hook, held_item_slot).
+held_item_is_competitive_slot_item(_Item).
 
 held_item_ability_item_rule(iron_barbs, rocky_helmet, 58, 'chip acumulado em golpes de contato').
 held_item_ability_item_rule(rough_skin, rocky_helmet, 52, 'chip acumulado em golpes de contato').
