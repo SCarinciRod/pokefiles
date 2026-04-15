@@ -16,7 +16,7 @@ function Assert-Command([string]$Name) {
 }
 
 function Invoke-Prolog([string]$Goal) {
-    & swipl -q -s .\pokedex_bot.pl -g $Goal
+    & swipl -q -s .\prolog\pokedex_bot.pl -g $Goal
     if ($LASTEXITCODE -ne 0) {
         throw "Falha executando objetivo Prolog: $Goal"
     }

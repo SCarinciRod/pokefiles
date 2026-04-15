@@ -10,5 +10,5 @@ Arquivos aceitos pelo setup:
 Depois execute:
 
 ```powershell
-.\setup.cmd
+.\setup.exe
 ```

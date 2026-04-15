@@ -81,7 +81,7 @@ function parsePokemonNamesFromContent(content) {
 
 function collectAllPokemonNames() {
   const sources = [
-    path.join(ROOT, 'pokemon_db.pl'),
+    path.join(ROOT, 'prolog', 'pokemon_db.pl'),
     path.join(DB_DIR, 'special_forms.pl'),
     path.join(DB_DIR, 'mega_forms.pl'),
   ];

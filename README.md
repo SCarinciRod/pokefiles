@@ -33,18 +33,45 @@ Também possui catálogos completos de metadados competitivos:
 
 Você pode rodar o bot como aplicativo desktop (sem abrir navegador), com layout estilo Pokédex:
 
-1. Entre na pasta `gui`.
-2. Execute `run_gui.cmd` para abrir o app.
+1. Na raiz do projeto `pokefiles`, execute `setup.exe` uma vez para preparar dependências e instalar o executável GUI local.
+2. Na raiz do projeto, execute `run_gui.exe` para abrir o app sem terminal.
 
-Para gerar o executável portátil (`.exe`):
+Observação:
 
-1. Entre na pasta `gui`.
-2. Execute `build_gui.cmd`.
-3. O executável desktop será gerado em `gui/dist/win-unpacked/Pokedex Desktop.exe`.
+- O setup central (`setup.exe` + `tools/setup.ps1`) empacota a GUI e instala um executor único em `%LOCALAPPDATA%\PokedexChatbot\app\win-unpacked\Pokedex Desktop.exe`.
+- O runtime Prolog do executável é instalado em `%LOCALAPPDATA%\PokedexChatbot\app\win-unpacked\resources\runtime\` para evitar dependência de arquivos dentro de `app.asar`.
+- `run_gui.exe` é o executor recomendado para uso diário sem janela de terminal.
+- O setup só reempacota a GUI quando detecta mudança nas fontes relevantes.
+- O setup executa limpeza automática da GUI ao final (equivalente ao `clean_gui_workspace`), removendo artefatos `gui/dist*` para evitar crescimento excessivo da pasta.
+- Se algum arquivo da GUI estiver bloqueado durante a limpeza (ex.: `app.asar`), o cleaner agenda a exclusão no próximo logon via `HKCU\\...\\RunOnce`.
+- Por padrão, o setup também remove `gui/node_modules` ao final para manter o workspace leve; quando precisar preservar dependências locais de desenvolvimento, use `-PreserveGuiNodeModules`.
+- A GUI mostra uma tela de inicialização (patcher/splash) enquanto valida cache de sprites e inicializa o bridge Prolog.
+- Em caso de falha de boot da GUI, consulte o log em `%LOCALAPPDATA%\PokedexChatbot\logs\run_gui.log`.
+
+Para limpeza manual da pasta GUI (artefatos locais e opcionalmente `node_modules`):
+
+```powershell
+.\tools\clean_gui_workspace.ps1 -RemoveNodeModules
+```
+
+Opções úteis da limpeza manual:
+
+```powershell
+# limpa apenas node_modules
+.\tools\clean_gui_workspace.ps1 -RemoveNodeModules -SkipBuildArtifacts
+
+# aumenta tentativas de remoção para arquivos temporariamente bloqueados
+.\tools\clean_gui_workspace.ps1 -RemoveNodeModules -MaxRemoveAttempts 10 -RetryDelayMilliseconds 800
+```
+
+Para (re)gerar o executável portátil (`.exe`):
+
+1. Na raiz `pokefiles`, execute `setup.exe`.
+2. O setup gera a build em pasta temporária e instala a cópia executável em `%LOCALAPPDATA%\PokedexChatbot\app\win-unpacked/`.
 
 Observação de rede restrita:
 
-- O fluxo padrão de `build_gui.cmd` gera o app em `win-unpacked` (sem NSIS), reduzindo dependências de downloads externos.
+- O fluxo padrão do `setup.exe` gera o app em `win-unpacked` (sem NSIS), reduzindo dependências de downloads externos.
 - Se quiser tentar o pacote portátil único, rode `npm run pack:win` dentro de `gui`.
 
 Uso da GUI desktop:
@@ -58,7 +85,7 @@ Uso da GUI desktop:
 No terminal, dentro da pasta `pokefiles`, execute:
 
 ```powershell
-.\setup.cmd
+.\setup.exe
 ```
 
 Esse setup:
@@ -68,21 +95,27 @@ Esse setup:
 - se ainda faltar, instala via `scoop` (modo sem instalador gráfico);
 - roda o gerador e cria `db/generation_1.pl` até `db/generation_9.pl`;
 - gera também lore local por geração em `db/lore_generation_1.pl` até `db/lore_generation_9.pl`.
-- sincroniza sprites da PokemonDB em `temp_sprites/` com preferencia por estilo Home (Gen 8), incluindo normal e shiny.
-	- durante a sincronizacao, tambem expande slugs de formas (mega, gmax, etc.) lendo as paginas individuais de cada especie.
-	- a etapa de setup aplica atualizacao forcada de sprites para substituir arquivos antigos/inconsistentes.
+- sincroniza sprites da PokemonDB no cache local `%LOCALAPPDATA%\PokedexChatbot\sprites` (fallback: `.local_cache/sprites`) com preferencia por estilo Home (Gen 8), incluindo normal e shiny.
+  - durante a sincronizacao, tambem expande slugs de formas (mega, gmax, etc.) lendo as paginas individuais de cada especie.
+  - a etapa de setup aplica atualizacao forcada de sprites para substituir arquivos antigos/inconsistentes.
+  - em execuções subsequentes, o setup usa modo incremental quando possível e só força refresh completo quando necessário (manifesto ausente/inválido ou execução forçada).
 - pode gerar base completa de moves/movelists com script dedicado.
 
 Local de instalação (somente usuário):
 
 - `%LOCALAPPDATA%\PokedexChatbot\portable` (dependências portáteis)
 - `%LOCALAPPDATA%\PokedexChatbot\vendor` (zips para modo offline)
+- `%LOCALAPPDATA%\PokedexChatbot\sprites` (cache local de sprites usado pela GUI)
 - `%LOCALAPPDATA%\scoop` (quando usar fallback Scoop)
+
+Requisito de runtime para GUI build:
+
+- Node.js `>= 22.12.0` (o setup tenta provisionar/atualizar automaticamente via Scoop quando necessário).
 
 ### Setup offline (sem internet)
 
 - Coloque os zips portáteis em `%LOCALAPPDATA%\PokedexChatbot\vendor` conforme instruções em `vendor/README.md`.
-- Execute `setup.cmd` normalmente.
+- Execute `setup.exe` normalmente.
 
 ### 2) Iniciar o chatbot
 
@@ -95,14 +128,8 @@ swipl
 No prompt do Prolog:
 
 ```prolog
-['pokedex_bot.pl'].
+['prolog/pokedex_bot.pl'].
 start.
-```
-
-Ou execute direto:
-
-```cmd
-run_chatbot.cmd
 ```
 
 ## Exemplos de perguntas
@@ -147,6 +174,9 @@ Esse comando valida parse dos arquivos `.pl`, mede baseline de carga/consultas e
 ## Observações
 
 - O bot funciona sem internet.
+- A GUI valida o cache local de sprites na inicialização e dispara sincronização automática quando detecta ausência ou inconsistência.
+- A GUI aplica hardening de segurança no runtime (CSP no renderer, bloqueio de popup/webview, bloqueio de navegação externa e negação padrão de permissões).
+- O launcher da GUI prioriza inicialização direta via `electron.exe` para reduzir overhead de bootstrap via `npm`.
 - Tipos em português são aceitos (ex.: `fogo`, `grama`, `inseto`) e convertidos internamente para os tipos padrão.
 - A consulta pode ser filtrada por geração com `geracao N` (de 1 a 9).
 - Para voltar a consultar tudo que estiver carregado, use `geracao todas`.
@@ -166,6 +196,12 @@ node tools/generate_moves_db.js
 
 ```bash
 node tools/sync_home_sprites.js
+```
+
+- Para forçar uma pasta de saída customizada na sincronização:
+
+```bash
+node tools/sync_home_sprites.js --output-dir=C:\\caminho\\sprites
 ```
 
 - Opcional: para uma sincronizacao mais rapida sem varredura de formas embutidas:

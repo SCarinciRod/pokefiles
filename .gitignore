@@ -1,0 +1,10 @@
+# GUI build and dependency artifacts
+/gui/node_modules/
+/gui/dist/
+/gui/dist-latest/
+/gui/dist-runtime/
+/gui/dist-runtime-*/
+
+# Local runtime cache and logs
+/.local_cache/
+*.log

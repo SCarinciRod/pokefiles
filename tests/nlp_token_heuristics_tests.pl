@@ -1,6 +1,6 @@
 :- encoding(utf8).
 :- use_module(library(plunit)).
-:- ensure_loaded('../pokedex_bot.pl').
+:- ensure_loaded('../prolog/pokedex_bot.pl').
 
 :- dynamic test_db_ready/0.
 
