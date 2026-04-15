@@ -1096,6 +1096,22 @@ held_item_ability_item_bonus(Abilities, Item, Bonus, Reason) :-
     ).
 held_item_ability_item_bonus(_Abilities, _Item, 0, '').
 
+held_item_ability_compatible_item(Ability, Item, Score, Reason) :-
+    held_item_candidate_id(Item),
+    held_item_is_competitive_slot_item(Item),
+    held_item_ability_item_rule(Ability, Item, Score, Reason).
+
+held_item_top_compatible_items_for_ability(Ability, TopN, Recommendations) :-
+    findall(Score-Item-Reason,
+        held_item_ability_compatible_item(Ability, Item, Score, Reason),
+        Raw),
+    keysort(Raw, SortedAsc),
+    reverse(SortedAsc, SortedDesc),
+    ( integer(TopN), TopN > 0 ->
+        take_first_n(SortedDesc, TopN, Recommendations)
+    ; Recommendations = SortedDesc
+    ).
+
 held_item_is_competitive_slot_item(Item) :-
     current_predicate(item_marker/3),
     !,

@@ -6,6 +6,7 @@ const MARKERS_INPUT = path.join(ROOT, 'db', 'generated', 'item_markers.pl');
 const CATALOG_INPUT = path.join(ROOT, 'db', 'catalogs', 'items_catalog.pl');
 const FALLBACK_DESCRIPTIONS_PATH = path.join(ROOT, 'db', 'references', 'item_description_fallbacks.json');
 const OUTPUT_PATH = path.join(ROOT, 'db', 'generated', 'held_item_data_auto.pl');
+const HELD_ITEM_CONFIDENCE_FLOOR = 0.8;
 
 function sanitizeAtom(value) {
   return String(value)
@@ -433,7 +434,7 @@ function inferConfidence(markerSet, catalogRow) {
     score -= 0.1;
   }
 
-  return numberToStable(clamp(score, 0.4, 0.95));
+  return numberToStable(clamp(score, HELD_ITEM_CONFIDENCE_FLOOR, 0.95));
 }
 
 function inferDescription(markerSet, catalogRow) {
