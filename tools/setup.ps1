@@ -1,12 +1,20 @@
 param(
     [switch]$SkipGenerationBuild,
     [switch]$SkipSpriteSync,
+    [switch]$SkipAbilityMarkers,
+    [switch]$SkipItemMarkers,
+    [switch]$SkipAbilityAutoData,
+    [switch]$SkipHeldItemAutoData,
     [switch]$SkipGuiDependencies,
     [switch]$SkipGuiPackaging,
     [switch]$PreserveGuiBuildArtifacts,
     [switch]$PreserveGuiNodeModules,
     [switch]$ForceGenerationBuild,
-    [switch]$ForceSpriteSync
+    [switch]$ForceSpriteSync,
+    [switch]$ForceAbilityMarkersBuild,
+    [switch]$ForceItemMarkersBuild,
+    [switch]$ForceAbilityAutoDataBuild,
+    [switch]$ForceHeldItemAutoDataBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,7 +32,28 @@ $PortableNodeExe = Join-Path $PortableNodeDir 'node.exe'
 $PortableSwiplExe = Join-Path (Join-Path $PortableSwiplDir 'bin') 'swipl.exe'
 $GuiDir = Join-Path $ProjectRoot 'gui'
 $DbDir = Join-Path $ProjectRoot 'db'
+$DbCatalogsDir = Join-Path $DbDir 'catalogs'
+$DbGeneratedDir = Join-Path $DbDir 'generated'
+$DbGenerationsDir = Join-Path $DbDir 'generations'
+$DbGenerationsCoreDir = Join-Path $DbGenerationsDir 'core'
+$DbGenerationsLoreDir = Join-Path $DbGenerationsDir 'lore'
+$DbGenerationsEvolutionDir = Join-Path $DbGenerationsDir 'evolution'
+$DbFormsDir = Join-Path $DbDir 'forms'
+$DbRuntimeDir = Join-Path $DbDir 'runtime'
+$DbReferencesDir = Join-Path $DbDir 'references'
+$DbManualDir = Join-Path $DbDir 'manual'
 $CleanGuiScript = Join-Path $PSScriptRoot 'clean_gui_workspace.ps1'
+$AbilityMarkersScript = Join-Path $PSScriptRoot 'generate_ability_markers.js'
+$ItemMarkersScript = Join-Path $PSScriptRoot 'generate_item_markers.js'
+$AbilityAutoDataScript = Join-Path $PSScriptRoot 'generate_ability_data_auto.js'
+$HeldItemAutoDataScript = Join-Path $PSScriptRoot 'generate_held_item_data_auto.js'
+$AbilityDataAutoFile = Join-Path $DbGeneratedDir 'ability_data_auto.pl'
+$HeldItemDataAutoFile = Join-Path $DbGeneratedDir 'held_item_data_auto.pl'
+$AbilityCatalogFile = Join-Path $DbCatalogsDir 'abilities_catalog.pl'
+$AbilityMarkersFile = Join-Path $DbGeneratedDir 'ability_markers.pl'
+$ItemsCatalogFile = Join-Path $DbCatalogsDir 'items_catalog.pl'
+$ItemMarkersFile = Join-Path $DbGeneratedDir 'item_markers.pl'
+$ItemDescriptionFallbackFile = Join-Path $DbReferencesDir 'item_description_fallbacks.json'
 $ScoopNodeExe = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\node.exe'
 $ScoopNodeNpm = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\npm.cmd'
 $MinimumNodeVersion = [Version]'22.12.0'
@@ -416,11 +445,11 @@ function Test-GenerationBuildRequired {
         return $true
     }
 
-    $requiredDbFiles = @('special_forms.pl', 'lore_special_forms.pl')
+    $requiredDbFiles = @('forms/special_forms.pl', 'forms/lore_special_forms.pl')
     for ($generation = 1; $generation -le 9; $generation++) {
-        $requiredDbFiles += "generation_$generation.pl"
-        $requiredDbFiles += "lore_generation_$generation.pl"
-        $requiredDbFiles += "evolution_generation_$generation.pl"
+        $requiredDbFiles += "generations/core/generation_$generation.pl"
+        $requiredDbFiles += "generations/lore/lore_generation_$generation.pl"
+        $requiredDbFiles += "generations/evolution/evolution_generation_$generation.pl"
     }
 
     $missing = $requiredDbFiles | Where-Object {
@@ -442,6 +471,164 @@ function Test-GenerationBuildRequired {
     }
 
     Write-Step 'Bases de geracao ja estao atualizadas. Pulando geracao.'
+    return $false
+}
+
+function Test-AbilityMarkersBuildRequired {
+    if ($ForceAbilityMarkersBuild) {
+        Write-Step 'Forcando geracao de marcadores de abilities por parametro do usuario.'
+        return $true
+    }
+
+    if (-not (Test-Path $AbilityCatalogFile)) {
+        Write-Step 'abilities_catalog.pl nao encontrado. Pulando geracao de marcadores de abilities.'
+        return $false
+    }
+
+    if (-not (Test-Path $AbilityMarkersScript)) {
+        Write-Step 'Script generate_ability_markers.js nao encontrado. Pulando geracao de marcadores de abilities.'
+        return $false
+    }
+
+    if (-not (Test-Path $AbilityMarkersFile)) {
+        Write-Step 'Arquivo ability_markers.pl ausente. Geracao sera executada.'
+        return $true
+    }
+
+    $latestSourceTimestamp = Get-LatestWriteTimeUtc -RelativePaths @(
+        'tools/generate_ability_markers.js',
+        'db/catalogs/abilities_catalog.pl'
+    )
+    $markersTimestamp = (Get-Item $AbilityMarkersFile).LastWriteTimeUtc
+
+    if ($latestSourceTimestamp -gt $markersTimestamp) {
+        Write-Step 'Catalogo/script de marcadores mais novo que ability_markers.pl. Geracao sera executada.'
+        return $true
+    }
+
+    Write-Step 'Marcadores de abilities ja estao atualizados. Pulando geracao.'
+    return $false
+}
+
+function Test-ItemMarkersBuildRequired {
+    if ($ForceItemMarkersBuild) {
+        Write-Step 'Forcando geracao de marcadores de itens por parametro do usuario.'
+        return $true
+    }
+
+    if (-not (Test-Path $ItemsCatalogFile)) {
+        Write-Step 'items_catalog.pl nao encontrado. Pulando geracao de marcadores de itens.'
+        return $false
+    }
+
+    if (-not (Test-Path $ItemMarkersScript)) {
+        Write-Step 'Script generate_item_markers.js nao encontrado. Pulando geracao de marcadores de itens.'
+        return $false
+    }
+
+    if (-not (Test-Path $ItemMarkersFile)) {
+        Write-Step 'Arquivo item_markers.pl ausente. Geracao sera executada.'
+        return $true
+    }
+
+    $latestSourceTimestamp = Get-LatestWriteTimeUtc -RelativePaths @(
+        'tools/generate_item_markers.js',
+        'db/catalogs/items_catalog.pl',
+        'db/references/item_description_fallbacks.json'
+    )
+    $markersTimestamp = (Get-Item $ItemMarkersFile).LastWriteTimeUtc
+
+    if ($latestSourceTimestamp -gt $markersTimestamp) {
+        Write-Step 'Catalogo/script de marcadores de itens mais novo que item_markers.pl. Geracao sera executada.'
+        return $true
+    }
+
+    Write-Step 'Marcadores de itens ja estao atualizados. Pulando geracao.'
+    return $false
+}
+
+function Test-AbilityAutoDataBuildRequired {
+    if ($ForceAbilityAutoDataBuild) {
+        Write-Step 'Forcando geracao automatica de ability_data por parametro do usuario.'
+        return $true
+    }
+
+    if (-not (Test-Path $AbilityAutoDataScript)) {
+        Write-Step 'Script generate_ability_data_auto.js nao encontrado. Pulando geracao automatica de ability_data.'
+        return $false
+    }
+
+    if (-not (Test-Path $AbilityCatalogFile)) {
+        Write-Step 'abilities_catalog.pl nao encontrado. Pulando geracao automatica de ability_data.'
+        return $false
+    }
+
+    if (-not (Test-Path $AbilityMarkersFile)) {
+        Write-Step 'ability_markers.pl nao encontrado. Geracao automatica aguardando geracao de marcadores.'
+        return $false
+    }
+
+    if (-not (Test-Path $AbilityDataAutoFile)) {
+        Write-Step 'Arquivo ability_data_auto.pl ausente. Geracao automatica sera executada.'
+        return $true
+    }
+
+    $latestSourceTimestamp = Get-LatestWriteTimeUtc -RelativePaths @(
+        'tools/generate_ability_data_auto.js',
+        'db/generated/ability_markers.pl',
+        'db/catalogs/abilities_catalog.pl'
+    )
+    $autoDataTimestamp = (Get-Item $AbilityDataAutoFile).LastWriteTimeUtc
+
+    if ($latestSourceTimestamp -gt $autoDataTimestamp) {
+        Write-Step 'Fontes de auto-dados mais novas que ability_data_auto.pl. Geracao automatica sera executada.'
+        return $true
+    }
+
+    Write-Step 'ability_data_auto.pl ja esta atualizado. Pulando geracao automatica.'
+    return $false
+}
+
+function Test-HeldItemAutoDataBuildRequired {
+    if ($ForceHeldItemAutoDataBuild) {
+        Write-Step 'Forcando curadoria automatica de held items por parametro do usuario.'
+        return $true
+    }
+
+    if (-not (Test-Path $HeldItemAutoDataScript)) {
+        Write-Step 'Script generate_held_item_data_auto.js nao encontrado. Pulando curadoria automatica de held items.'
+        return $false
+    }
+
+    if (-not (Test-Path $ItemsCatalogFile)) {
+        Write-Step 'items_catalog.pl nao encontrado. Pulando curadoria automatica de held items.'
+        return $false
+    }
+
+    if (-not (Test-Path $ItemMarkersFile)) {
+        Write-Step 'item_markers.pl nao encontrado. Curadoria automatica de held items aguardando marcadores de itens.'
+        return $false
+    }
+
+    if (-not (Test-Path $HeldItemDataAutoFile)) {
+        Write-Step 'Arquivo held_item_data_auto.pl ausente. Curadoria automatica de held items sera executada.'
+        return $true
+    }
+
+    $latestSourceTimestamp = Get-LatestWriteTimeUtc -RelativePaths @(
+        'tools/generate_held_item_data_auto.js',
+        'db/generated/item_markers.pl',
+        'db/catalogs/items_catalog.pl',
+        'db/references/item_description_fallbacks.json'
+    )
+    $autoDataTimestamp = (Get-Item $HeldItemDataAutoFile).LastWriteTimeUtc
+
+    if ($latestSourceTimestamp -gt $autoDataTimestamp) {
+        Write-Step 'Fontes de held item auto data mais novas que held_item_data_auto.pl. Curadoria sera executada.'
+        return $true
+    }
+
+    Write-Step 'held_item_data_auto.pl ja esta atualizado. Pulando curadoria automatica de held items.'
     return $false
 }
 
@@ -703,11 +890,123 @@ function Build-SpriteCatalog {
     }
 }
 
+function Build-AbilityMarkers {
+    $nodeCmd = $script:ResolvedNodeCmd
+    if (-not $nodeCmd) {
+        $nodeCmd = Resolve-NodeCommand
+    }
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para gerar marcadores de abilities.'
+    }
+
+    if (-not (Test-Path $AbilityMarkersScript)) {
+        Write-Step 'Script generate_ability_markers.js nao encontrado. Pulando geracao de marcadores.'
+        return
+    }
+
+    Write-Step 'Gerando marcadores de abilities a partir de abilities_catalog.pl...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\generate_ability_markers.js
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Falha ao gerar marcadores de abilities.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Build-ItemMarkers {
+    $nodeCmd = $script:ResolvedNodeCmd
+    if (-not $nodeCmd) {
+        $nodeCmd = Resolve-NodeCommand
+    }
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para gerar marcadores de itens.'
+    }
+
+    if (-not (Test-Path $ItemMarkersScript)) {
+        Write-Step 'Script generate_item_markers.js nao encontrado. Pulando geracao de marcadores de itens.'
+        return
+    }
+
+    Write-Step 'Gerando marcadores de itens a partir de items_catalog.pl...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\generate_item_markers.js
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Falha ao gerar marcadores de itens.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Build-AbilityAutoData {
+    $nodeCmd = $script:ResolvedNodeCmd
+    if (-not $nodeCmd) {
+        $nodeCmd = Resolve-NodeCommand
+    }
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para gerar ability_data_auto.'
+    }
+
+    if (-not (Test-Path $AbilityAutoDataScript)) {
+        Write-Step 'Script generate_ability_data_auto.js nao encontrado. Pulando geracao automatica de ability_data.'
+        return
+    }
+
+    Write-Step 'Gerando ability_data_auto.pl a partir de ability_markers.pl...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\generate_ability_data_auto.js
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Falha ao gerar ability_data_auto.pl.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Build-HeldItemAutoData {
+    $nodeCmd = $script:ResolvedNodeCmd
+    if (-not $nodeCmd) {
+        $nodeCmd = Resolve-NodeCommand
+    }
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para gerar held_item_data_auto.'
+    }
+
+    if (-not (Test-Path $HeldItemAutoDataScript)) {
+        Write-Step 'Script generate_held_item_data_auto.js nao encontrado. Pulando curadoria automatica de held items.'
+        return
+    }
+
+    Write-Step 'Gerando held_item_data_auto.pl a partir de item_markers.pl...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\generate_held_item_data_auto.js
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Falha ao gerar held_item_data_auto.pl.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 Write-Step 'Iniciando verificacao de dependencias...'
 Ensure-Dependencies
 
 $shouldBuildGui = $false
 $shouldBuildGenerations = $false
+$shouldBuildAbilityMarkers = $false
+$shouldBuildItemMarkers = $false
+$shouldBuildAbilityAutoData = $false
+$shouldBuildHeldItemAutoData = $false
 $spriteSyncMode = 'skip'
 
 if (-not $SkipGuiPackaging) {
@@ -730,6 +1029,38 @@ if ($shouldBuildGenerations) {
     Build-AllGenerations
 }
 
+if (-not $SkipAbilityMarkers) {
+    $shouldBuildAbilityMarkers = Test-AbilityMarkersBuildRequired
+}
+
+if ($shouldBuildAbilityMarkers) {
+    Build-AbilityMarkers
+}
+
+if (-not $SkipItemMarkers) {
+    $shouldBuildItemMarkers = Test-ItemMarkersBuildRequired
+}
+
+if ($shouldBuildItemMarkers) {
+    Build-ItemMarkers
+}
+
+if (-not $SkipAbilityAutoData) {
+    $shouldBuildAbilityAutoData = Test-AbilityAutoDataBuildRequired
+}
+
+if ($shouldBuildAbilityAutoData) {
+    Build-AbilityAutoData
+}
+
+if (-not $SkipHeldItemAutoData) {
+    $shouldBuildHeldItemAutoData = Test-HeldItemAutoDataBuildRequired
+}
+
+if ($shouldBuildHeldItemAutoData) {
+    Build-HeldItemAutoData
+}
+
 if (-not $SkipSpriteSync) {
     $spriteSyncMode = Get-SpriteSyncMode
 }
@@ -745,6 +1076,11 @@ Write-Step 'Para executar o bot: swipl -s prolog/pokedex_bot.pl -g start'
 Write-Step "Dependencias portateis em: $PortableDir"
 Write-Step "Vendor offline em: $VendorDir"
 Write-Step "Executor GUI instalado em: $InstalledGuiExe"
+Write-Step "Marcadores de abilities em: $AbilityMarkersFile"
+Write-Step "Marcadores de itens em: $ItemMarkersFile"
+Write-Step "Fallback de descricoes de itens em: $ItemDescriptionFallbackFile"
+Write-Step "Auto ability_data em: $AbilityDataAutoFile"
+Write-Step "Auto held_item_data em: $HeldItemDataAutoFile"
 if (-not $PreserveGuiNodeModules) {
     Write-Step 'Workspace GUI mantido leve: node_modules local removido automaticamente.'
 }

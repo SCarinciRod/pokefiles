@@ -4,9 +4,10 @@ const https = require('https');
 
 const ROOT = path.resolve(__dirname, '..');
 const DB_DIR = path.join(ROOT, 'db');
+const DB_CATALOGS_DIR = path.join(DB_DIR, 'catalogs');
 
-const ABILITIES_OUTPUT = path.join(DB_DIR, 'abilities_catalog.pl');
-const ITEMS_OUTPUT = path.join(DB_DIR, 'items_catalog.pl');
+const ABILITIES_OUTPUT = path.join(DB_CATALOGS_DIR, 'abilities_catalog.pl');
+const ITEMS_OUTPUT = path.join(DB_CATALOGS_DIR, 'items_catalog.pl');
 
 const useInsecureTls = process.env.POKEDEX_INSECURE_TLS === '1';
 const PARALLEL = Number(process.env.POKEDEX_FETCH_PARALLEL || 10);

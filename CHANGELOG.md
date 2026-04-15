@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.92a - 2026-04-15
+
+### Organização da base `db/`
+
+- Estrutura de dados reorganizada em subdiretórios para melhorar manutenção e visibilidade:
+  - `db/catalogs/`
+  - `db/generated/`
+  - `db/generations/core`, `db/generations/lore`, `db/generations/evolution`
+  - `db/forms/`
+  - `db/runtime/`
+  - `db/references/`
+  - `db/manual/`
+- Runtime Prolog atualizado para carregar a base a partir da nova árvore de diretórios.
+- Engines e scripts de geração atualizados para os novos caminhos de leitura/escrita.
+
+### Curadoria competitiva e runtime
+
+- Curadoria de held items consolidada para itens com `relation_hook=held_item_slot`.
+- Engine de held item passou a priorizar descrição curada via `held_item_effect/6` (fallback para catálogo quando necessário).
+- Recomendação de held item para formas Mega agora força a respectiva Mega Stone no slot.
+- Pipeline de auto-curadoria de abilities/itens mantido com geração em `db/generated/`.
+
+### Fallback de descrições de itens
+
+- Adicionado arquivo de referência `db/references/item_description_fallbacks.json` para cobrir itens com descrição ausente no catálogo.
+- Fallback integrado ao gerador de marcadores de itens e à curadoria automática de held items.
+- Marcadores agora registram origem de descrição fallback com `description_source=fallback_reference` quando aplicável.
+- Resumo textual da curadoria de held item ajustado para ignorar abertura genérica (`An item to be held by ...`) e priorizar sentença semântica.
+
+### Setup incremental
+
+- `tools/setup.ps1` atualizado para nova estrutura de `db/` nas checagens de staleness.
+- Dependências de rebuild para item markers/held-item auto incluem fallback em `db/references/item_description_fallbacks.json`.
+
 ## 0.91a - 2026-04-14
 
 ### Organização de código

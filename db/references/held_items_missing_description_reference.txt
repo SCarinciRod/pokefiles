@@ -1,0 +1,25 @@
+# Held items com descrição ausente no items_catalog.pl
+# Critério: item_entry(..., Desc) com Desc contendo "Sem descrição disponível." e item_marker(Item, relation_hook, held_item_slot).
+# Atualizado em: 2026-04-15
+
+ability_shield
+blank_plate
+blunder_policy
+booster_energy
+clear_amulet
+cornerstone_mask
+covert_cloak
+eject_pack
+fairy_feather
+hearthflame_mask
+heavy_duty_boots
+legend_plate
+loaded_dice
+mirror_herb
+punching_glove
+room_service
+rusted_shield
+rusted_sword
+throat_spray
+utility_umbrella
+wellspring_mask
