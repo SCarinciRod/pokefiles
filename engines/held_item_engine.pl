@@ -274,12 +274,31 @@ held_item_objective_label(strengthen, 'potencializar').
 held_item_objective_label(cover_weakness, 'cobrir fraqueza').
 
 held_item_effect_text(Item, EffectText) :-
+    held_item_ensure_item_text_data_loaded,
     held_item_curated_description(Item, Description),
     !,
     held_item_short_effect(Description, EffectText).
 held_item_effect_text(Item, EffectText) :-
+    held_item_ensure_item_text_data_loaded,
     held_item_description(Item, Description),
     held_item_short_effect(Description, EffectText).
+
+held_item_ensure_item_text_data_loaded :-
+    ( current_predicate(held_item_effect/6) ->
+        true
+    ; held_item_try_ensure_loaded('db/generated/held_item_data_auto.pl')
+    ; held_item_try_ensure_loaded('../db/generated/held_item_data_auto.pl')
+    ; true
+    ),
+    ( current_predicate(item_entry/6) ->
+        true
+    ; held_item_try_ensure_loaded('db/catalogs/items_catalog.pl')
+    ; held_item_try_ensure_loaded('../db/catalogs/items_catalog.pl')
+    ; true
+    ).
+
+held_item_try_ensure_loaded(Path) :-
+    catch(ensure_loaded(Path), _, fail).
 
 held_item_curated_description(Item, Description) :-
     current_predicate(held_item_effect/6),
@@ -302,7 +321,35 @@ held_item_short_effect(Description, EffectText) :-
     ; First = Description
     ),
     normalize_space(string(Normalized), First),
-    ( Normalized == "" -> EffectText = Description ; EffectText = Normalized ).
+    held_item_strip_curation_prefix(Normalized, Cleaned),
+    ( Cleaned == "" -> EffectText = Description ; EffectText = Cleaned ).
+
+held_item_strip_curation_prefix(Text, Cleaned) :-
+    Prefix = 'Curadoria automatica de held item:',
+    ( sub_string(Text, 0, PrefixLength, _After, Prefix) ->
+        sub_string(Text, PrefixLength, _RestLength, 0, RawTail),
+        normalize_space(string(Tail), RawTail),
+        Cleaned = Tail
+    ; Cleaned = Text
+    ).
+
+held_item_ability_effect_text(Ability, EffectText) :-
+    held_item_ensure_ability_text_data_loaded,
+    current_predicate(ability_entry/5),
+    ability_entry(Ability, _Generation, _IsMainSeries, RawShortEffect, _Effect),
+    !,
+    input_to_string(RawShortEffect, ShortEffectString),
+    normalize_space(string(Normalized), ShortEffectString),
+    ( Normalized == "" -> EffectText = 'Sem descricao curta disponivel para a habilidade.' ; EffectText = Normalized ).
+held_item_ability_effect_text(_Ability, 'Sem descricao curta disponivel para a habilidade.').
+
+held_item_ensure_ability_text_data_loaded :-
+    ( current_predicate(ability_entry/5) ->
+        true
+    ; held_item_try_ensure_loaded('db/catalogs/abilities_catalog.pl')
+    ; held_item_try_ensure_loaded('../db/catalogs/abilities_catalog.pl')
+    ; true
+    ).
 
 held_item_recommendations_for_pokemon(ID, NameAtom, Types, Abilities, Stats, Strategy, Profile, ContextMatrix, Recommendations) :-
     current_generation_key(GenerationKey),
@@ -1095,6 +1142,403 @@ held_item_ability_item_bonus(Abilities, Item, Bonus, Reason) :-
       format(atom(Reason), 'sinergia direta com ~w: ~w', [AbilityLabel, TopText])
     ).
 held_item_ability_item_bonus(_Abilities, _Item, 0, '').
+
+held_item_ability_compatible_item(Ability, Item, Score, Reason) :-
+    held_item_candidate_id(Item),
+    held_item_is_competitive_slot_item(Item),
+    held_item_ability_item_rule(Ability, Item, Score, Reason).
+
+held_item_top_compatible_items_for_ability(Ability, TopN, Recommendations) :-
+    findall(Score-Item-Reason,
+        held_item_ability_compatible_item(Ability, Item, Score, Reason),
+        Raw),
+    keysort(Raw, SortedAsc),
+    reverse(SortedAsc, SortedDesc),
+    ( integer(TopN), TopN > 0 ->
+        take_first_n(SortedDesc, TopN, Recommendations)
+    ; Recommendations = SortedDesc
+    ).
+
+held_item_ability_compatible_item_marker_based(Ability, Item, Score, Reason) :-
+    held_item_is_competitive_slot_item(Item),
+    \+ held_item_item_weather_conflicts_with_ability(Ability, Item),
+    \+ held_item_item_weather_domain_without_match(Ability, Item),
+    held_item_ability_marker_overlap_score(Ability, Item, Score, Reason),
+    Score > 0.
+
+held_item_top_compatible_items_for_ability_marker_based(Ability, TopN, Recommendations) :-
+    held_item_top_compatible_items_for_ability_marker_based_scored(Ability, TopN, ScoredRecommendations),
+    held_item_marker_based_ranked_recommendations(ScoredRecommendations, Recommendations).
+
+held_item_top_compatible_items_for_ability_marker_based_scored(Ability, TopN, Recommendations) :-
+    findall(Score-Item-Reason,
+        held_item_ability_compatible_item_marker_based(Ability, Item, Score, Reason),
+        Raw),
+    keysort(Raw, SortedAsc),
+    reverse(SortedAsc, SortedDesc),
+    held_item_deduplicate_scored_recommendations(SortedDesc, DeduplicatedDesc),
+    ( integer(TopN), TopN > 0 ->
+        take_first_n(DeduplicatedDesc, TopN, Recommendations)
+    ; Recommendations = DeduplicatedDesc
+    ).
+
+held_item_deduplicate_scored_recommendations(ScoredRecommendations, Deduplicated) :-
+    held_item_deduplicate_scored_recommendations(ScoredRecommendations, [], Deduplicated).
+
+held_item_deduplicate_scored_recommendations([], _Seen, []).
+held_item_deduplicate_scored_recommendations([Score-Item-Reason | Rest], Seen,
+    Deduplicated) :-
+    held_item_recommendation_signature(Item, Reason, Signature),
+    ( memberchk(Signature, Seen) ->
+        held_item_deduplicate_scored_recommendations(Rest, Seen, Deduplicated)
+    ; Deduplicated = [Score-Item-Reason | Tail],
+      held_item_deduplicate_scored_recommendations(Rest, [Signature | Seen], Tail)
+    ).
+
+held_item_recommendation_signature(Item, _Reason, Signature) :-
+    held_item_effect_text(Item, EffectText),
+    EffectText \= 'Sem descrição curta disponível',
+    input_to_string(EffectText, EffectString),
+    normalize_space(string(NormalizedEffect), EffectString),
+    Signature = effect(NormalizedEffect),
+    !.
+held_item_recommendation_signature(Item, Reason, Signature) :-
+    Signature = fallback(Item, Reason).
+
+held_item_marker_based_ranked_recommendations(ScoredRecommendations, RankedRecommendations) :-
+    held_item_marker_based_ranked_recommendations(ScoredRecommendations, 1, RankedRecommendations).
+
+held_item_marker_based_ranked_recommendations([], _Index, []).
+held_item_marker_based_ranked_recommendations([_Score-Item-Reason | Rest], Index,
+    [indicacao(RankLabel, Item, Reason, EffectText) | RankedRest]) :-
+    held_item_recommendation_rank_label(Index, RankLabel),
+    held_item_effect_text(Item, EffectText),
+    NextIndex is Index + 1,
+    held_item_marker_based_ranked_recommendations(Rest, NextIndex, RankedRest).
+
+held_item_recommendation_rank_label(Index, RankLabel) :-
+    format(atom(RankLabel), '~wa indicacao', [Index]).
+
+held_item_print_top_compatible_items_for_ability_marker_based(Ability, TopN) :-
+    held_item_top_compatible_items_for_ability_marker_based(Ability, TopN, Recommendations),
+    display_label(Ability, AbilityLabel),
+    held_item_ability_effect_text(Ability, AbilityEffectText),
+    format('Bot: Indicacoes de held item para a habilidade ~w~n', [AbilityLabel]),
+    format('  - efeito da habilidade: ~w~n', [AbilityEffectText]),
+    held_item_print_marker_based_ranked_recommendations(Recommendations).
+
+held_item_print_marker_based_ranked_recommendations([]) :-
+    writeln('  - Nenhuma indicacao com confianca suficiente.').
+held_item_print_marker_based_ranked_recommendations([indicacao(RankLabel, Item, Reason, EffectText) | Rest]) :-
+    display_label(Item, ItemLabel),
+    format('  - ~w: ~w~n', [RankLabel, ItemLabel]),
+    format('    sinergia: ~w~n', [Reason]),
+    format('    efeito: ~w~n', [EffectText]),
+    held_item_print_marker_based_ranked_recommendations_nonempty(Rest).
+
+held_item_print_marker_based_ranked_recommendations_nonempty([]).
+held_item_print_marker_based_ranked_recommendations_nonempty([indicacao(RankLabel, Item, Reason, EffectText) | Rest]) :-
+    display_label(Item, ItemLabel),
+    format('  - ~w: ~w~n', [RankLabel, ItemLabel]),
+    format('    sinergia: ~w~n', [Reason]),
+    format('    efeito: ~w~n', [EffectText]),
+    held_item_print_marker_based_ranked_recommendations_nonempty(Rest).
+
+held_item_weather_condition_marker(Condition) :-
+    held_item_weather_condition_key(Condition, _).
+
+held_item_weather_condition_key(Condition, Key) :-
+    atom(Condition),
+    ( atom_concat(weather_, RawKey, Condition) ->
+        held_item_weather_key_alias(RawKey, Key)
+    ; held_item_weather_key_alias(Condition, Key)
+    ).
+
+held_item_weather_key_alias(rain, weather_rain).
+held_item_weather_key_alias(sun, weather_sun).
+held_item_weather_key_alias(sand, weather_sand).
+held_item_weather_key_alias(snow, weather_snow).
+held_item_weather_key_alias(hail, weather_snow).
+held_item_weather_key_alias(weather_rain, weather_rain).
+held_item_weather_key_alias(weather_sun, weather_sun).
+held_item_weather_key_alias(weather_sand, weather_sand).
+held_item_weather_key_alias(weather_snow, weather_snow).
+
+held_item_ability_weather_condition(Ability, WeatherCondition) :-
+    current_predicate(ability_marker/3),
+    ability_marker(Ability, condition, RawCondition),
+    held_item_weather_condition_key(RawCondition, WeatherCondition).
+held_item_ability_weather_condition(Ability, WeatherCondition) :-
+    held_item_ability_weather_affinity(Ability, WeatherCondition).
+
+held_item_ability_weather_affinity(drizzle, weather_rain).
+held_item_ability_weather_affinity(primordial_sea, weather_rain).
+held_item_ability_weather_affinity(swift_swim, weather_rain).
+held_item_ability_weather_affinity(rain_dish, weather_rain).
+held_item_ability_weather_affinity(hydration, weather_rain).
+held_item_ability_weather_affinity(drought, weather_sun).
+held_item_ability_weather_affinity(desolate_land, weather_sun).
+held_item_ability_weather_affinity(orichalcum_pulse, weather_sun).
+held_item_ability_weather_affinity(chlorophyll, weather_sun).
+held_item_ability_weather_affinity(leaf_guard, weather_sun).
+held_item_ability_weather_affinity(solar_power, weather_sun).
+held_item_ability_weather_affinity(harvest, weather_sun).
+held_item_ability_weather_affinity(sand_stream, weather_sand).
+held_item_ability_weather_affinity(sand_rush, weather_sand).
+held_item_ability_weather_affinity(sand_force, weather_sand).
+held_item_ability_weather_affinity(sand_veil, weather_sand).
+held_item_ability_weather_affinity(sand_spit, weather_sand).
+held_item_ability_weather_affinity(snow_warning, weather_snow).
+held_item_ability_weather_affinity(slush_rush, weather_snow).
+held_item_ability_weather_affinity(snow_cloak, weather_snow).
+held_item_ability_weather_affinity(ice_body, weather_snow).
+held_item_ability_weather_affinity(ice_face, weather_snow).
+
+held_item_weather_related_ability(Ability) :-
+    held_item_weather_setter_ability(Ability),
+    !.
+held_item_weather_related_ability(Ability) :-
+    held_item_ability_weather_condition(Ability, _).
+
+held_item_item_weather_condition(Item, WeatherCondition) :-
+    item_marker(Item, condition, RawCondition),
+    held_item_weather_condition_key(RawCondition, WeatherCondition).
+held_item_item_weather_condition(Item, WeatherCondition) :-
+    item_marker(Item, relation_hook, RawCondition),
+    held_item_weather_condition_key(RawCondition, WeatherCondition).
+held_item_item_weather_condition(Item, WeatherCondition) :-
+    current_predicate(held_item_effect/6),
+    held_item_effect(Item, _Category, _Trigger, CombatModel, _Description, _Confidence),
+    member(condition-RawCondition, CombatModel),
+    held_item_weather_condition_key(RawCondition, WeatherCondition).
+held_item_item_weather_condition(Item, WeatherCondition) :-
+    current_predicate(held_item_effect/6),
+    held_item_effect(Item, _Category, _Trigger, CombatModel, _Description, _Confidence),
+    member(relation_hook-RawCondition, CombatModel),
+    held_item_weather_condition_key(RawCondition, WeatherCondition).
+
+held_item_item_has_weather_condition(Item) :-
+    held_item_item_weather_condition(Item, _).
+
+held_item_item_matches_ability_weather(Ability, Item) :-
+    held_item_ability_weather_condition(Ability, AbilityWeather),
+    held_item_item_weather_condition(Item, AbilityWeather).
+
+held_item_item_weather_conflicts_with_ability(Ability, Item) :-
+    held_item_weather_related_ability(Ability),
+    held_item_item_has_weather_condition(Item),
+    \+ held_item_item_matches_ability_weather(Ability, Item).
+
+held_item_item_weather_domain_without_match(Ability, Item) :-
+    held_item_weather_related_ability(Ability),
+    item_marker(Item, domain, weather),
+    \+ held_item_item_matches_ability_weather(Ability, Item).
+
+held_item_domain_marker_is_compatible(Ability, Item, weather) :-
+    held_item_weather_related_ability(Ability),
+    !,
+    held_item_item_matches_ability_weather(Ability, Item).
+held_item_domain_marker_is_compatible(_Ability, _Item, weather) :-
+    !,
+    fail.
+held_item_domain_marker_is_compatible(_Ability, _Item, _Domain).
+
+held_item_weather_condition_type(weather_rain, water).
+held_item_weather_condition_type(weather_sun, fire).
+held_item_weather_condition_type(weather_sand, rock).
+held_item_weather_condition_type(weather_snow, ice).
+
+held_item_weather_type_amplification_reason(WeatherCondition, TypeHint, Item, Reason) :-
+    display_label(Item, ItemLabel),
+    display_label(WeatherCondition, WeatherLabel),
+    display_label(TypeHint, TypeLabel),
+    held_item_weather_item_specific_detail(Item, Detail),
+    format(atom(Reason),
+        'amplificacao apos ativacao com ~w: clima ~w favorece pressao de golpes ~w; ~w',
+        [ItemLabel, WeatherLabel, TypeLabel, Detail]).
+
+held_item_weather_item_specific_detail(Item, Detail) :-
+    held_item_item_family_tag(Item, FamilyTag),
+    held_item_marker_signature(Item, Signature),
+    format(atom(Detail), 'perfil ~w com assinatura tatica: ~w', [FamilyTag, Signature]).
+
+held_item_item_family_tag(Item, 'incense') :-
+    atom_concat(_, '_incense', Item),
+    !.
+held_item_item_family_tag(Item, 'plate') :-
+    atom_concat(_, '_plate', Item),
+    !.
+held_item_item_family_tag(Item, 'orb') :-
+    atom_concat(_, '_orb', Item),
+    !.
+held_item_item_family_tag(_Item, 'geral').
+
+held_item_marker_signature(Item, Signature) :-
+    findall(Label,
+        held_item_marker_signature_label(Item, Label),
+        RawLabels),
+    sort(RawLabels, Labels),
+    ( Labels == [] ->
+        Signature = 'perfil utilitario contextual'
+    ; atomic_list_concat(Labels, ', ', Signature)
+    ).
+
+held_item_marker_signature_label(Item, Label) :-
+    item_marker(Item, modifier_kind, ModifierKind),
+    display_label(ModifierKind, ModifierLabel),
+    format(atom(Label), 'modificador ~w', [ModifierLabel]).
+held_item_marker_signature_label(Item, Label) :-
+    item_marker(Item, trigger, Trigger),
+    display_label(Trigger, TriggerLabel),
+    format(atom(Label), 'gatilho ~w', [TriggerLabel]).
+held_item_marker_signature_label(Item, Label) :-
+    item_marker(Item, item_role, Role),
+    display_label(Role, RoleLabel),
+    format(atom(Label), 'papel ~w', [RoleLabel]).
+
+held_item_ability_marker_overlap_score(Ability, Item, Score, Reason) :-
+    current_predicate(ability_marker/3),
+    current_predicate(item_marker/3),
+    findall(Value-Text,
+        held_item_ability_item_marker_signal(Ability, Item, Value, Text),
+        RawSignals),
+    RawSignals \= [],
+    sort(RawSignals, Signals),
+    findall(Value, member(Value-_, Signals), Values),
+    sum_list(Values, Total),
+    findall(Penalty-PenaltyReason,
+        held_item_ability_item_marker_penalty(Ability, Item, Penalty, PenaltyReason),
+        Penalties),
+    findall(PenaltyValue, member(PenaltyValue-_, Penalties), PenaltyValues),
+    sum_list(PenaltyValues, PenaltyTotal),
+    ScoreWithPenalty is max(0, Total - PenaltyTotal),
+    ScoreRaw is min(ScoreWithPenalty, 100),
+    Score is round(ScoreRaw),
+    keysort(Signals, SignalsAsc),
+    reverse(SignalsAsc, SignalsDesc),
+    take_first_n(SignalsDesc, 3, TopSignals),
+    findall(Text, member(_-Text, TopSignals), Texts),
+    held_item_join_reasons(Texts, BaseReason),
+    findall(PenaltyReasonText, member(_-PenaltyReasonText, Penalties), PenaltyReasonTexts),
+    held_item_join_reasons(PenaltyReasonTexts, PenaltyReason),
+    held_item_compose_marker_reason(BaseReason, PenaltyReason, Reason).
+
+held_item_ability_item_marker_penalty(_Ability, Item, 20,
+    'restricao relevante: efeito pleno depende de especie especifica, reduzindo aplicabilidade geral') :-
+    item_marker(Item, category, species_specific).
+held_item_ability_item_marker_penalty(unburden, Item, 16,
+    'restricao relevante: item nao consumivel tende a atrasar ativacao de Unburden') :-
+    held_item_is_competitive_slot_item(Item),
+    \+ item_marker(Item, usage_mode, consumable).
+
+held_item_join_reasons([], '').
+held_item_join_reasons(Texts, Joined) :-
+    atomic_list_concat(Texts, '; ', Joined).
+
+held_item_compose_marker_reason(BaseReason, '', BaseReason) :- !.
+held_item_compose_marker_reason('', PenaltyReason, PenaltyReason) :- !.
+held_item_compose_marker_reason(BaseReason, PenaltyReason, Reason) :-
+    format(atom(Reason), '~w; ~w', [BaseReason, PenaltyReason]).
+
+held_item_generic_coverage_item(Item) :-
+    held_item_candidate_id(Item),
+    \+ item_marker(Item, type_hint, _),
+    \+ item_marker(Item, domain, form_change).
+
+held_item_ability_item_marker_signal(Ability, Item, 36, Reason) :-
+    ability_marker(Ability, condition, Condition),
+    Condition \= always_active,
+    item_marker(Item, condition, Condition),
+    held_item_marker_reason(condition, Condition, Reason).
+held_item_ability_item_marker_signal(Ability, Item, 26,
+    'domínio compartilhado: weather (controle direto de clima)') :-
+    held_item_weather_setter_ability(Ability),
+    ability_marker(Ability, domain, weather),
+    item_marker(Item, domain, weather),
+    held_item_domain_marker_is_compatible(Ability, Item, weather).
+held_item_ability_item_marker_signal(Ability, Item, 12,
+    'domínio compartilhado: weather (beneficio condicional no clima correto)') :-
+    held_item_weather_related_ability(Ability),
+    \+ held_item_weather_setter_ability(Ability),
+    ability_marker(Ability, domain, weather),
+    item_marker(Item, domain, weather),
+    held_item_domain_marker_is_compatible(Ability, Item, weather).
+held_item_ability_item_marker_signal(Ability, Item, 24, Reason) :-
+    ability_marker(Ability, domain, Domain),
+    Domain \= weather,
+    item_marker(Item, domain, Domain),
+    held_item_domain_marker_is_compatible(Ability, Item, Domain),
+    held_item_marker_reason(domain, Domain, Reason).
+held_item_ability_item_marker_signal(Ability, Item, 14, Reason) :-
+    held_item_ability_weather_condition(Ability, WeatherCondition),
+    held_item_weather_condition_type(WeatherCondition, TypeHint),
+    item_marker(Item, type_hint, TypeHint),
+    item_marker(Item, modifier_kind, move_power_modifier),
+    \+ item_marker(Item, usage_mode, consumable),
+    \+ item_marker(Item, domain, form_change),
+    held_item_weather_type_amplification_reason(WeatherCondition, TypeHint, Item, Reason).
+held_item_ability_item_marker_signal(Ability, Item, 18, Reason) :-
+    ability_marker(Ability, type_hint, TypeHint),
+    item_marker(Item, type_hint, TypeHint),
+    held_item_marker_reason(type_hint, TypeHint, Reason).
+held_item_ability_item_marker_signal(Ability, Item, 16, Reason) :-
+    ability_marker(Ability, condition, Condition),
+    Condition \= always_active,
+    item_marker(Item, relation_hook, Condition),
+    held_item_marker_reason(relation_hook, Condition, Reason).
+held_item_ability_item_marker_signal(Ability, Item, 10, Reason) :-
+    ability_marker(Ability, trigger, Trigger),
+    Trigger \= passive,
+    item_marker(Item, trigger, Trigger),
+    held_item_marker_reason(trigger, Trigger, Reason).
+held_item_ability_item_marker_signal(unburden, Item, 34, Reason) :-
+    held_item_is_competitive_slot_item(Item),
+    item_marker(Item, usage_mode, consumable),
+    held_item_unburden_activation_reason(Item, Reason).
+
+held_item_ability_item_marker_signal(_Ability, Item, 12,
+    'cobertura de fraqueza: recuperacao sustentada quando a habilidade nao protege o ciclo de dano') :-
+    held_item_generic_coverage_item(Item),
+    item_marker(Item, modifier_kind, hp_recovery_modifier).
+held_item_ability_item_marker_signal(_Ability, Item, 10,
+    'cobertura de fraqueza: mitigacao de dano em janelas sem controle direto da habilidade') :-
+    held_item_generic_coverage_item(Item),
+    item_marker(Item, modifier_kind, damage_taken_modifier).
+held_item_ability_item_marker_signal(Ability, Item, 10,
+    'execucao apos ativacao: controle de velocidade para capitalizar o turno seguinte') :-
+    held_item_generic_coverage_item(Item),
+    current_predicate(ability_marker/3),
+    ability_marker(Ability, trigger, on_switch_in),
+    item_marker(Item, modifier_kind, stat_scalar_modifier),
+    item_marker(Item, stat_target, speed).
+held_item_ability_item_marker_signal(_Ability, Item, 8,
+    'cobertura de estabilidade: reforco de defesa especial para segurar contra-ataques') :-
+    held_item_generic_coverage_item(Item),
+    item_marker(Item, modifier_kind, stat_scalar_modifier),
+    item_marker(Item, stat_target, special_defense).
+
+held_item_unburden_activation_reason(Item, Reason) :-
+    display_label(Item, ItemLabel),
+    held_item_effect_text(Item, EffectText),
+    format(atom(Reason),
+        'ativacao direta de Unburden com item consumivel (~w): ~w',
+        [ItemLabel, EffectText]).
+
+held_item_marker_reason(condition, Value, Reason) :-
+    display_label(Value, Label),
+    format(atom(Reason), 'condição compartilhada: ~w', [Label]).
+held_item_marker_reason(domain, Value, Reason) :-
+    display_label(Value, Label),
+    format(atom(Reason), 'domínio compartilhado: ~w', [Label]).
+held_item_marker_reason(type_hint, Value, Reason) :-
+    display_label(Value, Label),
+    format(atom(Reason), 'tipo em comum: ~w', [Label]).
+held_item_marker_reason(relation_hook, Value, Reason) :-
+    display_label(Value, Label),
+    format(atom(Reason), 'gancho tático compatível: ~w', [Label]).
+held_item_marker_reason(trigger, Value, Reason) :-
+    display_label(Value, Label),
+    format(atom(Reason), 'gatilho em comum: ~w', [Label]).
 
 held_item_is_competitive_slot_item(Item) :-
     current_predicate(item_marker/3),
