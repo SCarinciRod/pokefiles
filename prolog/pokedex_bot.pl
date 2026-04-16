@@ -113,6 +113,8 @@ load_database_from_root :-
     expand_file_name('db/catalogs/items_catalog.pl', ItemsCatalogFiles),
     expand_file_name('db/catalogs/moves_catalog.pl', MovesCatalogFiles),
     expand_file_name('db/catalogs/move_tactical_catalog.pl', MoveTacticalCatalogFiles),
+    expand_file_name('db/generated/move_markers.pl', MoveMarkersFiles),
+    expand_file_name('db/generated/move_data_auto.pl', MoveDataAutoFiles),
     expand_file_name('db/catalogs/pokemon_movelists.pl', PokemonMovelistFiles),
     expand_file_name('db/manual/move_data.pl', MoveDataFallbackFiles),
     ( GenerationFiles \= [] ->
@@ -191,6 +193,14 @@ load_database_from_root :-
     ),
     ( MoveTacticalCatalogFiles \= [] ->
         maplist(consult, MoveTacticalCatalogFiles)
+    ; true
+    ),
+    ( MoveMarkersFiles \= [] ->
+        maplist(consult, MoveMarkersFiles)
+    ; true
+    ),
+    ( MoveDataAutoFiles \= [] ->
+        maplist(consult, MoveDataAutoFiles)
     ; true
     ),
     ( PokemonMovelistFiles \= [] ->
@@ -2123,6 +2133,9 @@ move_catalog(Moves) :-
     assertz(cache_move_catalog(Moves)).
 
 move_catalog_entry(Move) :-
+    current_predicate(move_data_auto/11),
+    move_data_auto(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _EffectChance, _Ailment, _EffectCategory, _Description).
+move_catalog_entry(Move) :-
     current_predicate(move_entry/11),
     move_entry(Move, _Type, _Category, _BasePower, _Accuracy, _PP, _Tags, _EffectChance, _Ailment, _EffectCategory, _Description).
 move_catalog_entry(Move) :-
@@ -2132,6 +2145,10 @@ move_catalog_entry(Move) :-
     pokemon_move_list(_PokemonName, Moves),
     member(Move, Moves).
 
+move_data(Move, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description) :-
+    current_predicate(move_data_auto/11),
+    move_data_auto(Move, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description),
+    !.
 move_data(Move, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description) :-
     current_predicate(move_entry/11),
     move_entry(Move, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description),

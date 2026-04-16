@@ -5,9 +5,21 @@ const https = require('https');
 const ROOT = path.resolve(__dirname, '..');
 const DB_DIR = path.join(ROOT, 'db');
 const DB_CATALOGS_DIR = path.join(DB_DIR, 'catalogs');
+const DB_RUNTIME_DIR = path.join(DB_DIR, 'runtime');
 
 const ABILITIES_OUTPUT = path.join(DB_CATALOGS_DIR, 'abilities_catalog.pl');
 const ITEMS_OUTPUT = path.join(DB_CATALOGS_DIR, 'items_catalog.pl');
+const ABILITY_LEXICON_OUTPUT = path.join(DB_RUNTIME_DIR, 'bot_static_lexicon_expanded_abilities.pl');
+
+const MISSING_SHORT_EFFECT_TEXT = 'Sem descrição curta disponível.';
+const MISSING_EFFECT_TEXT = 'Sem descrição detalhada disponível.';
+
+const ABILITY_DESCRIPTION_OVERRIDES = {
+  as_one_glastrier:
+    "This Ability combines the effects of both Calyrex's Unnerve Ability and Glastrier's Chilling Neigh Ability.",
+  as_one_spectrier:
+    "This Ability combines the effects of both Calyrex's Unnerve Ability and Spectrier's Grim Neigh Ability.",
+};
 
 const useInsecureTls = process.env.POKEDEX_INSECURE_TLS === '1';
 const PARALLEL = Number(process.env.POKEDEX_FETCH_PARALLEL || 10);
@@ -128,9 +140,37 @@ function normalizeAbilityRow(data) {
     id,
     generation,
     isMainSeries,
-    shortEffect: shortEffect || 'Sem descrição curta disponível.',
-    effect: effect || 'Sem descrição detalhada disponível.',
+    shortEffect: shortEffect || MISSING_SHORT_EFFECT_TEXT,
+    effect: effect || MISSING_EFFECT_TEXT,
   };
+}
+
+function hasMissingAbilityDescriptions(row) {
+  return row.shortEffect === MISSING_SHORT_EFFECT_TEXT && row.effect === MISSING_EFFECT_TEXT;
+}
+
+function applyAbilityCuration(row) {
+  const curated = { ...row };
+  const overrideText = ABILITY_DESCRIPTION_OVERRIDES[curated.id];
+  if (overrideText) {
+    curated.shortEffect = overrideText;
+    curated.effect = overrideText;
+  }
+  return curated;
+}
+
+function shouldKeepAbility(row) {
+  // Keep only main-series abilities in this project catalog.
+  if (!row.isMainSeries) {
+    return false;
+  }
+
+  // Also guard against main-series rows that still have placeholder text.
+  if (hasMissingAbilityDescriptions(row)) {
+    return false;
+  }
+
+  return true;
 }
 
 function normalizeItemRow(data) {
@@ -194,13 +234,43 @@ function renderItems(rows) {
   return `${header}${body}\n`;
 }
 
+function renderAbilityLexicon(rows) {
+  const abilities = rows
+    .map((row) => row.id)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
+  const header = [
+    ':- encoding(utf8).',
+    '',
+    '% Auto-generated lexical expansion from abilities_catalog.pl',
+    '% Adds canonical ability names and multiword ability phrases.',
+    ':- multifile ability_keyword/1.',
+    ':- multifile ability_keyword_phrase/1.',
+    '',
+  ].join('\n');
+
+  const keywords = abilities.map((ability) => `ability_keyword("${ability}").`).join('\n');
+
+  const phrases = abilities
+    .map((ability) => ability.split('_').filter(Boolean))
+    .filter((tokens) => tokens.length > 1)
+    .map((tokens) => {
+      const phrase = tokens.map((token) => `"${token}"`).join(', ');
+      return `ability_keyword_phrase([${phrase}]).`;
+    })
+    .join('\n');
+
+  return `${header}${keywords}\n\n${phrases}\n`;
+}
+
 async function main() {
   const [abilityRefs, itemRefs] = await Promise.all([fetchAllAbilityNames(), fetchAllItemNames()]);
 
   console.log(`[meta] abilities encontradas: ${abilityRefs.length}`);
   console.log(`[meta] items encontrados: ${itemRefs.length}`);
 
-  const abilities = await poolMap(
+  const fetchedAbilities = await poolMap(
     abilityRefs,
     async (ref, index) => {
       if ((index + 1) % 50 === 0 || index === 0) {
@@ -211,6 +281,15 @@ async function main() {
     },
     PARALLEL
   );
+
+  const curatedAbilities = fetchedAbilities
+    .map((row) => applyAbilityCuration(row))
+    .filter((row) => shouldKeepAbility(row));
+
+  const droppedNonMainSeries = fetchedAbilities.filter((row) => !row.isMainSeries).length;
+  const droppedMissingDescription = fetchedAbilities.filter(
+    (row) => row.isMainSeries && hasMissingAbilityDescriptions(applyAbilityCuration(row))
+  ).length;
 
   const items = await poolMap(
     itemRefs,
@@ -224,10 +303,15 @@ async function main() {
     PARALLEL
   );
 
-  fs.writeFileSync(ABILITIES_OUTPUT, renderAbilities(abilities), 'utf8');
+  fs.writeFileSync(ABILITIES_OUTPUT, renderAbilities(curatedAbilities), 'utf8');
+  fs.writeFileSync(ABILITY_LEXICON_OUTPUT, renderAbilityLexicon(curatedAbilities), 'utf8');
   fs.writeFileSync(ITEMS_OUTPUT, renderItems(items), 'utf8');
 
+  console.log(`[meta] abilities apos curadoria: ${curatedAbilities.length}`);
+  console.log(`[meta] abilities removidas (non-main-series): ${droppedNonMainSeries}`);
+  console.log(`[meta] abilities removidas (descricao ausente): ${droppedMissingDescription}`);
   console.log(`[meta] abilities salvas em: ${ABILITIES_OUTPUT}`);
+  console.log(`[meta] lexico de abilities salvo em: ${ABILITY_LEXICON_OUTPUT}`);
   console.log(`[meta] items salvos em: ${ITEMS_OUTPUT}`);
   console.log('[meta] geração concluída.');
 }
