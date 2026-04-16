@@ -54,7 +54,7 @@ A pasta `engines/` contem motores de dominio isolados, por exemplo:
 A pasta `db/` foi organizada por responsabilidade para melhorar manutencao e visibilidade:
 
 - `db/catalogs/`: catalogos base (`abilities_catalog.pl`, `items_catalog.pl`, `moves_catalog.pl`, `move_tactical_catalog.pl`, `pokemon_movelists.pl`)
-- `db/generated/`: artefatos gerados (`ability_markers.pl`, `item_markers.pl`, `ability_data_auto.pl`, `held_item_data_auto.pl`)
+- `db/generated/`: artefatos gerados (`ability_markers.pl`, `item_markers.pl`, `move_markers.pl`, `move_data_auto.pl`, `ability_data_auto.pl`, `held_item_data_auto.pl`)
 - `db/generations/core/`: especies por geracao (`generation_1.pl` ... `generation_9.pl`)
 - `db/generations/lore/`: lore por geracao
 - `db/generations/evolution/`: fatos de evolucao por geracao
@@ -84,6 +84,8 @@ A pasta `tools/` concentra scripts operacionais:
 - `tools/generate_generation_db.js`: geracao de dados de geracao/lore/evolucao.
 - `tools/generate_moves_db.js`: geracao de catalogos de moves/movelists.
 - `tools/generate_abilities_items_db.js`: geracao de catalogos de abilities e itens.
+- `tools/generate_move_markers.js`: geracao de marcadores semanticos de moves.
+- `tools/generate_move_data_auto.js`: curadoria automatica de moves para runtime (`move_data_auto/11`) e perfil semantico (`move_effect/6`).
 - `tools/sync_home_sprites.js`: sincronizacao de sprites local.
 - `tools/validate_and_benchmark.ps1`: validacao rapida e benchmark.
 - `tools/build_launchers.ps1`: compilacao de `setup.exe` e `run_gui.exe` a partir de C#.

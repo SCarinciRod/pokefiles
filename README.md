@@ -245,6 +245,35 @@ Se o catálogo vier com `Sem descrição disponível.` em itens relevantes, o ge
 
 Exemplos de marcadores de itens gerados: `usage_mode`, `item_role`, `trigger`, `condition`, `modifier_kind`, `relation_hook`, `type_hint`, `status_hint`, `combat_relevance`.
 
+- Para gerar marcadores automáticos de moves com schema semântico (tipo, categoria, papel tático, gatilhos, condições e ganchos de relação):
+
+```bash
+node tools/generate_move_markers.js
+```
+
+Isso gera `db/generated/move_markers.pl` com fatos no formato:
+
+```prolog
+move_marker(Move, Marker, Value).
+```
+
+Exemplos de marcadores de moves gerados: `type_hint`, `category`, `tactical_role`, `modifier_kind`, `condition` (incluindo `punch_moves`, `kick_moves`, `sound_moves`, `pulse_moves`, `biting_moves`, `slicing_moves`), `move_style`, `relation_hook`, `power_band`, `accuracy_band`, `status_hint`.
+
+- Para gerar curadoria automatica de moves (dados refinados para runtime + perfil semantico de relacao):
+
+```bash
+node tools/generate_move_data_auto.js
+```
+
+Isso gera `db/generated/move_data_auto.pl` com fatos no formato:
+
+```prolog
+move_data_auto(Move, Type, Category, BasePower, Accuracy, PP, Tags, EffectChance, Ailment, EffectCategory, Description).
+move_effect(Move, Category, Trigger, CombatModel, Description, Confidence).
+```
+
+No runtime, `move_data_auto/11` passa a ser a fonte principal de `move_data/11`, com fallback automatico para `move_entry/11` em `db/catalogs/moves_catalog.pl`.
+
 - Para gerar automaticamente efeitos base de abilities (fallback competitivo) a partir dos marcadores:
 
 ```bash

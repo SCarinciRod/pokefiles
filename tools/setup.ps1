@@ -3,6 +3,8 @@ param(
     [switch]$SkipSpriteSync,
     [switch]$SkipAbilityMarkers,
     [switch]$SkipItemMarkers,
+    [switch]$SkipMoveMarkers,
+    [switch]$SkipMoveAutoData,
     [switch]$SkipAbilityAutoData,
     [switch]$SkipHeldItemAutoData,
     [switch]$SkipGuiDependencies,
@@ -13,6 +15,8 @@ param(
     [switch]$ForceSpriteSync,
     [switch]$ForceAbilityMarkersBuild,
     [switch]$ForceItemMarkersBuild,
+    [switch]$ForceMoveMarkersBuild,
+    [switch]$ForceMoveAutoDataBuild,
     [switch]$ForceAbilityAutoDataBuild,
     [switch]$ForceHeldItemAutoDataBuild
 )
@@ -45,14 +49,20 @@ $DbManualDir = Join-Path $DbDir 'manual'
 $CleanGuiScript = Join-Path $PSScriptRoot 'clean_gui_workspace.ps1'
 $AbilityMarkersScript = Join-Path $PSScriptRoot 'generate_ability_markers.js'
 $ItemMarkersScript = Join-Path $PSScriptRoot 'generate_item_markers.js'
+$MoveMarkersScript = Join-Path $PSScriptRoot 'generate_move_markers.js'
+$MoveAutoDataScript = Join-Path $PSScriptRoot 'generate_move_data_auto.js'
 $AbilityAutoDataScript = Join-Path $PSScriptRoot 'generate_ability_data_auto.js'
 $HeldItemAutoDataScript = Join-Path $PSScriptRoot 'generate_held_item_data_auto.js'
 $AbilityDataAutoFile = Join-Path $DbGeneratedDir 'ability_data_auto.pl'
 $HeldItemDataAutoFile = Join-Path $DbGeneratedDir 'held_item_data_auto.pl'
+$MoveDataAutoFile = Join-Path $DbGeneratedDir 'move_data_auto.pl'
 $AbilityCatalogFile = Join-Path $DbCatalogsDir 'abilities_catalog.pl'
 $AbilityMarkersFile = Join-Path $DbGeneratedDir 'ability_markers.pl'
 $ItemsCatalogFile = Join-Path $DbCatalogsDir 'items_catalog.pl'
 $ItemMarkersFile = Join-Path $DbGeneratedDir 'item_markers.pl'
+$MovesCatalogFile = Join-Path $DbCatalogsDir 'moves_catalog.pl'
+$MoveTacticalCatalogFile = Join-Path $DbCatalogsDir 'move_tactical_catalog.pl'
+$MoveMarkersFile = Join-Path $DbGeneratedDir 'move_markers.pl'
 $ItemDescriptionFallbackFile = Join-Path $DbReferencesDir 'item_description_fallbacks.json'
 $ScoopNodeExe = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\node.exe'
 $ScoopNodeNpm = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\npm.cmd'
@@ -547,6 +557,86 @@ function Test-ItemMarkersBuildRequired {
     return $false
 }
 
+function Test-MoveMarkersBuildRequired {
+    if ($ForceMoveMarkersBuild) {
+        Write-Step 'Forcando geracao de marcadores de moves por parametro do usuario.'
+        return $true
+    }
+
+    if (-not (Test-Path $MovesCatalogFile)) {
+        Write-Step 'moves_catalog.pl nao encontrado. Pulando geracao de marcadores de moves.'
+        return $false
+    }
+
+    if (-not (Test-Path $MoveMarkersScript)) {
+        Write-Step 'Script generate_move_markers.js nao encontrado. Pulando geracao de marcadores de moves.'
+        return $false
+    }
+
+    if (-not (Test-Path $MoveMarkersFile)) {
+        Write-Step 'Arquivo move_markers.pl ausente. Geracao sera executada.'
+        return $true
+    }
+
+    $latestSourceTimestamp = Get-LatestWriteTimeUtc -RelativePaths @(
+        'tools/generate_move_markers.js',
+        'db/catalogs/moves_catalog.pl',
+        'db/catalogs/move_tactical_catalog.pl'
+    )
+    $markersTimestamp = (Get-Item $MoveMarkersFile).LastWriteTimeUtc
+
+    if ($latestSourceTimestamp -gt $markersTimestamp) {
+        Write-Step 'Catalogo/script de marcadores de moves mais novo que move_markers.pl. Geracao sera executada.'
+        return $true
+    }
+
+    Write-Step 'Marcadores de moves ja estao atualizados. Pulando geracao.'
+    return $false
+}
+
+function Test-MoveAutoDataBuildRequired {
+    if ($ForceMoveAutoDataBuild) {
+        Write-Step 'Forcando geracao automatica de move_data por parametro do usuario.'
+        return $true
+    }
+
+    if (-not (Test-Path $MoveAutoDataScript)) {
+        Write-Step 'Script generate_move_data_auto.js nao encontrado. Pulando geracao automatica de move_data.'
+        return $false
+    }
+
+    if (-not (Test-Path $MovesCatalogFile)) {
+        Write-Step 'moves_catalog.pl nao encontrado. Pulando geracao automatica de move_data.'
+        return $false
+    }
+
+    if (-not (Test-Path $MoveMarkersFile)) {
+        Write-Step 'move_markers.pl nao encontrado. Geracao automatica de move_data aguardando marcadores de moves.'
+        return $false
+    }
+
+    if (-not (Test-Path $MoveDataAutoFile)) {
+        Write-Step 'Arquivo move_data_auto.pl ausente. Geracao automatica sera executada.'
+        return $true
+    }
+
+    $latestSourceTimestamp = Get-LatestWriteTimeUtc -RelativePaths @(
+        'tools/generate_move_data_auto.js',
+        'db/catalogs/moves_catalog.pl',
+        'db/catalogs/move_tactical_catalog.pl',
+        'db/generated/move_markers.pl'
+    )
+    $autoDataTimestamp = (Get-Item $MoveDataAutoFile).LastWriteTimeUtc
+
+    if ($latestSourceTimestamp -gt $autoDataTimestamp) {
+        Write-Step 'Fontes de move auto data mais novas que move_data_auto.pl. Geracao automatica sera executada.'
+        return $true
+    }
+
+    Write-Step 'move_data_auto.pl ja esta atualizado. Pulando geracao automatica.'
+    return $false
+}
+
 function Test-AbilityAutoDataBuildRequired {
     if ($ForceAbilityAutoDataBuild) {
         Write-Step 'Forcando geracao automatica de ability_data por parametro do usuario.'
@@ -944,6 +1034,60 @@ function Build-ItemMarkers {
     }
 }
 
+function Build-MoveMarkers {
+    $nodeCmd = $script:ResolvedNodeCmd
+    if (-not $nodeCmd) {
+        $nodeCmd = Resolve-NodeCommand
+    }
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para gerar marcadores de moves.'
+    }
+
+    if (-not (Test-Path $MoveMarkersScript)) {
+        Write-Step 'Script generate_move_markers.js nao encontrado. Pulando geracao de marcadores de moves.'
+        return
+    }
+
+    Write-Step 'Gerando marcadores de moves a partir de moves_catalog.pl...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\generate_move_markers.js
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Falha ao gerar marcadores de moves.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Build-MoveAutoData {
+    $nodeCmd = $script:ResolvedNodeCmd
+    if (-not $nodeCmd) {
+        $nodeCmd = Resolve-NodeCommand
+    }
+    if (-not $nodeCmd) {
+        throw 'Nao foi possivel localizar Node para gerar move_data_auto.'
+    }
+
+    if (-not (Test-Path $MoveAutoDataScript)) {
+        Write-Step 'Script generate_move_data_auto.js nao encontrado. Pulando geracao automatica de move_data.'
+        return
+    }
+
+    Write-Step 'Gerando move_data_auto.pl a partir de move_markers.pl...'
+    Push-Location $ProjectRoot
+    try {
+        & $nodeCmd .\tools\generate_move_data_auto.js
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Falha ao gerar move_data_auto.pl.'
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Build-AbilityAutoData {
     $nodeCmd = $script:ResolvedNodeCmd
     if (-not $nodeCmd) {
@@ -1005,6 +1149,8 @@ $shouldBuildGui = $false
 $shouldBuildGenerations = $false
 $shouldBuildAbilityMarkers = $false
 $shouldBuildItemMarkers = $false
+$shouldBuildMoveMarkers = $false
+$shouldBuildMoveAutoData = $false
 $shouldBuildAbilityAutoData = $false
 $shouldBuildHeldItemAutoData = $false
 $spriteSyncMode = 'skip'
@@ -1045,6 +1191,22 @@ if ($shouldBuildItemMarkers) {
     Build-ItemMarkers
 }
 
+if (-not $SkipMoveMarkers) {
+    $shouldBuildMoveMarkers = Test-MoveMarkersBuildRequired
+}
+
+if ($shouldBuildMoveMarkers) {
+    Build-MoveMarkers
+}
+
+if (-not $SkipMoveAutoData) {
+    $shouldBuildMoveAutoData = Test-MoveAutoDataBuildRequired
+}
+
+if ($shouldBuildMoveAutoData) {
+    Build-MoveAutoData
+}
+
 if (-not $SkipAbilityAutoData) {
     $shouldBuildAbilityAutoData = Test-AbilityAutoDataBuildRequired
 }
@@ -1078,7 +1240,9 @@ Write-Step "Vendor offline em: $VendorDir"
 Write-Step "Executor GUI instalado em: $InstalledGuiExe"
 Write-Step "Marcadores de abilities em: $AbilityMarkersFile"
 Write-Step "Marcadores de itens em: $ItemMarkersFile"
+Write-Step "Marcadores de moves em: $MoveMarkersFile"
 Write-Step "Fallback de descricoes de itens em: $ItemDescriptionFallbackFile"
+Write-Step "Auto move_data em: $MoveDataAutoFile"
 Write-Step "Auto ability_data em: $AbilityDataAutoFile"
 Write-Step "Auto held_item_data em: $HeldItemDataAutoFile"
 if (-not $PreserveGuiNodeModules) {

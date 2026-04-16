@@ -522,12 +522,35 @@ function inferMarkers(entry) {
     addMarker(markerMap, 'condition', 'contact');
   }
 
-  if (/(below half|drops below half|50%|1\/3|full hp)/.test(combatText)) {
+  if (/(below half|drops below half|at or below half|less than half|half hp|50% hp|hp[^.\n;:]{0,20}50%|1\/3|full hp|low hp)/.test(combatText)) {
     addMarker(markerMap, 'condition', 'hp_threshold');
   }
 
   if (/(punch-based|punch)/.test(combatText)) {
     addMarker(markerMap, 'condition', 'punch_moves');
+  }
+
+  if (/(kick-based|kick moves?|kicking moves?)/.test(combatText)) {
+    addMarker(markerMap, 'condition', 'kick_moves');
+  }
+
+  if (/(sound[- ]based|sound moves?|sound move|voice[- ]based|sonic)/.test(combatText)) {
+    addMarker(markerMap, 'condition', 'sound_moves');
+    addMarker(markerMap, 'domain', 'sound');
+  }
+
+  if (/(pulse moves?|pulse move|aura and pulse)/.test(combatText)) {
+    addMarker(markerMap, 'condition', 'pulse_moves');
+  }
+
+  if (/(biting moves?|biting move|bite moves?|bite move|jaw[- ]based|jaw moves?)/.test(combatText)) {
+    addMarker(markerMap, 'condition', 'biting_moves');
+    addMarker(markerMap, 'condition', 'bite_moves');
+  }
+
+  if (/(slicing moves?|slicing move|slice moves?|slice move|slashing moves?|cutting moves?|blade moves?|cleaving moves?)/.test(combatText)) {
+    addMarker(markerMap, 'condition', 'slicing_moves');
+    addMarker(markerMap, 'condition', 'slice_moves');
   }
 
   if (/(berry|berries)/.test(combatText)) {

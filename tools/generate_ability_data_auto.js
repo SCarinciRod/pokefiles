@@ -219,6 +219,13 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function humanizeAtom(atom) {
+  return String(atom || '')
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function inferCategory(markerSet) {
   const empowerValues = getMarkerValues(markerSet, 'empower');
   const statTargets = getMarkerValues(markerSet, 'stat_target');
@@ -310,7 +317,7 @@ function inferConfidence(markerSet) {
   return numberToStable(clamp(score, 0.2, 0.95));
 }
 
-function inferDescription(markerSet, catalogRow) {
+function inferDescription(markerSet, catalogRow, ability) {
   const empowerValues = getMarkerValues(markerSet, 'empower');
   const statTargets = getMarkerValues(markerSet, 'stat_target');
   const multipliers = getMarkerValues(markerSet, 'multiplier');
@@ -339,11 +346,29 @@ function inferDescription(markerSet, catalogRow) {
     return `Modelagem automatica por marcadores: ${parts.join('; ')}.`;
   }
 
-  if (catalogRow && catalogRow.shortEffect && !/sem descri/.test(catalogRow.shortEffect.toLowerCase())) {
+  const isMeaningfulCatalogText = (text) => {
+    const normalized = String(text || '').trim();
+    if (!normalized) {
+      return false;
+    }
+    return !/sem descri/i.test(normalized);
+  };
+
+  if (catalogRow && isMeaningfulCatalogText(catalogRow.effect)) {
+    return `Modelagem automatica por marcadores: ${catalogRow.effect}`;
+  }
+
+  if (catalogRow && isMeaningfulCatalogText(catalogRow.shortEffect)) {
     return `Modelagem automatica por marcadores: ${catalogRow.shortEffect}`;
   }
 
-  return 'Modelagem automatica por marcadores para suporte de analise competitiva.';
+  const inferredCategory = inferCategory(markerSet);
+  const inferredTrigger = inferTrigger(markerSet);
+  const inferredConditions = getMarkerValues(markerSet, 'condition').slice(0, 3);
+  const conditionText = inferredConditions.length > 0
+    ? `; condicoes detectadas: ${inferredConditions.join(', ')}`
+    : '';
+  return `Modelagem automatica por marcadores: descricao inferida para ${humanizeAtom(ability)}; categoria ${inferredCategory}; gatilho ${inferredTrigger}${conditionText}.`;
 }
 
 function inferCombatModel(markerSet) {
@@ -419,7 +444,7 @@ function buildAutoRows(markerMap, catalogMap) {
     const category = inferCategory(markers);
     const trigger = inferTrigger(markers);
     const combatModel = inferCombatModel(markers);
-    const description = inferDescription(markers, catalogMap.get(ability));
+    const description = inferDescription(markers, catalogMap.get(ability), ability);
 
     rows.push({
       ability,
