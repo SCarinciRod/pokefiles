@@ -21,6 +21,8 @@
 :- dynamic cache_type_list/3.
 :- dynamic cache_ability_list/3.
 :- dynamic cache_move_catalog/1.
+:- dynamic cache_pokemon_info/2.
+:- dynamic cache_combined_multiplier/3.
 :- dynamic cache_scoped_filtered_names/4.
 :- dynamic cache_generation_filtered_names/4.
 :- dynamic cache_tokenized_input/2.
@@ -106,15 +108,18 @@ load_database_from_root :-
     expand_file_name('db/runtime/bot_response_texts.pl', BotResponseTextFiles),
     expand_file_name('db/manual/ability_data.pl', AbilityDataFiles),
     expand_file_name('db/generated/ability_data_auto.pl', AbilityDataAutoFiles),
+    expand_file_name('db/generated/partitions/ability_data_auto/*.pl', AbilityDataAutoPartFiles),
     expand_file_name('db/generated/ability_markers.pl', AbilityMarkersFiles),
     expand_file_name('db/catalogs/abilities_catalog.pl', AbilitiesCatalogFiles),
     expand_file_name('db/generated/held_item_data_auto.pl', HeldItemDataAutoFiles),
+    expand_file_name('db/generated/partitions/held_item_data_auto/*.pl', HeldItemDataAutoPartFiles),
     expand_file_name('db/generated/item_markers.pl', ItemMarkersFiles),
     expand_file_name('db/catalogs/items_catalog.pl', ItemsCatalogFiles),
     expand_file_name('db/catalogs/moves_catalog.pl', MovesCatalogFiles),
     expand_file_name('db/catalogs/move_tactical_catalog.pl', MoveTacticalCatalogFiles),
     expand_file_name('db/generated/move_markers.pl', MoveMarkersFiles),
     expand_file_name('db/generated/move_data_auto.pl', MoveDataAutoFiles),
+    expand_file_name('db/generated/partitions/move_data_auto/*.pl', MoveDataAutoPartFiles),
     expand_file_name('db/catalogs/pokemon_movelists.pl', PokemonMovelistFiles),
     expand_file_name('db/manual/move_data.pl', MoveDataFallbackFiles),
     ( GenerationFiles \= [] ->
@@ -161,7 +166,9 @@ load_database_from_root :-
         maplist(consult, BotResponseTextFiles)
     ; true
     ),
-    ( AbilityDataAutoFiles \= [] ->
+    ( AbilityDataAutoPartFiles \= [] ->
+        maplist(consult, AbilityDataAutoPartFiles)
+    ; AbilityDataAutoFiles \= [] ->
         maplist(consult, AbilityDataAutoFiles)
     ; AbilityDataFiles \= [] ->
         maplist(consult, AbilityDataFiles)
@@ -179,7 +186,9 @@ load_database_from_root :-
         maplist(consult, ItemsCatalogFiles)
     ; true
     ),
-    ( HeldItemDataAutoFiles \= [] ->
+    ( HeldItemDataAutoPartFiles \= [] ->
+        maplist(consult, HeldItemDataAutoPartFiles)
+    ; HeldItemDataAutoFiles \= [] ->
         maplist(consult, HeldItemDataAutoFiles)
     ; true
     ),
@@ -199,7 +208,9 @@ load_database_from_root :-
         maplist(consult, MoveMarkersFiles)
     ; true
     ),
-    ( MoveDataAutoFiles \= [] ->
+    ( MoveDataAutoPartFiles \= [] ->
+        maplist(consult, MoveDataAutoPartFiles)
+    ; MoveDataAutoFiles \= [] ->
         maplist(consult, MoveDataAutoFiles)
     ; true
     ),
@@ -356,6 +367,9 @@ clear_query_caches :-
     retractall(cache_type_list(_, _, _)),
     retractall(cache_ability_list(_, _, _)),
     retractall(cache_move_catalog(_)),
+    retractall(cache_pokemon_info(_, _)),
+    retractall(cache_combined_multiplier(_, _, _)),
+    retractall(cache_offensive_coverage(_, _)),
     retractall(cache_pokemon_offensive_types(_, _)),
     retractall(cache_pokemon_ability_immunity_types(_, _)),
     retractall(cache_move_coverage_multiplier(_, _, _, _)),
@@ -2063,18 +2077,25 @@ remember_candidate_list(Names) :-
     assertz(last_list_candidates(Names)).
 
 pokemon_info(Identifier, Pokemon) :-
+    cache_pokemon_info(Identifier, Pokemon),
+    !.
+
+pokemon_info(Identifier, Pokemon) :-
     number(Identifier),
     !,
     ( pokemon_in_scope(Identifier, Name, Height, Weight, Types, Abilities, Stats)
     ; pokemon(Identifier, Name, Height, Weight, Types, Abilities, Stats)
     ),
-    Pokemon = pokemon(Identifier, Name, Height, Weight, Types, Abilities, Stats).
+    Pokemon = pokemon(Identifier, Name, Height, Weight, Types, Abilities, Stats),
+    ( cache_pokemon_info(Identifier, _) -> true ; assertz(cache_pokemon_info(Identifier, Pokemon)) ).
+
 pokemon_info(Identifier, Pokemon) :-
     downcase_atom(Identifier, Name),
     ( pokemon_in_scope(ID, Name, Height, Weight, Types, Abilities, Stats)
     ; pokemon(ID, Name, Height, Weight, Types, Abilities, Stats)
     ),
-    Pokemon = pokemon(ID, Name, Height, Weight, Types, Abilities, Stats).
+    Pokemon = pokemon(ID, Name, Height, Weight, Types, Abilities, Stats),
+    ( cache_pokemon_info(Identifier, _) -> true ; assertz(cache_pokemon_info(Identifier, Pokemon)) ).
 
 type_pokemon_count(Type, Count) :-
     current_generation_key(GenerationKey),
@@ -2424,7 +2445,12 @@ type_effectiveness_summary(DefenseTypes, Weaknesses, Resistances, Immunities) :-
         Immunities).
 
 combined_multiplier(AttackType, DefenseTypes, Multiplier) :-
-    foldl(type_multiplier_fold(AttackType), DefenseTypes, 1.0, Multiplier).
+    sort(DefenseTypes, DefenseKey),
+    ( cache_combined_multiplier(AttackType, DefenseKey, Multiplier) ->
+        true
+    ; foldl(type_multiplier_fold(AttackType), DefenseKey, 1.0, Multiplier),
+      assertz(cache_combined_multiplier(AttackType, DefenseKey, Multiplier))
+    ).
 
 type_multiplier_fold(AttackType, DefenseType, Acc, Result) :-
     type_multiplier(AttackType, DefenseType, ThisMultiplier),

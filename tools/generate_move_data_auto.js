@@ -924,6 +924,8 @@ function renderAutoData(rows) {
     '',
     ':- multifile move_data_auto/11.',
     ':- multifile move_effect/6.',
+    ':- discontiguous move_data_auto/11.',
+    ':- discontiguous move_effect/6.',
     '',
     '% Arquivo gerado automaticamente por tools/generate_move_data_auto.js',
     '% Fonte: db/catalogs/moves_catalog.pl + db/generated/move_markers.pl + db/catalogs/move_tactical_catalog.pl',
@@ -932,23 +934,26 @@ function renderAutoData(rows) {
     ''
   ].join('\n');
 
+  // Group all move_data_auto facts first, then move_effect facts to avoid
+  // interleaving predicates (helps partitioning and avoids discontiguous warnings).
   const sortedRows = [...rows].sort((a, b) => a.move.localeCompare(b.move));
-  const facts = [];
+  const dataFacts = [];
+  const effectFacts = [];
 
   for (const row of sortedRows) {
     const tagsText = row.tags.join(', ');
     const effectChanceText = Number.isFinite(row.effectChance) ? String(Math.round(row.effectChance)) : 'null';
 
-    facts.push(
+    dataFacts.push(
       `move_data_auto(${row.move}, ${row.type}, ${row.category}, ${row.basePower}, ${row.accuracy}, ${row.pp}, [${tagsText}], ${effectChanceText}, ${row.ailment}, ${row.effectCategory}, ${prologQuotedText(row.description)}).`
     );
 
-    facts.push(
+    effectFacts.push(
       `move_effect(${row.move}, ${row.semanticCategory}, ${row.trigger}, [${row.combatModel.join(', ')}], ${prologQuotedText(row.description)}, ${row.confidence}).`
     );
   }
 
-  return `${header}${facts.join('\n')}\n`;
+  return `${header}${dataFacts.join('\n')}\n\n${effectFacts.join('\n')}\n`;
 }
 
 function main() {
