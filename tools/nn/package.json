@@ -1,0 +1,13 @@
+{
+  "name": "pokefiles-nn-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NN data export tools",
+  "license": "MIT",
+  "scripts": {
+    "export-nn": "node export_nn_data.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0"
+  }
+}
