@@ -239,6 +239,243 @@ pairs_to_jsonlist([Score-CID-Name-AM-DM-AP-DP-Types-Gen | Rest], Rank, [_{rank:R
   Rank1 is Rank + 1,
   pairs_to_jsonlist(Rest, Rank1, Tail).
 
+% ---------------------------------------------------------------------------
+% DOUBLES SYNERGY DATASET
+% ---------------------------------------------------------------------------
+:- ensure_loaded('../engines/doubles_strategy_engine.pl').
+
+export_doubles_synergy_dataset(File, MaxPairs) :-
+    with_project_root(
+      ( load_database_from_root,
+        findall(ID, pokemon_in_scope(ID, _, _, _, _, _, _), AllRaw),
+        sort(AllRaw, All),
+        get_export_time(ExportTime),
+        get_engine_version(EngineVersion),
+        absolute_file_name(File, Abs, [access(write), file_errors(fail)]),
+        open(Abs, write, Stream, [encoding(utf8)]),
+        export_synergy_pairs(Stream, All, MaxPairs, ExportTime, EngineVersion, 0, Total),
+        close(Stream),
+        format('EXPORT_SYNERGY: total_written=~w~n', [Total])
+      )
+    ).
+
+export_synergy_pairs(_Stream, [], _Max, _T, _Ev, Total, Total).
+export_synergy_pairs(Stream, [A | Rest], Max, ExportTime, EngineVersion, Acc, Total) :-
+    ( pokemon_info(A, pokemon(_, NameA, _H, _W, TypesA, AbilitiesA, StatsA)) ->
+        export_synergy_for_anchor(Stream, A, NameA, TypesA, AbilitiesA, StatsA, Rest, Max, ExportTime, EngineVersion, Written),
+        Acc1 is Acc + Written
+    ; Acc1 = Acc
+    ),
+    export_synergy_pairs(Stream, Rest, Max, ExportTime, EngineVersion, Acc1, Total).
+
+export_synergy_for_anchor(_Stream, _A, _NameA, _TypesA, _AbilitiesA, _StatsA, [], _Max, _T, _Ev, 0).
+export_synergy_for_anchor(Stream, IDA, NameA, TypesA, AbilitiesA, StatsA, Candidates, Max, ExportTime, EngineVersion, Written) :-
+    findall(
+        Score-IDB-NameB-TypesB-Breakdown,
+        ( member(IDB, Candidates),
+          IDB @> IDA,
+          pokemon_info(IDB, pokemon(_, NameB, _H, _W, TypesB, AbilitiesB, StatsB)),
+          catch(
+            pair_synergy_breakdown(IDA, NameA, TypesA, AbilitiesA, StatsA,
+                                   IDB, NameB, TypesB, AbilitiesB, StatsB,
+                                   Score, Breakdown),
+            _, fail
+          )
+        ),
+        PairsRaw
+    ),
+    ( PairsRaw == [] -> Written = 0
+    ; keysort(PairsRaw, PairsAsc),
+      reverse(PairsAsc, PairsDesc),
+      ( Max > 0 -> take_first_n(PairsDesc, Max, TopPairs) ; TopPairs = PairsDesc ),
+      maplist(
+        [P]>>(
+          P = Score-IDB-NameB-TypesB-Breakdown,
+          Dict = _{
+            source_rule: 'doubles_strategy_engine/pair_synergy_breakdown',
+            export_time: ExportTime,
+            engine_version: EngineVersion,
+            input: _{pokemon_a: IDA, name_a: NameA, types_a: TypesA,
+                     pokemon_b: IDB, name_b: NameB, types_b: TypesB},
+            output: _{score: Score, synergy_breakdown: Breakdown}
+          },
+          write_json_line(Stream, Dict)
+        ),
+        TopPairs
+      ),
+      length(TopPairs, Written)
+    ).
+
+% ---------------------------------------------------------------------------
+% HELD ITEM DATASET
+% ---------------------------------------------------------------------------
+:- ensure_loaded('../engines/held_item_engine.pl').
+
+export_held_item_dataset(File, MaxPerPokemon) :-
+    with_project_root(
+      ( load_database_from_root,
+        findall(ID, pokemon_in_scope(ID, _, _, _, _, _, _), AllRaw),
+        sort(AllRaw, All),
+        get_export_time(ExportTime),
+        get_engine_version(EngineVersion),
+        absolute_file_name(File, Abs, [access(write), file_errors(fail)]),
+        open(Abs, write, Stream, [encoding(utf8)]),
+        export_held_items_for_all(Stream, All, MaxPerPokemon, ExportTime, EngineVersion, 0, Total),
+        close(Stream),
+        format('EXPORT_HELD_ITEM: total_written=~w~n', [Total])
+      )
+    ).
+
+export_held_items_for_all(_Stream, [], _Max, _T, _Ev, Total, Total).
+export_held_items_for_all(Stream, [ID | Rest], Max, ExportTime, EngineVersion, Acc, Total) :-
+    ( pokemon_info(ID, pokemon(_, NameAtom, _H, _W, Types, Abilities, Stats)) ->
+        catch(
+          ( held_item_recommendations_for_pokemon(
+              ID, NameAtom, Types, Abilities, Stats,
+              general, flexible, [], Recommendations
+            ),
+            ( Max > 0 -> take_first_n(Recommendations, Max, TopRecs) ; TopRecs = Recommendations ),
+            maplist(
+              [R]>>(
+                R = Score-Item-Objective-Reason,
+                Dict = _{
+                  source_rule: 'held_item_engine/held_item_recommendations_for_pokemon',
+                  export_time: ExportTime,
+                  engine_version: EngineVersion,
+                  input: _{pokemon_id: ID, pokemon_name: NameAtom, types: Types},
+                  output: _{item_id: Item, score: Score, objective: Objective, reason: Reason}
+                },
+                write_json_line(Stream, Dict)
+              ),
+              TopRecs
+            ),
+            length(TopRecs, Written)
+          ),
+          _, Written = 0
+        ),
+        Acc1 is Acc + Written
+    ; Acc1 = Acc
+    ),
+    export_held_items_for_all(Stream, Rest, Max, ExportTime, EngineVersion, Acc1, Total).
+
+% ---------------------------------------------------------------------------
+% ROLE DATASET
+% ---------------------------------------------------------------------------
+:- ensure_loaded('../engines/role_engine.pl').
+
+export_role_dataset(File) :-
+    with_project_root(
+      ( load_database_from_root,
+        findall(ID, pokemon_in_scope(ID, _, _, _, _, _, _), AllRaw),
+        sort(AllRaw, All),
+        get_export_time(ExportTime),
+        get_engine_version(EngineVersion),
+        absolute_file_name(File, Abs, [access(write), file_errors(fail)]),
+        open(Abs, write, Stream, [encoding(utf8)]),
+        export_roles_for_all(Stream, All, ExportTime, EngineVersion, 0, Total),
+        close(Stream),
+        format('EXPORT_ROLE: total_written=~w~n', [Total])
+      )
+    ).
+
+export_roles_for_all(_Stream, [], _T, _Ev, Total, Total).
+export_roles_for_all(Stream, [ID | Rest], ExportTime, EngineVersion, Acc, Total) :-
+    ( pokemon_info(ID, pokemon(_, Name, _H, _W, Types, _Abs, Stats)) ->
+        catch(
+          ( compare_role_key(ID, Stats, Role, Bucket),
+            role_label(Role, RoleText),
+            stat_value(Stats, hp, HP),
+            stat_value(Stats, attack, Atk),
+            stat_value(Stats, defense, Def),
+            stat_value(Stats, special_attack, SpAtk),
+            stat_value(Stats, special_defense, SpDef),
+            stat_value(Stats, speed, Speed),
+            OffensePeak is max(Atk, SpAtk),
+            BulkAvg is (HP + Def + SpDef) / 3.0,
+            Dict = _{
+              source_rule: 'role_engine/compare_role_key',
+              export_time: ExportTime,
+              engine_version: EngineVersion,
+              input: _{
+                pokemon_id: ID, name: Name, types: Types,
+                base_stats: _{hp:HP, attack:Atk, defense:Def,
+                              special_attack:SpAtk, special_defense:SpDef, speed:Speed}
+              },
+              output: _{role: Role, role_label: RoleText, bucket: Bucket,
+                        offense_peak: OffensePeak, bulk_avg: BulkAvg}
+            },
+            write_json_line(Stream, Dict),
+            Written = 1
+          ),
+          _, Written = 0
+        ),
+        Acc1 is Acc + Written
+    ; Acc1 = Acc
+    ),
+    export_roles_for_all(Stream, Rest, ExportTime, EngineVersion, Acc1, Total).
+
+% ---------------------------------------------------------------------------
+% MATCHUP DATASET
+% ---------------------------------------------------------------------------
+:- ensure_loaded('../engines/matchup_engine.pl').
+
+export_matchup_dataset(File, MaxPerTarget) :-
+    with_project_root(
+      ( load_database_from_root,
+        findall(ID, pokemon_in_scope(ID, _, _, _, _, _, _), AllRaw),
+        sort(AllRaw, All),
+        get_export_time(ExportTime),
+        get_engine_version(EngineVersion),
+        absolute_file_name(File, Abs, [access(write), file_errors(fail)]),
+        open(Abs, write, Stream, [encoding(utf8)]),
+        export_matchups_for_all(Stream, All, MaxPerTarget, ExportTime, EngineVersion, 0, Total),
+        close(Stream),
+        format('EXPORT_MATCHUP: total_written=~w~n', [Total])
+      )
+    ).
+
+export_matchups_for_all(_Stream, [], _Max, _T, _Ev, Total, Total).
+export_matchups_for_all(Stream, [TargetID | Rest], Max, ExportTime, EngineVersion, Acc, Total) :-
+    ( pokemon_info(TargetID, pokemon(_, TargetName, _H, _W, TargetTypes, _TAbs, TargetStats)) ->
+        findall(
+            AttP-DefP-CID,
+            ( member(CID, Rest),
+              pokemon_info(CID, pokemon(_, _CName, _H, _W, CTypes, _CAbs, CStats)),
+              catch(
+                counter_metrics(CID, CTypes, CStats, TargetID, TargetTypes, TargetStats,
+                                _AttMult, _DefMult, AttP, DefP),
+                _, fail
+              )
+            ),
+            MatchupsRaw
+        ),
+        ( MatchupsRaw == [] -> Written = 0
+        ; msort(MatchupsRaw, MSorted),
+          reverse(MSorted, Desc),
+          ( Max > 0 -> take_first_n(Desc, Max, Top) ; Top = Desc ),
+          maplist(
+            [M]>>(
+              M = AP-DP-CID,
+              pokemon_info(CID, pokemon(_, CName, _H, _W, CTypes, _CAbs, _)),
+              Dict = _{
+                source_rule: 'matchup_engine/counter_metrics',
+                export_time: ExportTime,
+                engine_version: EngineVersion,
+                input: _{target_id: TargetID, target_name: TargetName, target_types: TargetTypes,
+                         candidate_id: CID, candidate_name: CName, candidate_types: CTypes},
+                output: _{attack_pressure: AP, defense_pressure: DP}
+              },
+              write_json_line(Stream, Dict)
+            ),
+            Top
+          ),
+          length(Top, Written)
+        ),
+        Acc1 is Acc + Written
+    ; Acc1 = Acc
+    ),
+    export_matchups_for_all(Stream, Rest, Max, ExportTime, EngineVersion, Acc1, Total).
+
 % CLI entry (sample run)
 main :-
     format('training_export: loading DB and exporting COUNTERS (sample)...~n'),

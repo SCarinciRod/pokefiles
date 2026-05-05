@@ -2,12 +2,22 @@
   "name": "pokefiles-nn-tools",
   "version": "0.1.0",
   "private": true,
-  "description": "NN data export tools",
+  "description": "NN data export and engine tools",
   "license": "MIT",
   "scripts": {
-    "export-nn": "node export_nn_data.js"
+    "export-nn": "node export_nn_data.js",
+    "export-rule-training": "node export_rule_training.js",
+    "export-intent-training": "node export_intent_training.js",
+    "engine-smoke": "ts-node engine_smoke.ts",
+    "bridge": "ts-node bridge.ts"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.9",
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
   }
 }
