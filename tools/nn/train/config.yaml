@@ -1,0 +1,37 @@
+paths:
+  data_dir: "../../../.local_cache/nn_export/data"
+  training_dir: "../../../.local_cache/nn_export/training"
+  models_dir: "../../../.local_cache/nn_models"
+
+nlu:
+  base_model: "paraphrase-multilingual-MiniLM-L12-v2"
+  max_seq_length: 64
+  batch_size: 32
+  epochs: 10
+  learning_rate: 2.0e-5
+  warmup_ratio: 0.1
+  eval_split: 0.15
+  target_accuracy: 0.95
+  output_dir: "../../../.local_cache/nn_models/nlu"
+  quantize: true
+
+strategy:
+  # LightGBM baseline (fast, interpretable)
+  lgbm:
+    num_leaves: 63
+    n_estimators: 500
+    learning_rate: 0.05
+    min_child_samples: 20
+    subsample: 0.8
+    colsample_bytree: 0.8
+  # MLP (NN model)
+  mlp:
+    hidden_dims: [256, 128, 64]
+    dropout: 0.3
+    batch_size: 128
+    epochs: 30
+    learning_rate: 1.0e-3
+  eval_split: 0.15
+  target_ndcg: 0.85
+  output_dir: "../../../.local_cache/nn_models/strategy"
+  quantize: false

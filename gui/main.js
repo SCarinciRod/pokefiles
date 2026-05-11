@@ -24,13 +24,6 @@ function getRepoRoot() {
   return path.resolve(__dirname, '..');
 }
 
-function getBridgePath() {
-  if (app.isPackaged) {
-    return path.join(getRepoRoot(), 'gui', 'prolog_bridge.pl');
-  }
-  return path.join(__dirname, 'prolog_bridge.pl');
-}
-
 function getLocalUserBaseDir() {
   const localBase = process.env.LOCALAPPDATA || process.env.APPDATA;
   if (localBase) {
@@ -58,24 +51,7 @@ function resolveNodeCommand() {
   return 'node';
 }
 
-function resolveSwiplCommand() {
-  const userBaseDir = getLocalUserBaseDir();
-  const localAppData = process.env.LOCALAPPDATA;
 
-  const scoopSwipl = localAppData
-    ? path.join(localAppData, 'scoop', 'apps', 'swipl', 'current', 'bin', 'swipl.exe')
-    : null;
-  if (scoopSwipl && fs.existsSync(scoopSwipl)) {
-    return scoopSwipl;
-  }
-
-  const portableSwipl = path.join(userBaseDir, 'portable', 'swipl', 'bin', 'swipl.exe');
-  if (fs.existsSync(portableSwipl)) {
-    return portableSwipl;
-  }
-
-  return 'swipl';
-}
 
 function getSpriteDir() {
   const userBaseDir = getLocalUserBaseDir();
@@ -254,15 +230,15 @@ function startProlog() {
   }
 
   const repoRoot = getRepoRoot();
-  const bridgePath = getBridgePath();
-  const swiplCommand = resolveSwiplCommand();
+  const bridgeTsPath = path.join(repoRoot, 'tools', 'nn', 'bridge.ts');
+  const nodeCommand = resolveNodeCommand();
 
-  if (!fs.existsSync(bridgePath)) {
-    throw new Error(`Bridge Prolog não encontrado em: ${bridgePath}`);
+  if (!fs.existsSync(bridgeTsPath)) {
+    throw new Error(`Bridge TypeScript não encontrado em: ${bridgeTsPath}`);
   }
 
-  prologProcess = spawn(swiplCommand, ['-q', '-s', bridgePath], {
-    cwd: repoRoot,
+  prologProcess = spawn(nodeCommand, ['-r', 'ts-node/register', bridgeTsPath], {
+    cwd: path.join(repoRoot, 'tools', 'nn'),
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true
   });
@@ -279,7 +255,7 @@ function startProlog() {
   prologProcess.on('exit', () => {
     prologProcess = null;
     while (responseQueue.length > 0) {
-      rejectNextResponse(new Error('Processo Prolog foi encerrado.'));
+      rejectNextResponse(new Error('Processo bridge foi encerrado.'));
     }
   });
 }
@@ -287,7 +263,7 @@ function startProlog() {
 function sendBridgeCommand(command, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
     if (!prologProcess || !prologProcess.stdin.writable) {
-      reject(new Error('Bridge Prolog não está disponível.'));
+      reject(new Error('Bridge não está disponível.'));
       return;
     }
 

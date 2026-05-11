@@ -1,5 +1,6 @@
 # GUI build and dependency artifacts
 /gui/node_modules/
+/tools/nn/node_modules/
 /gui/dist/
 /gui/dist-latest/
 /gui/dist-runtime/

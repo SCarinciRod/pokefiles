@@ -7,6 +7,7 @@ main :-
     configure_text_encoding,
     load_database,
     set_default_generation,
+    ( \+ debug_intent_trace(true) -> assertz(debug_intent_trace(true)) ; true ),
     bridge_loop.
 
 bridge_loop :-

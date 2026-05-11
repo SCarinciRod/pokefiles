@@ -1,5 +1,7 @@
 :- encoding(utf8).
 
+:- dynamic cache_offensive_coverage/2.
+
 handle_pending_rank_focus(Text) :-
     pending_rank_focus(Role, Limit, Generation),
     !,
@@ -504,10 +506,7 @@ coverage_pair_label(Multiplier-Type, Label) :-
     format(atom(Label), '~w (~w)', [TypeLabel, MultText]).
 
 greedy_coverage_team(Size, Team) :-
-    findall(Name,
-        pokemon_in_scope(_ID, Name, _Height, _Weight, _Types, _Abilities, _Stats),
-        NamesRaw),
-    sort(NamesRaw, Names),
+    ( setof(Name, ID^pokemon_in_scope(ID, Name, _Height, _Weight, _Types, _Abilities, _Stats), Names) -> true ; Names = [] ),
     greedy_coverage_team(Names, [], [], Size, Team).
 
 greedy_coverage_team(_Pool, TeamAcc, _Covered, 0, Team) :-
@@ -525,27 +524,44 @@ greedy_coverage_team(_Pool, TeamAcc, _Covered, _SlotsLeft, Team) :-
     reverse(TeamAcc, Team).
 
 best_coverage_pick(Pool, Covered, BestName, BestNewCovered) :-
-    findall(NewCount-Name-NewCovered,
-        ( member(Name, Pool),
-          pokemon_info(Name, pokemon(_, _, _, _, Types, _, _)),
-          offensive_coverage_types(Types, Coverage),
-          subtract(Coverage, Covered, NewCovered),
-          length(NewCovered, NewCount)
-        ),
-        Candidates),
-    keysort(Candidates, Sorted),
-    reverse(Sorted, [_BestCount-BestName-BestNewCovered | _]).
+    best_coverage_pick_acc(Pool, Covered, -1, none, [], BestName, BestNewCovered).
+
+best_coverage_pick_acc([], _Covered, -1, _NoName, _NoCovered, _BestName, _BestNewCovered) :-
+    !, fail.
+best_coverage_pick_acc([], _Covered, BestCount, BestNameAcc, BestNewCoveredAcc, BestNameAcc, BestNewCoveredAcc) :-
+    BestCount >= 0.
+best_coverage_pick_acc([Name|Rest], Covered, CurrBestCount, CurrBestName, CurrBestNewCovered, BestName, BestNewCovered) :-
+    ( pokemon_info(Name, pokemon(_, _, _, _, Types, _, _)) ->
+        offensive_coverage_types(Types, Coverage),
+        subtract(Coverage, Covered, NewCovered),
+        length(NewCovered, NewCount)
+    ; NewCount = 0, NewCovered = []
+    ),
+    ( CurrBestCount < NewCount ->
+        NextBestCount = NewCount,
+        NextBestName = Name,
+        NextBestNewCovered = NewCovered
+    ; NextBestCount = CurrBestCount,
+      NextBestName = CurrBestName,
+      NextBestNewCovered = CurrBestNewCovered
+    ),
+    best_coverage_pick_acc(Rest, Covered, NextBestCount, NextBestName, NextBestNewCovered, BestName, BestNewCovered).
 
 offensive_coverage_types(AttackTypes, CoveredTypes) :-
-    all_types(TargetTypes),
-    findall(TargetType,
-        ( member(TargetType, TargetTypes),
-          member(AttackType, AttackTypes),
-          combined_multiplier(AttackType, [TargetType], Multiplier),
-          Multiplier > 1.0
-        ),
-        CoveredRaw),
-    sort(CoveredRaw, CoveredTypes).
+        sort(AttackTypes, AttackKey),
+        ( cache_offensive_coverage(AttackKey, CoveredTypes) ->
+                true
+        ; all_types(TargetTypes),
+            findall(TargetType,
+                    ( member(TargetType, TargetTypes),
+                        member(AttackType, AttackKey),
+                        combined_multiplier(AttackType, [TargetType], Multiplier),
+                        Multiplier > 1.0
+                    ),
+                    CoveredRaw),
+            sort(CoveredRaw, CoveredTypes),
+            assertz(cache_offensive_coverage(AttackKey, CoveredTypes))
+        ).
 
 coverage_by_team(TeamNames, CoveredTypes) :-
     findall(Type,
