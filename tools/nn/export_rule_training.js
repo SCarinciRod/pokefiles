@@ -7,10 +7,14 @@
 //
 // The script spawns SWI-Prolog once per category and streams JSONL lines
 // from stdout. Prolog side must have training_export.pl loaded.
+//
+// Speed tier category uses DeterministicEngine + vgc_mechanics (no Prolog).
 
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+
+require('ts-node').register({ project: path.join(__dirname, 'tsconfig.json') });
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -219,6 +223,126 @@ function exportRankingTraining() {
 }
 
 // ---------------------------------------------------------------------------
+// Category: speed tier (pure TypeScript, no Prolog)
+// Generates turn-order examples under normal / tailwind / trick room field states.
+// Samples ~40 pokemon across speed tiers + priority move interaction.
+// ---------------------------------------------------------------------------
+function exportSpeedTierTraining() {
+  const outPath = path.join(OUTPUT_DIR, 'speed_tier_training.jsonl');
+  console.log('[speed_tier] exporting...');
+
+  const DEFAULT_DB = path.resolve(__dirname, '../../.local_cache/nn_export/pokefiles_nn.sqlite3');
+  const DB_PATH = process.env['BRIDGE_DB'] ?? DEFAULT_DB;
+
+  if (!fs.existsSync(DB_PATH)) {
+    console.error(`[speed_tier] SQLite not found: ${DB_PATH}`);
+    return 0;
+  }
+
+  const { DeterministicEngine } = require('./engine');
+  const { compareVGCActionOrder, createSpeedControlState, activateTailwind, activateTrickRoom } = require('./engine/vgc_mechanics');
+
+  const engine = new DeterministicEngine(DB_PATH);
+  const allPokemon = engine.getAllPokemon();
+
+  // Sample 40 pokemon spread across speed tiers
+  allPokemon.sort((a, b) => b.baseStats.speed - a.baseStats.speed);
+  const buckets = [
+    allPokemon.filter((p) => p.baseStats.speed >= 120).slice(0, 10),
+    allPokemon.filter((p) => p.baseStats.speed >= 90 && p.baseStats.speed < 120).slice(0, 10),
+    allPokemon.filter((p) => p.baseStats.speed >= 60 && p.baseStats.speed < 90).slice(0, 10),
+    allPokemon.filter((p) => p.baseStats.speed < 60).slice(0, 10),
+  ];
+  const sample = buckets.flat();
+
+  const FIELD_STATES = [
+    { label: 'normal',      state: createSpeedControlState() },
+    { label: 'tailwind',    state: activateTailwind(createSpeedControlState()) },
+    { label: 'trick_room',  state: activateTrickRoom(createSpeedControlState()) },
+  ];
+
+  const timestamp = new Date().toISOString();
+  const lines = [];
+
+  for (let i = 0; i < sample.length; i++) {
+    for (let j = i + 1; j < sample.length; j++) {
+      const pa = sample[i];
+      const pb = sample[j];
+      const statsA = engine.computeStats(pa.baseStats, { level: 50 });
+      const statsB = engine.computeStats(pb.baseStats, { level: 50 });
+
+      for (const { label, state } of FIELD_STATES) {
+        // Normal move vs normal move (priority 0)
+        const profileA = { identifier: pa.identifier, stats: statsA, priority: 0, damage: 0 };
+        const profileB = { identifier: pb.identifier, stats: statsB, priority: 0, damage: 0 };
+        const order = compareVGCActionOrder(profileA, profileB, state);
+        const speedA = statsA.speed;
+        const speedB = statsB.speed;
+        const effA = label === 'tailwind' ? speedA * 2 : speedA;
+        const effB = label === 'tailwind' ? speedB * 2 : speedB;
+        const reason = effA === effB ? 'speed_tie'
+          : label === 'trick_room' ? 'lower_speed_trick_room'
+          : 'higher_speed';
+
+        lines.push(JSON.stringify({
+          source_rule: 'speed_tier/vgc',
+          export_time: timestamp,
+          input: {
+            pokemon_a: pa.identifier,
+            speed_a: speedA,
+            priority_a: 0,
+            pokemon_b: pb.identifier,
+            speed_b: speedB,
+            priority_b: 0,
+            field: label,
+          },
+          output: {
+            first: order === 'first' ? pa.identifier : pb.identifier,
+            reason,
+          },
+        }));
+      }
+
+      // Priority move interaction: priority +1 always goes first regardless of speed
+      const fastA = statsA.speed > statsB.speed ? pa : pb;
+      const slowB = statsA.speed > statsB.speed ? pb : pa;
+      const fastStats = statsA.speed > statsB.speed ? statsA : statsB;
+      const slowStats = statsA.speed > statsB.speed ? statsB : statsA;
+
+      if (fastStats.speed !== slowStats.speed) {
+        const priorityProfile = { identifier: slowB.identifier, stats: slowStats, priority: 1, damage: 0 };
+        const normalProfile  = { identifier: fastA.identifier, stats: fastStats, priority: 0, damage: 0 };
+        const prioOrder = compareVGCActionOrder(priorityProfile, normalProfile, createSpeedControlState());
+
+        lines.push(JSON.stringify({
+          source_rule: 'speed_tier/vgc',
+          export_time: timestamp,
+          input: {
+            pokemon_a: slowB.identifier,
+            speed_a: slowStats.speed,
+            priority_a: 1,
+            pokemon_b: fastA.identifier,
+            speed_b: fastStats.speed,
+            priority_b: 0,
+            field: 'normal',
+          },
+          output: {
+            first: prioOrder === 'first' ? slowB.identifier : fastA.identifier,
+            reason: 'higher_priority',
+          },
+        }));
+      }
+    }
+  }
+
+  engine.close();
+
+  fs.writeFileSync(outPath, lines.join('\n') + (lines.length ? '\n' : ''), 'utf8');
+  console.log(`[speed_tier] done — ${lines.length} lines → ${outPath}`);
+  return lines.length;
+}
+
+// ---------------------------------------------------------------------------
 // Manifest
 // ---------------------------------------------------------------------------
 function writeManifest(results) {
@@ -248,6 +372,7 @@ function main() {
   results.role = exportRoleTraining();
   results.matchup = exportMatchupTraining();
   results.ranking = exportRankingTraining();
+  results.speed_tier = exportSpeedTierTraining();
 
   writeManifest(results);
 

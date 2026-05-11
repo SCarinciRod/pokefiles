@@ -185,6 +185,28 @@ CREATE TABLE IF NOT EXISTS held_item_effects (
   FOREIGN KEY (item_id) REFERENCES items(id)
 );
 
+CREATE TABLE IF NOT EXISTS pokemon_evolution (
+  from_id   INTEGER NOT NULL,
+  to_id     INTEGER NOT NULL,
+  trigger   TEXT NOT NULL,
+  min_level INTEGER,
+  condition TEXT,
+  PRIMARY KEY (from_id, to_id, trigger, condition)
+);
+
+CREATE TABLE IF NOT EXISTS pokemon_lore (
+  pokemon_id INTEGER NOT NULL,
+  slot       INTEGER NOT NULL,
+  entry      TEXT NOT NULL,
+  PRIMARY KEY (pokemon_id, slot)
+);
+
+CREATE TABLE IF NOT EXISTS pokemon_forms (
+  form_id   INTEGER PRIMARY KEY,
+  base_id   INTEGER NOT NULL,
+  form_type TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_pokemon_identifier ON pokemon(identifier);
 CREATE INDEX IF NOT EXISTS idx_pokemon_types_type ON pokemon_types(type_id);
 CREATE INDEX IF NOT EXISTS idx_pokemon_moves_move ON pokemon_moves(move_id);

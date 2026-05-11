@@ -384,6 +384,11 @@ export class DeterministicEngine {
     return this.typeChart;
   }
 
+  /** Run an arbitrary SELECT and return all rows. For export scripts only — not for production use. */
+  queryAll<T = Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
+    return this.db.prepare(sql).all(...params) as T[];
+  }
+
   close(): void {
     this.db.close();
   }

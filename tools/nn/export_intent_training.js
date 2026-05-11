@@ -117,12 +117,101 @@ const GOLDEN_EXAMPLES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Confusion study set — 54 examples from tests/intent_confusion_study.pl
+// Intent class mapping: rules→tournament_rules_query, strategy→doubles_strategy_query,
+//   held_item_recommendation→held_item_query, specific_item_detail→item_info_query,
+//   specific_move_detail→move_info_query, pokemon_movelist→move_query,
+//   global_movelist→move_list_query, ability_details→ability_query, ability_catalog→ability_info
+// ---------------------------------------------------------------------------
+const CONFUSION_STUDY_EXAMPLES = [
+  // rules
+  { text: 'regras vgc de tempo de movimento',          intent: 'tournament_rules_query', slots: { topic: 'time_limit' } },
+  { text: 'manual vgc sobre bo3 e topcut',             intent: 'tournament_rules_query', slots: { topic: 'bo3' } },
+  { text: 'penalidades no torneio vgc',                intent: 'tournament_rules_query', slots: { topic: 'penalties' } },
+  { text: 'como funciona team list no vgc',            intent: 'tournament_rules_query', slots: { topic: 'team_list' } },
+  { text: 'o que e morte subita no vgc',               intent: 'tournament_rules_query', slots: { topic: 'sudden_death' } },
+  { text: 'juiz pode desclassificar no vgc',           intent: 'tournament_rules_query', slots: { topic: 'disqualification' } },
+  // strategy
+  { text: 'qual estrategia de speed control no vgc doubles', intent: 'doubles_strategy_query', slots: { topic: 'speed_control' } },
+  { text: 'como lidar com trick room em dupla',        intent: 'doubles_strategy_query', slots: { topic: 'trick_room' } },
+  { text: 'sinergia entre tyranitar e garchomp',       intent: 'doubles_synergy_query',  slots: { pokemon_a: 'tyranitar', pokemon_b: 'garchomp' } },
+  { text: 'parceiros para tyranitar',                  intent: 'doubles_partner_query',  slots: { name: 'tyranitar' } },
+  { text: 'plano de jogo para doubles com chuva',      intent: 'doubles_strategy_query', slots: { topic: 'rain_team' } },
+  { text: 'ajuste de bo3 no vgc doubles',              intent: 'doubles_strategy_query', slots: { topic: 'bo3' } },
+  // held item recommendation
+  { text: 'melhor item para hawlucha',                 intent: 'held_item_query', slots: { name: 'hawlucha', strategy: 'general' } },
+  { text: 'quais itens para cobrir fraqueza do dragonite', intent: 'held_item_query', slots: { name: 'dragonite', strategy: 'cover_weakness' } },
+  { text: 'melhor black sludge para toxapex',          intent: 'held_item_query', slots: { name: 'toxapex', item: 'black_sludge' } },
+  { text: 'qual held item combina com pelipper',       intent: 'held_item_query', slots: { name: 'pelipper', strategy: 'general' } },
+  { text: 'item para ferrothorn segurar melhor',       intent: 'held_item_query', slots: { name: 'ferrothorn', strategy: 'general' } },
+  { text: 'quero item para fortalecer o charizard',    intent: 'held_item_query', slots: { name: 'charizard', strategy: 'offensive' } },
+  // specific item detail
+  { text: 'o que faz black sludge',                   intent: 'item_info_query', slots: { item: 'black_sludge' } },
+  { text: 'efeito de focus sash',                     intent: 'item_info_query', slots: { item: 'focus_sash' } },
+  { text: 'como funciona choice scarf',               intent: 'item_info_query', slots: { item: 'choice_scarf' } },
+  { text: 'detalhes do assault vest',                 intent: 'item_info_query', slots: { item: 'assault_vest' } },
+  { text: 'descricao de leftovers',                   intent: 'item_info_query', slots: { item: 'leftovers' } },
+  { text: 'info sobre air balloon',                   intent: 'item_info_query', slots: { item: 'air_balloon' } },
+  // specific move detail
+  { text: 'qual o efeito de thunder wave',            intent: 'move_info_query', slots: { move: 'thunder_wave' } },
+  { text: 'o que faz trick room',                     intent: 'move_info_query', slots: { move: 'trick_room' } },
+  { text: 'poder e precisao de hydro pump',           intent: 'move_info_query', slots: { move: 'hydro_pump' } },
+  { text: 'detalhes do move u turn',                  intent: 'move_info_query', slots: { move: 'u_turn' } },
+  { text: 'como funciona protect',                    intent: 'move_info_query', slots: { move: 'protect' } },
+  { text: 'informacoes de stealth rock',              intent: 'move_info_query', slots: { move: 'stealth_rock' } },
+  // pokemon movelist
+  { text: 'moves do charizard',                       intent: 'move_query', slots: { name: 'charizard' } },
+  { text: 'golpes do garchomp',                       intent: 'move_query', slots: { name: 'garchomp' } },
+  { text: 'movelist do pelipper',                     intent: 'move_query', slots: { name: 'pelipper' } },
+  { text: 'moveset do tyranitar',                     intent: 'move_query', slots: { name: 'tyranitar' } },
+  { text: 'quais moves do ferrothorn',                intent: 'move_query', slots: { name: 'ferrothorn' } },
+  { text: 'lista de golpes do toxapex',               intent: 'move_query', slots: { name: 'toxapex' } },
+  // global movelist
+  { text: 'lista de moves',                           intent: 'move_list_query', slots: {} },
+  { text: 'listar todos os golpes do jogo',           intent: 'move_list_query', slots: {} },
+  { text: 'moves presentes no jogo',                  intent: 'move_list_query', slots: {} },
+  { text: 'lista geral de golpes',                    intent: 'move_list_query', slots: {} },
+  { text: 'mostrar lista de moves',                   intent: 'move_list_query', slots: {} },
+  { text: 'quais sao os moves catalogados',           intent: 'move_list_query', slots: {} },
+  // ability details (pokemon-specific)
+  { text: 'o que faz a passiva do tyranitar',         intent: 'ability_query', slots: { name: 'tyranitar' } },
+  { text: 'clear body do metagross faz o que',        intent: 'ability_query', slots: { name: 'metagross', ability: 'clear_body' } },
+  { text: 'efeito da habilidade do ferrothorn',       intent: 'ability_query', slots: { name: 'ferrothorn' } },
+  { text: 'como funciona drizzle do pelipper',        intent: 'ability_query', slots: { name: 'pelipper', ability: 'drizzle' } },
+  { text: 'o que faz iron barbs do ferrothorn',       intent: 'ability_query', slots: { name: 'ferrothorn', ability: 'iron_barbs' } },
+  { text: 'habilidades do toxapex e o que fazem',     intent: 'ability_query', slots: { name: 'toxapex' } },
+  // ability catalog (move-catalog style queries)
+  { text: 'ability intimidate',                       intent: 'ability_info', slots: { ability: 'intimidate' } },
+  { text: 'habilidade levitate',                      intent: 'ability_info', slots: { ability: 'levitate' } },
+  { text: 'efeito da ability clear body',             intent: 'ability_info', slots: { ability: 'clear_body' } },
+  { text: 'o que faz unburden',                       intent: 'ability_info', slots: { ability: 'unburden' } },
+  { text: 'info sobre rough skin',                    intent: 'ability_info', slots: { ability: 'rough_skin' } },
+  { text: 'detalhes da habilidade drought',           intent: 'ability_info', slots: { ability: 'drought' } },
+];
+
+// ---------------------------------------------------------------------------
 // Template expansion — generates variations for core intents
 // ---------------------------------------------------------------------------
 const POKEMON_SAMPLE = [
   'pikachu', 'charizard', 'garchomp', 'togekiss', 'tyranitar',
-  'dragonite', 'metagross', 'gardevoir', 'incineroar', 'urshifu',
-  'rillaboom', 'landorus', 'calyrex', 'zacian', 'flutter_mane',
+  'dragonite', 'metagross', 'gardevoir', 'incineroar', 'urshifu_single_strike',
+  'rillaboom', 'ferrothorn', 'pelipper', 'toxapex', 'flutter_mane',
+  'hawlucha', 'kyogre', 'groudon', 'zacian', 'calyrex_shadow',
+];
+
+const ITEM_SAMPLE = [
+  'choice_scarf', 'choice_band', 'choice_specs', 'assault_vest', 'focus_sash',
+  'leftovers', 'rocky_helmet', 'life_orb', 'air_balloon', 'lum_berry',
+];
+
+const MOVE_SAMPLE = [
+  'protect', 'trick_room', 'tailwind', 'thunder_wave', 'earthquake',
+  'flamethrower', 'hydro_pump', 'moonblast', 'close_combat', 'u_turn',
+];
+
+const ABILITY_SAMPLE = [
+  'intimidate', 'levitate', 'drought', 'drizzle', 'sand_stream',
+  'clear_body', 'iron_barbs', 'regenerator', 'speed_boost', 'unburden',
 ];
 
 const TEMPLATE_RULES = [
@@ -189,8 +278,79 @@ const TEMPLATE_RULES = [
   },
 ];
 
+// Templates for intents that expand over items / moves / abilities (not pokemon names)
+const ITEM_TEMPLATE_RULES = [
+  {
+    intent: 'item_info_query',
+    patterns: [
+      (i) => `o que faz ${i.replace(/_/g, ' ')}`,
+      (i) => `efeito de ${i.replace(/_/g, ' ')}`,
+      (i) => `como funciona ${i.replace(/_/g, ' ')}`,
+      (i) => `detalhes do item ${i.replace(/_/g, ' ')}`,
+      (i) => `info sobre ${i.replace(/_/g, ' ')}`,
+    ],
+    slots: (i) => ({ item: i }),
+  },
+];
+
+const MOVE_TEMPLATE_RULES = [
+  {
+    intent: 'move_info_query',
+    patterns: [
+      (m) => `o que faz ${m.replace(/_/g, ' ')}`,
+      (m) => `efeito do move ${m.replace(/_/g, ' ')}`,
+      (m) => `como funciona ${m.replace(/_/g, ' ')}`,
+      (m) => `poder e precisao de ${m.replace(/_/g, ' ')}`,
+      (m) => `detalhes do golpe ${m.replace(/_/g, ' ')}`,
+    ],
+    slots: (m) => ({ move: m }),
+  },
+  {
+    intent: 'move_query',
+    patterns: [
+      (p) => `moves do ${p}`,
+      (p) => `golpes do ${p}`,
+      (p) => `movelist do ${p}`,
+      (p) => `moveset do ${p}`,
+      (p) => `quais golpes ${p} aprende`,
+    ],
+    slots: (p) => ({ name: p }),
+  },
+];
+
+const ABILITY_TEMPLATE_RULES = [
+  {
+    intent: 'ability_info',
+    patterns: [
+      (a) => `ability ${a.replace(/_/g, ' ')}`,
+      (a) => `habilidade ${a.replace(/_/g, ' ')}`,
+      (a) => `o que faz ${a.replace(/_/g, ' ')}`,
+      (a) => `efeito da ability ${a.replace(/_/g, ' ')}`,
+      (a) => `info sobre ${a.replace(/_/g, ' ')}`,
+    ],
+    slots: (a) => ({ ability: a }),
+  },
+];
+
+const VGC_TOPIC_EXAMPLES = [
+  { text: 'como montar um time vgc doubles',          intent: 'doubles_strategy_query', slots: { topic: 'team_building' } },
+  { text: 'o que e speed control em doubles',         intent: 'doubles_strategy_query', slots: { topic: 'speed_control' } },
+  { text: 'como usar trick room no doubles vgc',      intent: 'doubles_strategy_query', slots: { topic: 'trick_room' } },
+  { text: 'estrategia de tailwind no vgc',            intent: 'doubles_strategy_query', slots: { topic: 'tailwind' } },
+  { text: 'como funciona follow me no doubles',       intent: 'doubles_strategy_query', slots: { topic: 'follow_me' } },
+  { text: 'regras do formato vgc',                    intent: 'tournament_rules_query', slots: { topic: 'general' } },
+  { text: 'como funciona time limit no vgc',          intent: 'tournament_rules_query', slots: { topic: 'time_limit' } },
+  { text: 'regras do best of 3 vgc',                  intent: 'tournament_rules_query', slots: { topic: 'bo3' } },
+  { text: 'lista de moves',                           intent: 'move_list_query', slots: {} },
+  { text: 'todos os golpes do jogo',                  intent: 'move_list_query', slots: {} },
+  { text: 'catalogo de moves',                        intent: 'move_list_query', slots: {} },
+  { text: 'listar golpes disponiveis',                intent: 'move_list_query', slots: {} },
+];
+
 function expandTemplates() {
   const examples = [];
+
+  // Pokemon-based templates
   for (const rule of TEMPLATE_RULES) {
     for (const pokemon of POKEMON_SAMPLE) {
       for (const pattern of rule.patterns) {
@@ -204,6 +364,72 @@ function expandTemplates() {
       }
     }
   }
+
+  // Move-query templates (pokemon names as subject)
+  for (const rule of MOVE_TEMPLATE_RULES.filter((r) => r.intent === 'move_query')) {
+    for (const pokemon of POKEMON_SAMPLE) {
+      for (const pattern of rule.patterns) {
+        examples.push({
+          text: pattern(pokemon),
+          intent: rule.intent,
+          slots: rule.slots(pokemon),
+          confidence: 0.9,
+          source: 'template_expansion',
+        });
+      }
+    }
+  }
+
+  // Item info templates
+  for (const rule of ITEM_TEMPLATE_RULES) {
+    for (const item of ITEM_SAMPLE) {
+      for (const pattern of rule.patterns) {
+        examples.push({
+          text: pattern(item),
+          intent: rule.intent,
+          slots: rule.slots(item),
+          confidence: 0.9,
+          source: 'template_expansion',
+        });
+      }
+    }
+  }
+
+  // Move info templates
+  for (const rule of MOVE_TEMPLATE_RULES.filter((r) => r.intent === 'move_info_query')) {
+    for (const move of MOVE_SAMPLE) {
+      for (const pattern of rule.patterns) {
+        examples.push({
+          text: pattern(move),
+          intent: rule.intent,
+          slots: rule.slots(move),
+          confidence: 0.9,
+          source: 'template_expansion',
+        });
+      }
+    }
+  }
+
+  // Ability info templates
+  for (const rule of ABILITY_TEMPLATE_RULES) {
+    for (const ability of ABILITY_SAMPLE) {
+      for (const pattern of rule.patterns) {
+        examples.push({
+          text: pattern(ability),
+          intent: rule.intent,
+          slots: rule.slots(ability),
+          confidence: 0.9,
+          source: 'template_expansion',
+        });
+      }
+    }
+  }
+
+  // VGC topic fixed examples
+  for (const ex of VGC_TOPIC_EXAMPLES) {
+    examples.push({ ...ex, confidence: 0.9, source: 'template_expansion' });
+  }
+
   return examples;
 }
 
@@ -274,12 +500,19 @@ function main() {
     export_time: timestamp,
   }));
 
+  const confusionStudy = CONFUSION_STUDY_EXAMPLES.map((ex) => ({
+    ...ex,
+    confidence: ex.confidence ?? 1.0,
+    source: 'confusion_study',
+    export_time: timestamp,
+  }));
+
   const expanded = expandTemplates().map((ex) => ({
     ...ex,
     export_time: timestamp,
   }));
 
-  let combined = deduplicateByText([...golden, ...expanded]);
+  let combined = deduplicateByText([...golden, ...confusionStudy, ...expanded]);
 
   // 2. Optional Prolog verification on golden set
   if (!NO_PROLOG) {

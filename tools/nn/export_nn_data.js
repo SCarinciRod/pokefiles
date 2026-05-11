@@ -69,10 +69,37 @@ function listGenerationFiles() {
     .map((name) => path.join(dir, name));
 }
 
+function listEvolutionFiles() {
+  const dir = path.join(REPO_ROOT, 'db', 'generations', 'evolution');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((name) => /\.pl$/i.test(name))
+    .map((name) => path.join(dir, name));
+}
+
+function listLoreFiles() {
+  const dir = path.join(REPO_ROOT, 'db', 'generations', 'lore');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((name) => /\.pl$/i.test(name))
+    .map((name) => path.join(dir, name));
+}
+
+function listFormFiles() {
+  const dir = path.join(REPO_ROOT, 'db', 'forms');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter((name) => /\.pl$/i.test(name))
+    .map((name) => path.join(dir, name));
+}
+
 function collectInputFiles() {
   const files = [];
 
   files.push(...listGenerationFiles());
+  files.push(...listEvolutionFiles());
+  files.push(...listLoreFiles());
+  files.push(...listFormFiles());
   files.push(path.join(REPO_ROOT, 'db', 'catalogs', 'pokemon_movelists.pl'));
   files.push(path.join(REPO_ROOT, 'db', 'catalogs', 'moves_catalog.pl'));
   files.push(path.join(REPO_ROOT, 'db', 'catalogs', 'move_tactical_catalog.pl'));
@@ -477,6 +504,15 @@ function writeSqlite(dbPath, data, generatedAt) {
   const insertHeldItemEffects = db.prepare(
     'INSERT INTO held_item_effects (item_id, category, trigger, model_json, description, confidence) VALUES (@item_id, @category, @trigger, @model_json, @description, @confidence)'
   );
+  const insertPokemonEvolution = db.prepare(
+    'INSERT OR IGNORE INTO pokemon_evolution (from_id, to_id, trigger, min_level, condition) VALUES (@from_id, @to_id, @trigger, @min_level, @condition)'
+  );
+  const insertPokemonLore = db.prepare(
+    'INSERT OR IGNORE INTO pokemon_lore (pokemon_id, slot, entry) VALUES (@pokemon_id, @slot, @entry)'
+  );
+  const insertPokemonForms = db.prepare(
+    'INSERT OR IGNORE INTO pokemon_forms (form_id, base_id, form_type) VALUES (@form_id, @base_id, @form_type)'
+  );
 
   const insertAll = db.transaction(() => {
     insertMeta.run({ key: 'schema_version', value_text: SCHEMA_VERSION, value_number: null });
@@ -503,6 +539,9 @@ function writeSqlite(dbPath, data, generatedAt) {
     for (const row of data.items) insertItems.run(row);
     for (const row of data.itemMarkers) insertItemMarkers.run(row);
     for (const row of data.heldItemEffects) insertHeldItemEffects.run(row);
+    for (const row of data.pokemonEvolution) insertPokemonEvolution.run(row);
+    for (const row of data.pokemonLore) insertPokemonLore.run(row);
+    for (const row of data.pokemonForms) insertPokemonForms.run(row);
   });
 
   insertAll();
@@ -592,7 +631,10 @@ function main() {
     abilityMarkers: [],
     items: [],
     itemMarkers: [],
-    heldItemEffects: []
+    heldItemEffects: [],
+    pokemonEvolution: [],
+    pokemonLore: [],
+    pokemonForms: [],
   };
 
   const pokemonById = new Map();
@@ -968,6 +1010,53 @@ function main() {
             if (!typeId) return;
             typesSet.add(String(typeId));
           });
+          break;
+        }
+        case 'pokemon_evolution': {
+          const fromId = toNumber(args[0]);
+          const toId   = toNumber(args[1]);
+          const trigger = toText(args[2]) || 'unknown';
+          const minLevelRaw = args[3];
+          const minLevel = (minLevelRaw === 'none' || minLevelRaw === null) ? null : toNumber(minLevelRaw);
+          const conditionRaw = args[4];
+          const condition = (conditionRaw === 'none' || conditionRaw === null) ? null : toText(conditionRaw);
+          if (!Number.isFinite(fromId) || !Number.isFinite(toId)) break;
+          data.pokemonEvolution.push({ from_id: fromId, to_id: toId, trigger, min_level: minLevel, condition });
+          break;
+        }
+        case 'pokemon_lore': {
+          const pokemonId = toNumber(args[0]);
+          const entry = toText(args[1]);
+          if (!Number.isFinite(pokemonId) || !entry) break;
+          // slot = position among entries for this pokemon (1-based)
+          const existing = data.pokemonLore.filter((r) => r.pokemon_id === pokemonId).length;
+          data.pokemonLore.push({ pokemon_id: pokemonId, slot: existing + 1, entry });
+          break;
+        }
+        case 'pokemon_mega_base':
+        case 'pokemon_form_base': {
+          const formId = toNumber(args[0]);
+          const baseId = toNumber(args[1]);
+          if (!Number.isFinite(formId) || !Number.isFinite(baseId)) break;
+          const existing = data.pokemonForms.find((r) => r.form_id === formId);
+          if (existing) {
+            existing.base_id = baseId;
+          } else {
+            const formType = fact.pred === 'pokemon_mega_base' ? 'mega' : 'special';
+            data.pokemonForms.push({ form_id: formId, base_id: baseId, form_type: formType });
+          }
+          break;
+        }
+        case 'pokemon_form_kind': {
+          const formId = toNumber(args[0]);
+          const kind = toText(args[1]);
+          if (!Number.isFinite(formId) || !kind) break;
+          const existing = data.pokemonForms.find((r) => r.form_id === formId);
+          if (existing) {
+            existing.form_type = kind;
+          } else {
+            data.pokemonForms.push({ form_id: formId, base_id: 0, form_type: kind });
+          }
           break;
         }
         default:

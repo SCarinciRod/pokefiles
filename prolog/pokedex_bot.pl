@@ -1071,7 +1071,10 @@ ability_keyword_signal(Tokens) :-
 
 parse_pokemon_ability_details_query(Text, Name) :-
     tokenize_for_match(Text, Tokens),
-    parse_natural_pokemon_query(Text, Name),
+    ( pokemon_identifier_after_preposition(Tokens, Name)
+    ; parse_natural_pokemon_query(Text, Name)
+    ),
+    format('DEBUG_ABILITY_QUERY: tokens=~w, chosen_name=~w~n', [Tokens, Name]),
     ( ability_keyword_signal(Tokens)
     ; extract_best_ability_mention_from_tokens(Tokens, _)
     ),
@@ -1079,15 +1082,42 @@ parse_pokemon_ability_details_query(Text, Name) :-
     ; extract_best_ability_mention_from_tokens(Tokens, _)
     ),
     !.
-parse_pokemon_ability_details_query(Text, Name) :-
+
+% Debug helper: show tokenization, indexed candidates, mention matches,
+% preposition-extracted identifier and candidate goals/scores for ability queries.
+debug_ability_lookup(Text) :-
     tokenize_for_match(Text, Tokens),
-    ( ability_keyword_signal(Tokens)
-    ; extract_best_ability_mention_from_tokens(Tokens, _)
+    format('DEBUG_LOOKUP_TOKENS: ~w~n', [Tokens]),
+    (   indexed_candidate_names_from_tokens(Tokens, IndexedCandidates)
+    ->  format('DEBUG_INDEXED_CANDIDATES: ~w~n', [IndexedCandidates])
+    ;   format('DEBUG_INDEXED_CANDIDATES: []~n', [])
     ),
-    ( ability_detail_request_signal(Tokens)
-    ; extract_best_ability_mention_from_tokens(Tokens, _)
+    ( IndexedCandidates \= [] ->
+        CandidateNames = IndexedCandidates
+    ;   findall(Name, pokemon_in_scope(_, Name, _, _, _, _, _), CandidateNamesRaw),
+        sort(CandidateNamesRaw, CandidateNames)
     ),
-    pokemon_identifier_after_preposition(Tokens, Name),
+    format('DEBUG_CANDIDATE_POOL_SIZE: ~w~n', [length(CandidateNames)]),
+    findall(Len-FoundName,
+        ( member(FoundName, CandidateNames), pokemon_name_in_scope(FoundName), pokemon_name_mentioned_in_tokens(FoundName, Tokens, Len) ),
+        Matches),
+    keysort(Matches, SortedMatches),
+    reverse(SortedMatches, RevMatches),
+    format('DEBUG_MATCHES_BY_MENTION (len-name): ~w~n', [RevMatches]),
+    ( pokemon_identifier_after_preposition(Tokens, PrepName)
+    -> format('DEBUG_PREP_IDENTIFIER: ~w~n', [PrepName])
+    ;  format('DEBUG_PREP_IDENTIFIER: none~n', [])
+    ),
+    findall(Score-Goal, item_move_ability_candidate_goal(Text, Tokens, Score, Goal), CandidateGoals),
+    ( CandidateGoals = [] ->
+        format('DEBUG_CANDIDATE_GOALS: []~n', [])
+    ;
+        keysort(CandidateGoals, SortedGoals),
+        reverse(SortedGoals, RevSortedGoals),
+        format('DEBUG_CANDID_GOALS_SORTED: ~w~n', [RevSortedGoals]),
+        RevSortedGoals = [BestScore-BestGoal | _],
+        format('DEBUG_BEST_GOAL: ~w - ~w~n', [BestScore, BestGoal])
+    ),
     !.
 
 ability_detail_request_signal(Tokens) :-
@@ -1102,6 +1132,11 @@ ability_detail_request_signal(Tokens) :-
     !.
 ability_detail_request_signal(Tokens) :-
     contiguous_sublist(["como", "funciona"], Tokens),
+    !.
+
+ability_detail_request_signal(Tokens) :-
+    member(Token, Tokens),
+    member(Token, ["qual", "quais"]),
     !.
 
 
