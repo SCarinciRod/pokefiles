@@ -1,0 +1,17 @@
+# Core ML
+torch>=2.1.0
+sentence-transformers>=2.6.0
+transformers>=4.40.0
+
+# Tabular / GBM baseline
+lightgbm>=4.3.0
+scikit-learn>=1.4.0
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Evaluation
+scipy>=1.13.0
+
+# Utilities
+tqdm>=4.66.0
+pyyaml>=6.0.1

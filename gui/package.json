@@ -1,0 +1,84 @@
+{
+  "name": "pokedex-desktop",
+  "version": "0.1.0",
+  "description": "Desktop Pokedex chatbot powered by SWI-Prolog",
+  "main": "main.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "pack:win": "electron-builder --win portable --config.electronDist=node_modules/electron/dist",
+    "pack:dir": "electron-builder --win dir --config.electronDist=node_modules/electron/dist"
+  },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+    "appId": "com.scarincirod.pokedex.desktop",
+    "productName": "Pokedex Desktop",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "boot_preload.js",
+      "preload.js",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../tools/nn/dist",
+        "to": "runtime/tools/nn/dist",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../tools/nn/node_modules/better-sqlite3",
+        "to": "runtime/tools/nn/node_modules/better-sqlite3",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../tools/nn/node_modules/bindings",
+        "to": "runtime/tools/nn/node_modules/bindings",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../tools/nn/node_modules/file-uri-to-path",
+        "to": "runtime/tools/nn/node_modules/file-uri-to-path",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../tools/nn/train/nlu",
+        "to": "runtime/tools/nn/train/nlu",
+        "filter": ["*.py", "*.json"]
+      },
+      {
+        "from": "../tools/nn/train/strategy",
+        "to": "runtime/tools/nn/train/strategy",
+        "filter": ["*.py", "*.json"]
+      },
+      {
+        "from": "../.local_cache/nn_models",
+        "to": "runtime/.local_cache/nn_models",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "../.local_cache/nn_export/pokefiles_nn.sqlite3",
+        "to": "runtime/.local_cache/nn_export/pokefiles_nn.sqlite3"
+      },
+      {
+        "from": "../tools/pipeline/sync_home_sprites.js",
+        "to": "runtime/tools/sync_home_sprites.js"
+      }
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable"
+      ]
+    }
+  }
+}

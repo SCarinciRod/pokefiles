@@ -1,0 +1,19 @@
+{
+  "covert_cloak": "An item to be held by a Pokemon. This cloak conceals the holder and protects it from the additional effects of moves.",
+  "eject_pack": "An item to be held by a Pokemon. The holder switches out if its stats are lowered.",
+  "heavy_duty_boots": "An item to be held by a Pokemon. These sturdy boots protect the holder from effects of traps set on the battlefield.",
+  "legend_plate": "A stone tablet imbued with the essence of all creation. When used on a certain Pokemon, it allows that Pokemon to gain the power of every type there is.",
+  "loaded_dice": "An item to be held by a Pokemon. It makes multistrike moves more likely to hit more times.",
+  "mirror_herb": "An item to be held by a Pokemon. It copies an opponent's stat increases when consumed.",
+  "room_service": "An item to be held by a Pokemon. It lowers the holder's Speed during Trick Room.",
+  "throat_spray": "An item to be held by a Pokemon. It raises Special Attack when a sound-based move is used.",
+  "utility_umbrella": "An item to be held by a Pokemon. This sturdy umbrella protects the holder from the effects of weather.",
+  "punching_glove": "An item to be held by a Pokemon. This protective glove boosts the power of the holder's punching moves and prevents direct contact with targets.",
+  "cornerstone_mask": "An item to be held by Ogerpon. This carved wooden mask is adorned with crystals and allows Ogerpon to wield the Rock type during battle.",
+  "fairy_feather": "An item to be held by a Pokemon. This feather boosts the power of the holder's Fairy-type moves.",
+  "hearthflame_mask": "An item to be held by Ogerpon. This carved wooden mask is adorned with crystals and allows Ogerpon to wield the Fire type during battle.",
+  "rusted_sword": "It is said that a hero used this sword to halt a terrible disaster in ancient times, but it has grown rusty and worn.",
+  "rusted_shield": "It is said that a hero used this shield to halt a terrible disaster in ancient times, but it has grown rusty and worn.",
+  "wellspring_mask": "An item to be held by Ogerpon. This carved wooden mask is adorned with crystals and allows Ogerpon to wield the Water type during battle.",
+  "ability_shield": "An item to be held by a Pokemon. It protects the holder from having its abilities changed by other Pokemon."
+}
