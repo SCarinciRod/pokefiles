@@ -216,15 +216,46 @@ export class BattleSimulator {
     const switches = actions.filter((a): a is Extract<BattleAction, { kind: 'switch' }> => a.kind === 'switch');
     const moveActions = actions.filter((a): a is Extract<BattleAction, { kind: 'move' }> => a.kind === 'move');
 
-    // Apply switches first (VGC: switches happen before moves in VGC ordering)
+    // Map UIDs of switching-out Pokémon → their switch action (for Pursuit interception)
+    const switchingOutMap = new Map<string, Extract<BattleAction, { kind: 'switch' }>>();
     for (const sw of switches) {
+      const outgoing = state.teams[sw.teamIdx].active[sw.activeSlot];
+      if (outgoing && !outgoing.fainted) switchingOutMap.set(outgoing.uid, sw);
+    }
+
+    // Pursuit: fires BEFORE the switch, with doubled base power, if targeting a switching Pokémon
+    const pursuitActions = moveActions.filter(
+      (a) => a.moveId === 'pursuit' && switchingOutMap.has(a.targetUid)
+    );
+    const otherMoveActions = moveActions.filter((a) => !pursuitActions.includes(a));
+    const cancelledSwitches = new Set<Extract<BattleAction, { kind: 'switch' }>>();
+
+    for (const pa of pursuitActions) {
+      const actor = this.findByUid(state, pa.actorUid);
+      if (!actor || actor.fainted) continue;
+      const moveBase = this.engine.getMove('pursuit');
+      if (!moveBase) continue;
+      const target = this.findByUid(state, pa.targetUid);
+      if (!target || target.fainted) continue;
+      const actorTeamIdx = this.findTeamIdx(state, actor);
+      state.log.push(`${displayPokeName(actor.identifier)} usou Pursuit (poder 2× contra troca)!`);
+      this.executeDamageMove(state, actor, actorTeamIdx, target, 'pursuit',
+        { ...moveBase, base_power: moveBase.base_power * 2 }, false);
+      if (target.fainted) {
+        const sw = switchingOutMap.get(pa.targetUid);
+        if (sw) cancelledSwitches.add(sw);
+      }
+    }
+
+    // Apply switches before all other moves (skip any cancelled by Pursuit KO)
+    for (const sw of switches) {
+      if (cancelledSwitches.has(sw)) continue;
       this.applySwitch(state, sw);
     }
 
-    // Sort move actions by priority/speed
-    const sorted = this.sortMoveActions(state, moveActions);
+    // Sort remaining moves by priority/speed and execute
+    const sorted = this.sortMoveActions(state, otherMoveActions);
 
-    // Execute moves in order
     for (const action of sorted) {
       const actor = this.findByUid(state, action.actorUid);
       if (!actor || actor.fainted) continue;
@@ -416,8 +447,13 @@ export class BattleSimulator {
       }
     } else {
       const target = this.findByUid(state, action.targetUid);
-      if (target && !target.fainted) {
+      const targetIsActive = target && state.teams.some(
+        (t) => t.active.some((p) => p !== null && p.uid === action.targetUid)
+      );
+      if (target && !target.fainted && targetIsActive) {
         this.executeDamageMove(state, actor, teamIdx, target, action.moveId, move, false);
+      } else if (target && !target.fainted && !targetIsActive) {
+        state.log.push(`${displayPokeName(actor.identifier)} usou ${action.moveId}, mas o alvo já saiu de campo!`);
       }
     }
 
