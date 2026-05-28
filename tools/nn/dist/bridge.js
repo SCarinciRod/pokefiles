@@ -3465,6 +3465,541 @@ function endQuizSession() {
     const grade = pct >= 90 ? '⭐⭐⭐ Excelente!' : pct >= 70 ? '⭐⭐ Bom resultado!' : pct >= 50 ? '⭐ Continue praticando!' : 'Continue estudando!';
     return `Bot: Quiz encerrado — ${s.score}/${s.total} (${pct}%)  ${grade}`;
 }
+let battleSession = null;
+function battleDisplayName(id) {
+    return id.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+function emitBattleStatus(state, userTeamIdx) {
+    const oppTeamIdx = (1 - userTeamIdx);
+    const STATUS_ABBREV = {
+        healthy: 'OK', burned: 'BRN', paralyzed: 'PAR', poisoned: 'PSN',
+        badly_poisoned: 'TOX', frozen: 'FRZ', asleep: 'SLP',
+    };
+    const fmtSlot = (p) => {
+        if (!p)
+            return '(vazio)|0|1|none';
+        if (p.fainted)
+            return `${battleDisplayName(p.identifier)}|0|${p.maxHp}|KO`;
+        return `${battleDisplayName(p.identifier)}|${p.currentHp}|${p.maxHp}|${STATUS_ABBREV[p.status] ?? p.status}`;
+    };
+    return [
+        '[[BATTLE_STATUS]]',
+        fmtSlot(state.teams[userTeamIdx].active[0]),
+        fmtSlot(state.teams[userTeamIdx].active[1]),
+        'vs',
+        fmtSlot(state.teams[oppTeamIdx].active[0]),
+        fmtSlot(state.teams[oppTeamIdx].active[1]),
+        '[[/BATTLE_STATUS]]',
+    ].join('\n');
+}
+function emitBattleMovesForSlot(state, userTeamIdx, slot, engine) {
+    const userTeam = state.teams[userTeamIdx];
+    const poke = userTeam.active[slot];
+    if (!poke || poke.fainted)
+        return '';
+    const oppTeam = state.teams[(1 - userTeamIdx)];
+    const opponents = oppTeam.active.filter((p) => !!p && !p.fainted);
+    const options = [];
+    for (const moveId of poke.config.moves) {
+        if (poke.choiceLocked && poke.choiceLocked !== moveId)
+            continue;
+        if ((poke.ppRemaining[moveId] ?? 5) <= 0)
+            continue;
+        const move = engine.getMove(moveId);
+        if (!move)
+            continue;
+        const isSpread = move.tags?.some((tag) => tag === 'spread' || tag === 'target_all');
+        const target = move.category === 'status' ? '' :
+            isSpread ? ' → ambos' :
+                opponents.length > 0 ? ` → ${battleDisplayName(opponents[0].identifier)}` : '';
+        options.push(`${battleDisplayName(moveId)}${target}`);
+        if (options.length >= 4)
+            break;
+    }
+    const bench = userTeam.party.filter((p) => !p.fainted && !userTeam.active.includes(p));
+    bench.slice(0, Math.max(0, 4 - options.length)).forEach((b) => {
+        options.push(`Trocar → ${battleDisplayName(b.identifier)}`);
+    });
+    const block = ['[[BATTLE_MOVES]]'];
+    ['A', 'B', 'C', 'D'].forEach((letter, i) => {
+        if (i < options.length)
+            block.push(`${letter}) ${options[i]}`);
+    });
+    block.push('[[/BATTLE_MOVES]]');
+    return block.join('\n');
+}
+function renderBattleTurn(state, userTeamIdx, engine) {
+    const userTeam = state.teams[userTeamIdx];
+    const activePoke = userTeam.active[0];
+    if (!activePoke || activePoke.fainted)
+        return 'Bot: Nenhum Pokémon ativo no slot 1.';
+    const fieldInfo = [];
+    if (state.field.trickRoom)
+        fieldInfo.push(`Trick Room [${state.field.trickRoomTurns}t]`);
+    if (state.field.weather !== 'none')
+        fieldInfo.push(`${state.field.weather} [${state.field.weatherTurns}t]`);
+    if (state.field.terrain !== 'none')
+        fieldInfo.push(`${state.field.terrain} terrain [${state.field.terrainTurns}t]`);
+    if (userTeam.tailwindTurns > 0)
+        fieldInfo.push(`Tailwind [${userTeam.tailwindTurns}t]`);
+    const fieldStr = fieldInfo.length > 0 ? `Campo: ${fieldInfo.join(' | ')}\n` : '';
+    return [
+        `Bot: ── Turno ${state.turn + 1} ──`,
+        fieldStr,
+        emitBattleStatus(state, userTeamIdx),
+        '',
+        `${battleDisplayName(activePoke.identifier)} — escolha uma ação:`,
+        emitBattleMovesForSlot(state, userTeamIdx, 0, engine),
+        '(A/B/C/D ou "cancelar")',
+    ].filter(Boolean).join('\n');
+}
+function buildAITeam(engine) {
+    const candidates = engine.queryAll(`SELECT DISTINCT p.identifier
+     FROM pokemon p
+     WHERE p.identifier NOT LIKE '%_mega%'
+       AND p.identifier NOT LIKE '%_gmax%'
+       AND p.id NOT IN (SELECT DISTINCT from_id FROM pokemon_evolution)
+       AND p.id IN (SELECT pokemon_id FROM pokemon_stats WHERE stat_id = 'hp' AND value >= 65)
+     ORDER BY RANDOM() LIMIT 20`).map((r) => r.identifier).filter((id) => !isLegendary(id));
+    const configs = [];
+    for (const id of candidates) {
+        if (configs.length >= 4)
+            break;
+        const p = engine.getPokemonContext(id);
+        if (!p)
+            continue;
+        const ability = p.abilities[0] ?? 'pressure';
+        const moves = engine.queryAll(`SELECT DISTINCT pm.move_id FROM pokemon_moves pm JOIN moves m ON pm.move_id = m.id
+       WHERE pm.pokemon_identifier = ? AND m.base_power > 0 ORDER BY m.base_power DESC LIMIT 4`, [id]).map((m) => m.move_id);
+        if (moves.length < 1)
+            continue;
+        const hasProtect = engine.queryAll(`SELECT move_id FROM pokemon_moves WHERE pokemon_identifier = ? AND move_id = 'protect' LIMIT 1`, [id]);
+        if (hasProtect.length > 0 && moves.length < 4)
+            moves.push('protect');
+        const offBias = p.baseStats.attack >= p.baseStats.special_attack;
+        const offStat = offBias ? 'attack' : 'special_attack';
+        configs.push({
+            identifier: id, ability, item: null,
+            moves: moves.slice(0, 4),
+            evs: { [offStat]: 252, speed: 252, hp: 4 },
+            nature: (offBias ? 'adamant' : 'modest'),
+        });
+    }
+    return configs;
+}
+function startBattleSimulator(engine) {
+    const aiConfigs = buildAITeam(engine);
+    if (aiConfigs.length < 4) {
+        return 'Bot: Não foi possível montar o time da IA (poucos Pokémon no banco). Verifique a base de dados.';
+    }
+    battleSession = {
+        phase: 'team_build', buildStep: 'pokemon',
+        currentPokemonIdx: 0, currentBuild: {},
+        userConfigs: [], aiConfigs,
+        sim: null, ai: null, state: null,
+        userTeamIdx: 0, awaitingSwitchSlot: 0,
+    };
+    return [
+        'Bot: ── Simulador VGC ──',
+        'Vamos montar seu time! Você escolherá 4 Pokémon.',
+        '',
+        'Pokémon 1/4: Qual Pokémon você quer usar?',
+        '(Ex: charizard, garchomp, torkoal... | "cancelar" para sair)',
+    ].join('\n');
+}
+function handleTeamBuildInput(raw, engine) {
+    if (!battleSession || battleSession.phase !== 'team_build')
+        return 'Bot: Erro no estado do simulador.';
+    const t = raw.trim().toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (/^(cancelar|cancel|sair|quit)$/.test(t)) {
+        battleSession = null;
+        return 'Bot: Simulador cancelado. Digite "simulador" para recomeçar.';
+    }
+    switch (battleSession.buildStep) {
+        case 'pokemon': {
+            const pokemonId = extractPokemonName(t) ?? nameIndex.get(t.replace(/\s/g, '_'));
+            if (!pokemonId)
+                return `Bot: Pokémon "${raw.trim()}" não encontrado. Tente novamente:`;
+            const p = engine.getPokemonContext(pokemonId);
+            if (!p)
+                return `Bot: Pokémon "${raw.trim()}" não encontrado. Tente novamente:`;
+            if (battleSession.userConfigs.some((c) => c.identifier === pokemonId))
+                return `Bot: ${displayName(pokemonId)} já está no time! Escolha outro Pokémon:`;
+            battleSession.currentBuild = { identifier: pokemonId };
+            battleSession.buildStep = 'ability';
+            const lines = [
+                `Bot: ${displayName(pokemonId)} escolhido!`,
+                `Qual habilidade?`,
+                '[[QUIZ_MENU]]',
+                ...p.abilities.slice(0, 4).map(displayName),
+                '[[/QUIZ_MENU]]',
+            ];
+            return lines.join('\n');
+        }
+        case 'ability': {
+            const pokemonId = battleSession.currentBuild.identifier;
+            const p = engine.getPokemonContext(pokemonId);
+            const abilityId = extractAbilityName(t)
+                ?? p.abilities.find((a) => displayName(a).toLowerCase() === t || a === t.replace(/\s/g, '_') || a.replace(/_/g, '') === t.replace(/\s/g, ''));
+            if (!abilityId || !p.abilities.includes(abilityId)) {
+                return `Bot: Habilidade não disponível para ${displayName(pokemonId)}. Escolha: ${p.abilities.map(displayName).join(', ')}`;
+            }
+            battleSession.currentBuild.ability = abilityId;
+            battleSession.buildStep = 'item';
+            return [
+                `Bot: ${displayName(abilityId)} definida!`,
+                `Item para ${displayName(pokemonId)}? (Ex: "life orb", "choice scarf", ou "nenhum")`,
+            ].join('\n');
+        }
+        case 'item': {
+            const pokemonId = battleSession.currentBuild.identifier;
+            let itemId = null;
+            if (!/^(nenhum|none|sem\s*item|-|n\/a)$/.test(t)) {
+                const normalized = t.replace(/\s+/g, '_');
+                const itemRow = engine.queryAll('SELECT id FROM items WHERE id = ? LIMIT 1', [normalized]);
+                if (itemRow.length > 0) {
+                    itemId = itemRow[0].id;
+                }
+                else {
+                    const allItems = engine.queryAll('SELECT id FROM items LIMIT 600');
+                    const match = allItems.find((r) => r.id.replace(/_/g, '') === normalized.replace(/_/g, '') ||
+                        r.id.replace(/_/g, ' ') === t);
+                    itemId = match?.id ?? null;
+                }
+                if (!itemId)
+                    return `Bot: Item "${raw.trim()}" não encontrado. Tente novamente ou diga "nenhum":`;
+            }
+            battleSession.currentBuild.item = itemId;
+            battleSession.buildStep = 'moves';
+            return [
+                `Bot: ${itemId ? displayName(itemId) : 'Sem item'} definido!`,
+                `Golpes para ${displayName(pokemonId)} (1-4, separados por vírgula):`,
+                `(Ex: "heat wave, protect, dragon dance, roost")`,
+            ].join('\n');
+        }
+        case 'moves': {
+            const pokemonId = battleSession.currentBuild.identifier;
+            const moveInputs = raw.split(/[,\n/]/).map((s) => s.trim().toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, '_')).filter(Boolean);
+            if (moveInputs.length === 0)
+                return 'Bot: Nenhum golpe reconhecido. Tente novamente:';
+            const validMoves = [];
+            const invalidMoves = [];
+            for (const input of moveInputs) {
+                const moveId = moveIndex.get(input) ?? moveIndex.get(input.replace(/_/g, '')) ?? extractMoveName(input.replace(/_/g, ' '));
+                if (!moveId) {
+                    invalidMoves.push(input);
+                    continue;
+                }
+                if (!validMoves.includes(moveId))
+                    validMoves.push(moveId);
+                if (validMoves.length >= 4)
+                    break;
+            }
+            if (validMoves.length === 0)
+                return `Bot: Nenhum golpe válido. Ex: "flamethrower, protect, dragon dance, roost"`;
+            if (invalidMoves.length > 0) {
+                return [
+                    `Bot: Não reconhecidos: ${invalidMoves.join(', ')}`,
+                    `Válidos: ${validMoves.map(displayName).join(', ')}`,
+                    `[[QUIZ_MENU]]`,
+                    `Usar esses golpes`,
+                    `Tentar novamente`,
+                    `[[/QUIZ_MENU]]`,
+                ].join('\n');
+            }
+            battleSession.currentBuild.moves = validMoves;
+            battleSession.buildStep = 'evs';
+            return [
+                `Bot: Golpes: ${validMoves.map(displayName).join(', ')}`,
+                `EVs para ${displayName(pokemonId)}:`,
+                '[[QUIZ_MENU]]',
+                'Ofensivo (252 Atk/SpAtk + 252 Vel + 4 HP)',
+                'Bulky Ofensivo (252 Atk/SpAtk + 108 Def + 148 Vel)',
+                'Defensivo (252 HP + 252 Def/SpDef)',
+                '[[/QUIZ_MENU]]',
+            ].join('\n');
+        }
+        case 'evs': {
+            const pokemonId = battleSession.currentBuild.identifier;
+            const p = engine.getPokemonContext(pokemonId);
+            const offBias = p.baseStats.attack >= p.baseStats.special_attack;
+            const offStat = offBias ? 'attack' : 'special_attack';
+            let evs;
+            if (/ofensiv/i.test(t) || /^a$/i.test(t) || /usar\s+esses/.test(t)) {
+                evs = { [offStat]: 252, speed: 252, hp: 4 };
+            }
+            else if (/bulky/i.test(t) || /^b$/i.test(t)) {
+                evs = { [offStat]: 252, defense: 108, speed: 148 };
+            }
+            else {
+                evs = { hp: 252, defense: 252, special_defense: 4 };
+            }
+            battleSession.currentBuild.evs = evs;
+            battleSession.currentBuild.nature = (offBias ? 'adamant' : 'modest');
+            const config = {
+                identifier: pokemonId,
+                ability: battleSession.currentBuild.ability,
+                item: battleSession.currentBuild.item ?? null,
+                moves: battleSession.currentBuild.moves,
+                evs: battleSession.currentBuild.evs,
+                nature: battleSession.currentBuild.nature,
+            };
+            battleSession.userConfigs.push(config);
+            battleSession.currentBuild = {};
+            if (battleSession.userConfigs.length < 4) {
+                battleSession.currentPokemonIdx++;
+                battleSession.buildStep = 'pokemon';
+                return [
+                    `Bot: ${displayName(config.identifier)} adicionado!`,
+                    `Pokémon ${battleSession.userConfigs.length + 1}/4: Qual Pokémon?`,
+                ].join('\n');
+            }
+            battleSession.buildStep = 'confirm';
+            const evLabel = (ev) => Object.entries(ev).map(([k, v]) => {
+                const abbr = { attack: 'Atk', special_attack: 'SpAtk', defense: 'Def', special_defense: 'SpDef', speed: 'Vel', hp: 'HP' };
+                return `${abbr[k] ?? k}:${v}`;
+            }).join('/');
+            const summary = battleSession.userConfigs.map((c, i) => `${i + 1}. ${displayName(c.identifier)} | ${displayName(c.ability)} | ${c.item ? displayName(c.item) : 'sem item'}\n   ${c.moves.map(displayName).join(', ')} | EVs: ${evLabel(c.evs ?? {})}`);
+            return [
+                'Bot: ── Seu Time ──',
+                ...summary,
+                '',
+                'Confirmar e iniciar batalha?',
+                '[[QUIZ_MENU]]',
+                'Sim, batalhar!',
+                'Cancelar',
+                '[[/QUIZ_MENU]]',
+            ].join('\n');
+        }
+        case 'confirm': {
+            if (/^(sim|yes|batalhar|confirmar|ok|s|iniciar)$/i.test(t) || t.includes('sim') || t.includes('batalhar')) {
+                return initializeBattle(engine);
+            }
+            battleSession = null;
+            return 'Bot: Simulador cancelado. Digite "simulador" para recomeçar.';
+        }
+        default:
+            return 'Bot: Erro no simulador. Digite "cancelar" para sair.';
+    }
+}
+function initializeBattle(engine) {
+    if (!battleSession)
+        return 'Bot: Erro interno.';
+    const sim = new engine_1.BattleSimulator(engine);
+    const ai = new engine_1.BattleAI(sim, engine);
+    battleSession.sim = sim;
+    battleSession.ai = ai;
+    try {
+        const state = sim.initBattle({ pokemon: battleSession.userConfigs }, { pokemon: battleSession.aiConfigs });
+        battleSession.state = state;
+        battleSession.phase = 'pick_lead';
+        const cfgs = battleSession.userConfigs;
+        const leadOptions = [
+            `${displayName(cfgs[0].identifier)} + ${displayName(cfgs[1].identifier)}`,
+            `${displayName(cfgs[0].identifier)} + ${displayName(cfgs[2].identifier)}`,
+            `${displayName(cfgs[0].identifier)} + ${displayName(cfgs[3].identifier)}`,
+            `${displayName(cfgs[1].identifier)} + ${displayName(cfgs[2].identifier)}`,
+        ];
+        return [
+            'Bot: Time pronto! Escolha os 2 Pokémon iniciais:',
+            '[[QUIZ_MENU]]',
+            ...leadOptions,
+            '[[/QUIZ_MENU]]',
+        ].join('\n');
+    }
+    catch (e) {
+        battleSession = null;
+        return `Bot: Erro ao iniciar batalha: ${e}. Digite "simulador" para recomeçar.`;
+    }
+}
+function handlePickLeadInput(raw, engine) {
+    if (!battleSession || battleSession.phase !== 'pick_lead' || !battleSession.state) {
+        return 'Bot: Erro no estado do simulador.';
+    }
+    const t = raw.trim().toLowerCase();
+    if (/^(cancelar|cancel)$/.test(t)) {
+        battleSession = null;
+        return 'Bot: Simulador cancelado.';
+    }
+    const combos = [[0, 1], [0, 2], [0, 3], [1, 2]];
+    let selectedCombo = combos[0];
+    const letterIdx = 'abcd'.indexOf(t.trim());
+    if (letterIdx >= 0 && letterIdx < combos.length) {
+        selectedCombo = combos[letterIdx];
+    }
+    else {
+        const cfgs = battleSession.userConfigs;
+        const found = [];
+        for (let i = 0; i < cfgs.length; i++) {
+            if (t.includes(cfgs[i].identifier.replace(/_/g, ' ')) || t.includes(cfgs[i].identifier))
+                found.push(i);
+        }
+        if (found.length >= 2)
+            selectedCombo = [found[0], found[1]];
+    }
+    const [l0, l1] = selectedCombo;
+    const party = battleSession.state.teams[0].party;
+    const ordered = [party[l0], party[l1], ...party.filter((_, i) => i !== l0 && i !== l1)];
+    battleSession.state.teams[0].party = ordered;
+    battleSession.state.teams[0].active = [ordered[0] ?? null, ordered[1] ?? null];
+    battleSession.phase = 'battle';
+    return renderBattleTurn(battleSession.state, 0, engine);
+}
+function handleBattleMoveInput(raw, engine) {
+    if (!battleSession || battleSession.phase !== 'battle' || !battleSession.state || !battleSession.sim || !battleSession.ai) {
+        return 'Bot: Nenhuma batalha ativa.';
+    }
+    const t = raw.trim().toLowerCase();
+    if (/^(cancelar|cancel|sair|encerrar)$/.test(t))
+        return endBattleSession(null, engine);
+    const state = battleSession.state;
+    const userTeamIdx = battleSession.userTeamIdx;
+    const userTeam = state.teams[userTeamIdx];
+    const activePoke = userTeam.active[0];
+    if (!activePoke || activePoke.fainted)
+        return 'Bot: Seu Pokémon desmaiou. Escolha um substituto.';
+    const oppTeam = state.teams[(1 - userTeamIdx)];
+    const opponents = oppTeam.active.filter((p) => !!p && !p.fainted);
+    // Build move options list (same order as display)
+    const moveOpts = [];
+    for (const moveId of activePoke.config.moves) {
+        if (activePoke.choiceLocked && activePoke.choiceLocked !== moveId)
+            continue;
+        if ((activePoke.ppRemaining[moveId] ?? 5) <= 0)
+            continue;
+        if (!engine.getMove(moveId))
+            continue;
+        moveOpts.push({ kind: 'move', moveId });
+        if (moveOpts.length >= 4)
+            break;
+    }
+    const bench = userTeam.party.filter((p) => !p.fainted && !userTeam.active.includes(p));
+    bench.slice(0, Math.max(0, 4 - moveOpts.length)).forEach((b) => {
+        moveOpts.push({ kind: 'switch', partyIdx: userTeam.party.indexOf(b) });
+    });
+    let selectedOpt = moveOpts[0];
+    const letterIdx = 'abcd'.indexOf(t.trim());
+    if (letterIdx >= 0 && letterIdx < moveOpts.length)
+        selectedOpt = moveOpts[letterIdx];
+    if (!selectedOpt)
+        return 'Bot: Opção inválida. Escolha A, B, C ou D.';
+    let userAction;
+    if (selectedOpt.kind === 'switch') {
+        userAction = { kind: 'switch', teamIdx: userTeamIdx, activeSlot: 0, partyIdx: selectedOpt.partyIdx };
+    }
+    else {
+        const target = opponents[0] ?? (userTeam.active.find((p) => p && !p.fainted && p.uid !== activePoke.uid));
+        if (!target)
+            return 'Bot: Nenhum alvo disponível.';
+        userAction = { kind: 'move', actorUid: activePoke.uid, moveId: selectedOpt.moveId, targetUid: target.uid };
+    }
+    const aiTeam0Actions = battleSession.ai.chooseActions(state, userTeamIdx);
+    const slot2Action = aiTeam0Actions[1] ?? { kind: 'pass' };
+    const aiTeam1Actions = battleSession.ai.chooseActions(state, (1 - userTeamIdx));
+    state.log = [];
+    let result;
+    try {
+        result = battleSession.sim.executeTurn(state, [userAction, slot2Action, ...aiTeam1Actions]);
+    }
+    catch (e) {
+        return `Bot: Erro na batalha: ${e}`;
+    }
+    battleSession.state = result.state;
+    const turnLog = result.state.log.length > 0 ? result.state.log.map((l) => `  ${l}`).join('\n') + '\n' : '';
+    if (result.winner !== null) {
+        return [turnLog, emitBattleStatus(result.state, userTeamIdx), '', endBattleSession(result.winner, engine)].filter(Boolean).join('\n');
+    }
+    if (result.requiresSwitch[userTeamIdx]) {
+        const newBench = userTeam.party.filter((p) => !p.fainted && !userTeam.active.includes(p));
+        if (newBench.length > 0) {
+            battleSession.phase = 'awaiting_switch';
+            battleSession.awaitingSwitchSlot = 0;
+            const switchOpts = newBench.slice(0, 4).map((b) => displayName(b.identifier));
+            return [
+                turnLog,
+                emitBattleStatus(result.state, userTeamIdx),
+                '',
+                'Bot: Seu Pokémon desmaiou! Escolha um substituto:',
+                '[[QUIZ_MENU]]',
+                ...switchOpts,
+                '[[/QUIZ_MENU]]',
+            ].filter(Boolean).join('\n');
+        }
+    }
+    return [turnLog, renderBattleTurn(result.state, userTeamIdx, engine)].filter(Boolean).join('\n');
+}
+function handleSwitchInput(raw, engine) {
+    if (!battleSession || battleSession.phase !== 'awaiting_switch' || !battleSession.state || !battleSession.sim || !battleSession.ai) {
+        return 'Bot: Nenhum switch aguardando.';
+    }
+    const t = raw.trim().toLowerCase();
+    const state = battleSession.state;
+    const userTeamIdx = battleSession.userTeamIdx;
+    const userTeam = state.teams[userTeamIdx];
+    const bench = userTeam.party.filter((p) => !p.fainted && !userTeam.active.includes(p));
+    if (bench.length === 0) {
+        battleSession.phase = 'battle';
+        return renderBattleTurn(state, userTeamIdx, engine);
+    }
+    let selectedPoke = bench[0];
+    const letterIdx = 'abcd'.indexOf(t.trim());
+    if (letterIdx >= 0 && letterIdx < bench.length) {
+        selectedPoke = bench[letterIdx];
+    }
+    else {
+        const nameMatch = bench.find((b) => b.identifier.replace(/_/g, ' ').includes(t) || battleDisplayName(b.identifier).toLowerCase().includes(t));
+        if (nameMatch)
+            selectedPoke = nameMatch;
+    }
+    const partyIdx = userTeam.party.indexOf(selectedPoke);
+    const switchAction = { kind: 'switch', teamIdx: userTeamIdx, activeSlot: battleSession.awaitingSwitchSlot, partyIdx };
+    const aiTeam1Actions = battleSession.ai.chooseActions(state, (1 - userTeamIdx));
+    state.log = [];
+    try {
+        const result = battleSession.sim.executeTurn(state, [switchAction, ...aiTeam1Actions]);
+        battleSession.state = result.state;
+        const turnLog = result.state.log.map((l) => `  ${l}`).join('\n');
+        if (result.winner !== null) {
+            return [turnLog, endBattleSession(result.winner, engine)].filter(Boolean).join('\n');
+        }
+        battleSession.phase = 'battle';
+        return [turnLog, renderBattleTurn(result.state, userTeamIdx, engine)].filter(Boolean).join('\n');
+    }
+    catch {
+        battleSession.phase = 'battle';
+        return renderBattleTurn(state, userTeamIdx, engine);
+    }
+}
+function endBattleSession(winner, _engine) {
+    const state = battleSession?.state;
+    const userTeamIdx = battleSession?.userTeamIdx ?? 0;
+    battleSession = null;
+    if (!state || winner === null)
+        return 'Bot: Batalha encerrada. Que mais posso analisar?';
+    const won = winner === userTeamIdx;
+    const resultLabel = won ? 'Vitória!' : 'Derrota.';
+    const lines = [
+        `Bot: ── Resultado: ${resultLabel} (Turno ${state.turn}) ──`,
+        '',
+        'Análise do time:',
+    ];
+    const userTeam = state.teams[userTeamIdx];
+    for (const poke of userTeam.party) {
+        const hpPct = Math.round((poke.currentHp / poke.maxHp) * 100);
+        lines.push(`  • ${displayName(poke.identifier)} — ${poke.fainted ? 'desmaiou' : `${hpPct}% HP restante`}`);
+    }
+    lines.push('', 'Dicas:');
+    const fainted = userTeam.party.filter((p) => p.fainted);
+    if (fainted.length > 0) {
+        lines.push(`  • ${fainted.map((p) => displayName(p.identifier)).join(', ')} desmaiaram — considere mais bulk ou Focus Sash`);
+    }
+    if (fainted.length === 0)
+        lines.push('  • Nenhum desmaiou — time equilibrado!');
+    if (state.field.trickRoom)
+        lines.push('  • Trick Room estava ativo no fim — explore Pokémon lentos para aproveitar');
+    lines.push('', 'Digite "simulador" para batalhar novamente!');
+    return lines.join('\n');
+}
 // Study mode — static educational content
 function handleStudyVGC() {
     return [
@@ -3629,6 +4164,7 @@ const HELP_MENU = [
     '• "o que bate o tipo Pedra" (cobertura de tipo)',
     '• "quiz tipos" / "quiz golpes" / "quiz pokemon" / "quiz velocidade" (modo quiz)',
     '• "estudar tipos" / "papéis competitivos" / "mecânicas vgc" (modo estudo)',
+    '• "simulador" (simulador de batalha VGC — teste seu time)',
 ].join('\n');
 function detectIntent(t) {
     // Two-pokemon comparison (FIRST — most specific signal)
@@ -3815,6 +4351,9 @@ function detectIntent(t) {
         return 'study_mechanics';
     if (/o\s+que\s+[eé]\s+(speed\s+control|win\s+condition|tempo\s+vgc|pivot|back\s+position|support\s+vgc)/.test(t))
         return 'study_mechanics';
+    // Battle simulator
+    if (/\b(simulad[oa]r|battle\s*sim|testar?\s+time|batalha\s+vgc|simul[au]lar?\s+batalha?|jogar\s+contra|testar?\s+equipe)\b/.test(t))
+        return 'battle_sim';
     // Onboarding — new player intro queries
     if (/sou\s+(um\s+)?(novo|iniciante)|novo\s+(no|ao|em|jogador|player)|nunca\s+(joguei|jogar)|como\s+come[cç]ar|por\s+onde\s+come[cç]ar/.test(t))
         return 'onboarding';
@@ -3970,6 +4509,8 @@ async function handleNLText(text, engine) {
         case 'quiz_speed_easy': return startQuizSession('speed_ctrl', 1, engine);
         case 'quiz_speed_med': return startQuizSession('speed_ctrl', 2, engine);
         case 'quiz_speed_hard': return startQuizSession('speed_ctrl', 3, engine);
+        case 'battle_sim':
+            return startBattleSimulator(engine);
         case 'study_vgc':
             return handleStudyVGC();
         case 'study_types':
@@ -3997,7 +4538,27 @@ async function handleCommand(input, engine) {
     if (raw === '__RESET__') {
         quizSession = null;
         pendingQuizType = null;
+        battleSession = null;
         return 'Bot: Estado da conversa reiniciado.';
+    }
+    // Battle simulator intercept — routes all input when session is active
+    if (battleSession) {
+        const bLower = raw.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim();
+        // Allow __PING__ and JSON commands through
+        if (!raw.startsWith('__') && !raw.startsWith('{')) {
+            if (battleSession.phase === 'team_build')
+                return handleTeamBuildInput(raw, engine);
+            if (battleSession.phase === 'pick_lead')
+                return handlePickLeadInput(raw, engine);
+            if (battleSession.phase === 'battle')
+                return handleBattleMoveInput(raw, engine);
+            if (battleSession.phase === 'awaiting_switch')
+                return handleSwitchInput(raw, engine);
+            if (battleSession.phase === 'post_battle') {
+                battleSession = null; // any input exits post-battle
+            }
+        }
+        void bLower; // suppress unused warning
     }
     // Pre-session intercept — user selected a quiz type, waiting for difficulty choice
     if (pendingQuizType !== null) {

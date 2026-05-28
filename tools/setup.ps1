@@ -22,6 +22,46 @@ function Copy-Dir([string]$src, [string]$dst) {
     Copy-Item -Path "$src\*" -Destination $dst -Recurse -Force
 }
 
+function Install-PortableNode {
+    $portableDir = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node'
+    Write-Step "Baixando Node.js LTS (portable)..."
+    try {
+        $index = Invoke-RestMethod 'https://nodejs.org/dist/index.json' -UseBasicParsing
+        $lts   = $index | Where-Object { $_.lts } | Select-Object -First 1
+        $ver   = $lts.version
+        $url   = "https://nodejs.org/dist/$ver/node-$ver-win-x64.zip"
+        Write-Step "Versao LTS: $ver"
+
+        $tmpZip     = Join-Path $env:TEMP 'node_portable.zip'
+        $tmpExtract = Join-Path $env:TEMP 'node_portable_extract'
+
+        Write-Step "Baixando $url ..."
+        Invoke-WebRequest -Uri $url -OutFile $tmpZip -UseBasicParsing
+
+        if (Test-Path $tmpExtract) { Remove-Item $tmpExtract -Recurse -Force }
+        Write-Step "Extraindo..."
+        Expand-Archive -Path $tmpZip -DestinationPath $tmpExtract -Force
+
+        $extracted = Get-ChildItem $tmpExtract -Directory | Select-Object -First 1
+        if (-not $extracted) { throw "Pasta extraida nao encontrada em $tmpExtract" }
+
+        if (Test-Path $portableDir) { Remove-Item $portableDir -Recurse -Force }
+        New-Item -ItemType Directory -Path (Split-Path $portableDir) -Force | Out-Null
+        Move-Item $extracted.FullName $portableDir -Force
+
+        Remove-Item $tmpZip     -Force -ErrorAction SilentlyContinue
+        Remove-Item $tmpExtract -Recurse -Force -ErrorAction SilentlyContinue
+
+        Write-Ok "Node.js $ver instalado em $portableDir"
+        return $true
+    } catch {
+        Write-Err "Falha ao instalar Node.js: $_"
+        Write-Warn "Instale manualmente: https://nodejs.org/en/download"
+        Write-Warn "Ou via Scoop: scoop install nodejs-lts"
+        return $false
+    }
+}
+
 # -----------------------------------------------------------------------
 # Modo UPDATE
 # -----------------------------------------------------------------------
@@ -30,6 +70,19 @@ if ($IsInstalled) {
     Write-Host "===============================" -ForegroundColor Cyan
     Write-Host " PokedexChatbot - Atualizacao  " -ForegroundColor Cyan
     Write-Host "===============================" -ForegroundColor Cyan
+
+    # 0. Verificar Node.js (necessario para o bridge rodar)
+    Write-Step "Verificando Node.js..."
+    $nodeFound = $false
+    $scoopNode    = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\node.exe'
+    $portableNode = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node\node.exe'
+    if (Test-Path $scoopNode)        { $nodeFound = $true; Write-Ok "Node.js encontrado (scoop)" }
+    elseif (Test-Path $portableNode) { $nodeFound = $true; Write-Ok "Node.js encontrado (portable)" }
+    elseif (Get-Command node -ErrorAction SilentlyContinue) { $nodeFound = $true; Write-Ok "Node.js encontrado (PATH)" }
+    else {
+        Write-Warn "Node.js nao encontrado. Instalando automaticamente..."
+        $nodeFound = Install-PortableNode
+    }
 
     # 1. Frontend Electron (app.asar)
     Write-Step "Atualizando frontend (app.asar)..."
@@ -50,7 +103,26 @@ if ($IsInstalled) {
     Copy-Dir $srcDist $dstDist
     Write-Ok "tools/nn/dist/ atualizado"
 
-    # 3. Modelos (apenas se .local_cache/nn_models existir no projeto)
+    # 3. Scripts Python de inferencia (infer_nlu.py, infer_strategy.py)
+    Write-Step "Atualizando scripts Python de inferencia..."
+    $pyDirs = @(
+        @{ src = 'tools\nn\train\nlu';      dst = 'runtime\tools\nn\train\nlu';      filter = '*.py' }
+        @{ src = 'tools\nn\train\strategy'; dst = 'runtime\tools\nn\train\strategy'; filter = '*.py' }
+        @{ src = 'tools\nn\train\shared';   dst = 'runtime\tools\nn\train\shared';   filter = '*.py' }
+    )
+    foreach ($pair in $pyDirs) {
+        $src = Join-Path $ProjectRoot $pair.src
+        $dst = Join-Path $InstallBase $pair.dst
+        if (Test-Path $src) {
+            New-Item -ItemType Directory -Path $dst -Force | Out-Null
+            Get-ChildItem $src -Filter $pair.filter | ForEach-Object {
+                Copy-Item $_.FullName $dst -Force
+            }
+        }
+    }
+    Write-Ok "Scripts Python atualizados"
+
+    # 4. Modelos (apenas se .local_cache/nn_models existir no projeto)
     Write-Step "Verificando modelos treinados..."
     $srcModels = Join-Path $ProjectRoot '.local_cache\nn_models'
     $dstModels = Join-Path $InstallBase 'runtime\.local_cache\nn_models'
@@ -62,10 +134,18 @@ if ($IsInstalled) {
     }
 
     Write-Host ""
-    Write-Host "===============================" -ForegroundColor Green
-    Write-Host " Atualizacao concluida!" -ForegroundColor Green
-    Write-Host " Execute run_gui.exe para abrir." -ForegroundColor Green
-    Write-Host "===============================" -ForegroundColor Green
+    if (-not $nodeFound) {
+        Write-Host "===============================" -ForegroundColor Yellow
+        Write-Host " AVISO: Instale o Node.js!" -ForegroundColor Yellow
+        Write-Host " O app nao vai funcionar sem ele." -ForegroundColor Yellow
+        Write-Host " https://nodejs.org" -ForegroundColor Yellow
+        Write-Host "===============================" -ForegroundColor Yellow
+    } else {
+        Write-Host "===============================" -ForegroundColor Green
+        Write-Host " Atualizacao concluida!" -ForegroundColor Green
+        Write-Host " Execute run_gui.exe para abrir." -ForegroundColor Green
+        Write-Host "===============================" -ForegroundColor Green
+    }
     Write-Host ""
     exit 0
 }
@@ -85,8 +165,16 @@ if (-not (Test-Path $BuiltExe)) {
     Write-Step "Build nao encontrado - compilando o app..."
 
     if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-        Write-Err "Node.js nao encontrado. Instale Node.js >= 22 antes de continuar."
-        exit 1
+        $portableNode = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node\node.exe'
+        if (-not (Test-Path $portableNode)) {
+            $ok = Install-PortableNode
+            if (-not $ok) {
+                Write-Err "Node.js nao encontrado e instalacao automatica falhou."
+                Write-Err "Instale Node.js >= 22 manualmente e rode o setup novamente."
+                exit 1
+            }
+        }
+        $env:PATH = "$env:LOCALAPPDATA\PokedexChatbot\portable\node;$env:PATH"
     }
 
     Write-Step "Compilando TypeScript (tools/nn)..."
