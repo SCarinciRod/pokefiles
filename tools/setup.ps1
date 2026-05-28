@@ -19,7 +19,9 @@ function Write-Err([string]$msg)  { Write-Host "[setup] ERRO $msg" -ForegroundCo
 function Copy-Dir([string]$src, [string]$dst) {
     if (-not (Test-Path $src)) { Write-Warn "Origem nao encontrada, pulando: $src"; return }
     New-Item -ItemType Directory -Path $dst -Force | Out-Null
-    Copy-Item -Path "$src\*" -Destination $dst -Recurse -Force
+    # Usar robocopy para garantir que subdiretorios sejam copiados corretamente
+    $null = robocopy $src $dst /E /IS /IT /NFL /NDL /NJH /NJS /NC /NS /NP 2>$null
+    if ($LASTEXITCODE -ge 8) { Write-Warn "robocopy retornou $LASTEXITCODE ao copiar $src" }
 }
 
 function Install-PortableNode {
