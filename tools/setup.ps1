@@ -1,8 +1,13 @@
-# setup.ps1 - Instala ou atualiza o PokedexChatbot a partir do diretorio do projeto.
+# setup.ps1 — Instala ou atualiza o PokedexChatbot a partir do diretório do projeto.
 # Chamado por setup.exe (wrapper C#) com WorkingDirectory = raiz do projeto.
 #
-# UPDATE  (instalacao ja existe): copia app.asar + tools/nn/dist/ atualizados.
-# INSTALL (primeira vez)        : requer o runtime completo (build ou zip).
+# UPDATE  (instalação já existe):
+#   — detecta automaticamente se bridge.ts ou fontes GUI mudaram
+#   — recompila TypeScript e/ou repacks app.asar quando necessário
+#   — sincroniza runtime (dist/, Python, modelos)
+#
+# INSTALL (primeira vez):
+#   — compila TypeScript, empacota Electron, copia tudo para %LOCALAPPDATA%
 
 $ErrorActionPreference = 'Stop'
 
@@ -16,14 +21,31 @@ function Write-Ok([string]$msg)   { Write-Host "[setup] OK $msg" -ForegroundColo
 function Write-Warn([string]$msg) { Write-Host "[setup] AVISO $msg" -ForegroundColor Yellow }
 function Write-Err([string]$msg)  { Write-Host "[setup] ERRO $msg" -ForegroundColor Red }
 
+# -----------------------------------------------------------------------
+# Copiar diretório recursivamente via robocopy
+# -----------------------------------------------------------------------
 function Copy-Dir([string]$src, [string]$dst) {
     if (-not (Test-Path $src)) { Write-Warn "Origem nao encontrada, pulando: $src"; return }
     New-Item -ItemType Directory -Path $dst -Force | Out-Null
-    # Usar robocopy para garantir que subdiretorios sejam copiados corretamente
     $null = robocopy $src $dst /E /IS /IT /NFL /NDL /NJH /NJS /NC /NS /NP 2>$null
     if ($LASTEXITCODE -ge 8) { Write-Warn "robocopy retornou $LASTEXITCODE ao copiar $src" }
 }
 
+# -----------------------------------------------------------------------
+# Resolver caminho do Node.js (scoop → portable → PATH)
+# -----------------------------------------------------------------------
+function Get-NodeCmd {
+    $scoopNode    = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\node.exe'
+    $portableNode = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node\node.exe'
+    if (Test-Path $scoopNode)    { return $scoopNode }
+    if (Test-Path $portableNode) { return $portableNode }
+    if (Get-Command node -ErrorAction SilentlyContinue) { return 'node' }
+    return $null
+}
+
+# -----------------------------------------------------------------------
+# Baixar e instalar Node.js LTS portable se ausente
+# -----------------------------------------------------------------------
 function Install-PortableNode {
     $portableDir = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node'
     Write-Step "Baixando Node.js LTS (portable)..."
@@ -65,78 +87,257 @@ function Install-PortableNode {
 }
 
 # -----------------------------------------------------------------------
-# Modo UPDATE
+# Detectar: algum .ts em tools/nn/ mais recente que dist/bridge.js?
 # -----------------------------------------------------------------------
+function Test-TsNeedsCompile {
+    $bridgeJs = Join-Path $ProjectRoot 'tools\nn\dist\bridge.js'
+    if (-not (Test-Path $bridgeJs)) { return $true }
+    $refTime = (Get-Item $bridgeJs).LastWriteTime
+    $tsFiles = Get-ChildItem (Join-Path $ProjectRoot 'tools\nn') -Filter '*.ts' -Recurse -File -ErrorAction SilentlyContinue
+    foreach ($f in $tsFiles) {
+        if ($f.LastWriteTime -gt $refTime) { return $true }
+    }
+    return $false
+}
+
+# -----------------------------------------------------------------------
+# Detectar: fontes GUI mais recentes que release/app.asar?
+# Espelha o campo "files" de gui/package.json:
+#   main.js, boot_preload.js, preload.js, public/**
+# -----------------------------------------------------------------------
+function Test-AsarNeedsRepack {
+    $releaseAsar = Join-Path $ProjectRoot 'release\app.asar'
+    # Sem asar de release: sempre repack
+    if (-not (Test-Path $releaseAsar)) { return $true }
+    $refTime = (Get-Item $releaseAsar).LastWriteTime
+
+    foreach ($name in @('main.js', 'preload.js', 'boot_preload.js')) {
+        $f = Join-Path $ProjectRoot "gui\$name"
+        if ((Test-Path $f) -and (Get-Item $f).LastWriteTime -gt $refTime) { return $true }
+    }
+    $pubDir = Join-Path $ProjectRoot 'gui\public'
+    if (Test-Path $pubDir) {
+        foreach ($f in (Get-ChildItem $pubDir -Recurse -File)) {
+            if ($f.LastWriteTime -gt $refTime) { return $true }
+        }
+    }
+    return $false
+}
+
+# -----------------------------------------------------------------------
+# Repack rápido de app.asar via repack_asar.js (sem rebuild completo)
+# Atualiza release/app.asar e o asar instalado.
+# -----------------------------------------------------------------------
+function Invoke-AsarRepack([string]$NodeCmd) {
+    $guiDir       = Join-Path $ProjectRoot 'gui'
+    $releaseAsar  = Join-Path $ProjectRoot 'release\app.asar'
+    $dstAsar      = Join-Path $InstallBase 'app.asar'
+    $repackScript = Join-Path $PSScriptRoot 'scripts\repack_asar.js'
+
+    if (-not (Test-Path $repackScript)) {
+        Write-Warn "repack_asar.js nao encontrado em $repackScript — usando build completo"
+        return Invoke-FullElectronBuild $NodeCmd
+    }
+
+    # Asar de origem: release tem prioridade (já extraído), fallback para instalado
+    $srcAsar = if (Test-Path $releaseAsar) { $releaseAsar }
+               elseif (Test-Path $dstAsar) { $dstAsar }
+               else { '' }
+
+    # 1. Repack → release/app.asar
+    New-Item -ItemType Directory -Path (Split-Path $releaseAsar) -Force | Out-Null
+    Write-Step "Repacking app.asar (fontes modificadas detectadas)..."
+    & $NodeCmd $repackScript $guiDir $srcAsar $releaseAsar
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn "Repack falhou — usando build completo"
+        return Invoke-FullElectronBuild $NodeCmd
+    }
+    $sizeKB = [math]::Round((Get-Item $releaseAsar).Length / 1KB, 0)
+    Write-Ok "release/app.asar atualizado ($sizeKB KB)"
+
+    # 2. Copiar para o local instalado
+    Copy-Item $releaseAsar $dstAsar -Force
+    Write-Ok "app.asar instalado"
+    return $true
+}
+
+# -----------------------------------------------------------------------
+# Build completo Electron (fallback ou primeira vez)
+# -----------------------------------------------------------------------
+function Invoke-FullElectronBuild([string]$NodeCmd) {
+    Write-Step "Build completo Electron (npm run pack:dir)..."
+    Push-Location (Join-Path $ProjectRoot 'gui')
+
+    if (-not (Test-Path 'node_modules')) {
+        Write-Step "Instalando dependencias npm (gui)..."
+        npm install
+        if ($LASTEXITCODE -ne 0) { Write-Err "npm install falhou (gui)"; Pop-Location; return $false }
+    }
+
+    npm run pack:dir
+    $exitCode = $LASTEXITCODE
+    Pop-Location
+    if ($exitCode -ne 0) { Write-Err "npm run pack:dir falhou (exit $exitCode)"; return $false }
+
+    $builtAsar   = Join-Path $ProjectRoot 'gui\dist\win-unpacked\resources\app.asar'
+    $releaseAsar = Join-Path $ProjectRoot 'release\app.asar'
+    $dstAsar     = Join-Path $InstallBase 'app.asar'
+
+    if (-not (Test-Path $builtAsar)) { Write-Err "app.asar nao gerado em $builtAsar"; return $false }
+
+    New-Item -ItemType Directory -Path (Split-Path $releaseAsar) -Force | Out-Null
+    Copy-Item $builtAsar $releaseAsar -Force
+    Copy-Item $builtAsar $dstAsar     -Force
+    $sizeKB = [math]::Round((Get-Item $dstAsar).Length / 1KB, 0)
+    Write-Ok "app.asar instalado via build completo ($sizeKB KB)"
+    return $true
+}
+
+# -----------------------------------------------------------------------
+# Compilar TypeScript
+# -----------------------------------------------------------------------
+function Invoke-TscCompile([string]$NodeCmd) {
+    Push-Location (Join-Path $ProjectRoot 'tools\nn')
+
+    if (-not (Test-Path 'node_modules')) {
+        Write-Step "Instalando dependencias npm (tools/nn)..."
+        npm install
+        if ($LASTEXITCODE -ne 0) { Write-Err "npm install falhou (tools/nn)"; Pop-Location; return $false }
+    }
+
+    npx tsc
+    $exitCode = $LASTEXITCODE
+    Pop-Location
+    if ($exitCode -ne 0) { Write-Err "Compilacao TypeScript falhou (exit $exitCode)"; return $false }
+    Write-Ok "tools/nn/dist/ compilado"
+    return $true
+}
+
+# =======================================================================
+# Modo UPDATE
+# =======================================================================
 if ($IsInstalled) {
     Write-Host ""
     Write-Host "===============================" -ForegroundColor Cyan
     Write-Host " PokedexChatbot - Atualizacao  " -ForegroundColor Cyan
     Write-Host "===============================" -ForegroundColor Cyan
 
-    # 0. Verificar Node.js (necessario para o bridge rodar)
+    # 0. Node.js
     Write-Step "Verificando Node.js..."
-    $nodeFound = $false
-    $scoopNode    = Join-Path $env:LOCALAPPDATA 'scoop\apps\nodejs-lts\current\node.exe'
-    $portableNode = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node\node.exe'
-    if (Test-Path $scoopNode)        { $nodeFound = $true; Write-Ok "Node.js encontrado (scoop)" }
-    elseif (Test-Path $portableNode) { $nodeFound = $true; Write-Ok "Node.js encontrado (portable)" }
-    elseif (Get-Command node -ErrorAction SilentlyContinue) { $nodeFound = $true; Write-Ok "Node.js encontrado (PATH)" }
-    else {
+    $nodeCmd = Get-NodeCmd
+    if (-not $nodeCmd) {
         Write-Warn "Node.js nao encontrado. Instalando automaticamente..."
-        $nodeFound = Install-PortableNode
+        $ok = Install-PortableNode
+        if (-not $ok) {
+            Write-Warn "Node.js nao disponivel — algumas etapas serao puladas"
+        } else {
+            $nodeCmd = Get-NodeCmd
+        }
+    }
+    if ($nodeCmd) { Write-Ok "Node.js: $nodeCmd" }
+
+    # 1. TypeScript — recompila somente se .ts mais recente que dist/bridge.js
+    if ($nodeCmd) {
+        if (Test-TsNeedsCompile) {
+            Write-Step "Mudancas em .ts detectadas — recompilando bridge..."
+            $ok = Invoke-TscCompile $nodeCmd
+            if (-not $ok) { Write-Warn "Compilacao falhou — continuando com dist/ existente" }
+        } else {
+            Write-Ok "TypeScript sem mudancas — dist/ esta atualizado"
+        }
     }
 
-    # 1. Frontend Electron (app.asar)
-    Write-Step "Atualizando frontend (app.asar)..."
-    $srcAsar = Join-Path $ProjectRoot 'release\app.asar'
-    $dstAsar = Join-Path $InstallBase 'app.asar'
-    if (Test-Path $srcAsar) {
-        Copy-Item $srcAsar $dstAsar -Force
-        $sizeKB = [math]::Round((Get-Item $srcAsar).Length / 1KB, 0)
-        Write-Ok "app.asar atualizado ($sizeKB KB)"
-    } else {
-        Write-Warn "release\app.asar nao encontrado - execute build_release.ps1 primeiro"
-    }
-
-    # 2. Bridge + Engine compilados (tools/nn/dist/)
-    Write-Step "Atualizando bridge e engine (tools/nn/dist)..."
+    # 2. Bridge + Engine compilados → runtime
+    Write-Step "Sincronizando bridge e engine (tools/nn/dist)..."
     $srcDist = Join-Path $ProjectRoot 'tools\nn\dist'
     $dstDist = Join-Path $InstallBase 'runtime\tools\nn\dist'
     Copy-Dir $srcDist $dstDist
-    Write-Ok "tools/nn/dist/ atualizado"
+    Write-Ok "tools/nn/dist/ sincronizado"
 
-    # 3. Scripts Python de inferencia (infer_nlu.py, infer_strategy.py)
-    Write-Step "Atualizando scripts Python de inferencia..."
+    # 2b. Modulos nativos Node (better-sqlite3, bindings, file-uri-to-path)
+    #     Precisam ser recompilados para a versao do Node ativa — sempre sincronizar.
+    Write-Step "Sincronizando modulos nativos Node (better-sqlite3)..."
+    $nativeDeps = @('better-sqlite3', 'bindings', 'file-uri-to-path')
+    foreach ($dep in $nativeDeps) {
+        $srcDep = Join-Path $ProjectRoot "tools\nn\node_modules\$dep"
+        $dstDep = Join-Path $InstallBase "runtime\tools\nn\node_modules\$dep"
+        if (Test-Path $srcDep) {
+            Copy-Dir $srcDep $dstDep
+        }
+    }
+    Write-Ok "Modulos nativos sincronizados"
+
+    # 2c. Banco de dados SQLite
+    Write-Step "Verificando banco de dados SQLite..."
+    $srcSqlite = Join-Path $ProjectRoot '.local_cache\nn_export\pokefiles_nn.sqlite3'
+    $dstSqlite = Join-Path $InstallBase 'runtime\.local_cache\nn_export\pokefiles_nn.sqlite3'
+    if (Test-Path $srcSqlite) {
+        New-Item -ItemType Directory -Path (Split-Path $dstSqlite) -Force | Out-Null
+        Copy-Item $srcSqlite $dstSqlite -Force
+        $sizeMB = [math]::Round((Get-Item $dstSqlite).Length / 1MB, 1)
+        Write-Ok "SQLite sincronizado ($sizeMB MB)"
+    } elseif (Test-Path $dstSqlite) {
+        Write-Ok "SQLite mantido (nao ha novo no projeto)"
+    } else {
+        Write-Warn "SQLite nao encontrado em .local_cache\nn_export\pokefiles_nn.sqlite3"
+        Write-Warn "O app iniciara sem dados — execute tools/pipeline para gerar o banco"
+        Write-Warn "Ou copie manualmente o arquivo pokefiles_nn.sqlite3 para o local acima"
+    }
+
+    # 3. app.asar — repack somente se fontes GUI mudaram
+    if ($nodeCmd) {
+        if (Test-AsarNeedsRepack) {
+            $ok = Invoke-AsarRepack $nodeCmd
+            if (-not $ok) { Write-Warn "Repack falhou — app.asar nao atualizado" }
+        } else {
+            Write-Ok "GUI sem mudancas — app.asar esta atualizado"
+            # Garantir que o asar instalado existe (ex: reinstalacao sem rebuild)
+            $releaseAsar = Join-Path $ProjectRoot 'release\app.asar'
+            $dstAsar     = Join-Path $InstallBase 'app.asar'
+            if ((Test-Path $releaseAsar) -and (-not (Test-Path $dstAsar))) {
+                Copy-Item $releaseAsar $dstAsar -Force
+                Write-Ok "app.asar copiado (estava ausente no destino)"
+            }
+        }
+    } else {
+        # Sem node: copiar release/app.asar diretamente se existir
+        $releaseAsar = Join-Path $ProjectRoot 'release\app.asar'
+        $dstAsar     = Join-Path $InstallBase 'app.asar'
+        if (Test-Path $releaseAsar) {
+            Copy-Item $releaseAsar $dstAsar -Force
+            Write-Ok "app.asar copiado (sem Node.js para repack)"
+        } else {
+            Write-Warn "release/app.asar nao encontrado e Node.js ausente — execute build_release.ps1 primeiro"
+        }
+    }
+
+    # 4. Scripts Python (nlu, strategy, shared) — usando robocopy para recursao
+    Write-Step "Sincronizando scripts Python de inferencia..."
     $pyDirs = @(
-        @{ src = 'tools\nn\train\nlu';      dst = 'runtime\tools\nn\train\nlu';      filter = '*.py' }
-        @{ src = 'tools\nn\train\strategy'; dst = 'runtime\tools\nn\train\strategy'; filter = '*.py' }
-        @{ src = 'tools\nn\train\shared';   dst = 'runtime\tools\nn\train\shared';   filter = '*.py' }
+        @{ src = 'tools\nn\train\nlu';      dst = 'runtime\tools\nn\train\nlu' }
+        @{ src = 'tools\nn\train\strategy'; dst = 'runtime\tools\nn\train\strategy' }
+        @{ src = 'tools\nn\train\shared';   dst = 'runtime\tools\nn\train\shared' }
     )
     foreach ($pair in $pyDirs) {
         $src = Join-Path $ProjectRoot $pair.src
         $dst = Join-Path $InstallBase $pair.dst
-        if (Test-Path $src) {
-            New-Item -ItemType Directory -Path $dst -Force | Out-Null
-            Get-ChildItem $src -Filter $pair.filter | ForEach-Object {
-                Copy-Item $_.FullName $dst -Force
-            }
-        }
+        Copy-Dir $src $dst
     }
-    Write-Ok "Scripts Python atualizados"
+    Write-Ok "Scripts Python sincronizados"
 
-    # 4. Modelos (apenas se .local_cache/nn_models existir no projeto)
+    # 5. Modelos treinados (preserva os existentes se nenhum novo estiver no projeto)
     Write-Step "Verificando modelos treinados..."
     $srcModels = Join-Path $ProjectRoot '.local_cache\nn_models'
     $dstModels = Join-Path $InstallBase 'runtime\.local_cache\nn_models'
     if (Test-Path $srcModels) {
         Copy-Dir $srcModels $dstModels
-        Write-Ok "Modelos atualizados"
+        Write-Ok "Modelos sincronizados"
     } else {
         Write-Ok "Modelos mantidos (nenhum novo modelo no projeto)"
     }
 
     Write-Host ""
-    if (-not $nodeFound) {
+    if (-not $nodeCmd) {
         Write-Host "===============================" -ForegroundColor Yellow
         Write-Host " AVISO: Instale o Node.js!" -ForegroundColor Yellow
         Write-Host " O app nao vai funcionar sem ele." -ForegroundColor Yellow
@@ -152,63 +353,69 @@ if ($IsInstalled) {
     exit 0
 }
 
-# -----------------------------------------------------------------------
+# =======================================================================
 # Modo INSTALL (primeira vez)
-# -----------------------------------------------------------------------
+# =======================================================================
 Write-Host ""
 Write-Host "===============================" -ForegroundColor Cyan
 Write-Host " PokedexChatbot - Instalacao   " -ForegroundColor Cyan
 Write-Host "===============================" -ForegroundColor Cyan
 
+# Resolver Node.js antes de qualquer build
+$nodeCmd = Get-NodeCmd
+if (-not $nodeCmd) {
+    Write-Warn "Node.js nao encontrado. Instalando automaticamente..."
+    $ok = Install-PortableNode
+    if (-not $ok) {
+        Write-Err "Node.js nao encontrado e instalacao automatica falhou."
+        Write-Err "Instale Node.js >= 22 manualmente e rode o setup novamente."
+        exit 1
+    }
+    $nodeCmd = Get-NodeCmd
+    $env:PATH = "$env:LOCALAPPDATA\PokedexChatbot\portable\node;$env:PATH"
+}
+Write-Ok "Node.js: $nodeCmd"
+
 $BuiltRuntime = Join-Path $ProjectRoot 'gui\dist\win-unpacked'
 $BuiltExe     = Join-Path $BuiltRuntime 'Pokedex Desktop.exe'
 
 if (-not (Test-Path $BuiltExe)) {
-    Write-Step "Build nao encontrado - compilando o app..."
+    Write-Step "Build nao encontrado — compilando o app..."
 
-    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-        $portableNode = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\portable\node\node.exe'
-        if (-not (Test-Path $portableNode)) {
-            $ok = Install-PortableNode
-            if (-not $ok) {
-                Write-Err "Node.js nao encontrado e instalacao automatica falhou."
-                Write-Err "Instale Node.js >= 22 manualmente e rode o setup novamente."
-                exit 1
-            }
-        }
-        $env:PATH = "$env:LOCALAPPDATA\PokedexChatbot\portable\node;$env:PATH"
+    # TypeScript + node_modules (inclui better-sqlite3)
+    $ok = Invoke-TscCompile $nodeCmd
+    if (-not $ok) { Write-Err "Compilacao TypeScript falhou. Abortando."; exit 1 }
+
+    # Electron (SQLite nao esta mais em extraResources — copiado separadamente abaixo)
+    $ok = Invoke-FullElectronBuild $nodeCmd
+    if (-not $ok) { Write-Err "Build Electron falhou. Abortando."; exit 1 }
+} else {
+    Write-Ok "Build existente encontrado em $BuiltRuntime"
+    # Mesmo com build existente, garantir que dist/ esta compilado
+    if (Test-TsNeedsCompile) {
+        Write-Step "TypeScript desatualizado — recompilando..."
+        $ok = Invoke-TscCompile $nodeCmd
+        if (-not $ok) { Write-Warn "Compilacao falhou — usando dist/ existente" }
     }
-
-    Write-Step "Compilando TypeScript (tools/nn)..."
-    Push-Location (Join-Path $ProjectRoot 'tools\nn')
-    npx tsc
-    Pop-Location
-    Write-Ok "TypeScript compilado"
-
-    Write-Step "Empacotando Electron (gui)..."
-    Push-Location (Join-Path $ProjectRoot 'gui')
-    npm run pack:dir
-    Pop-Location
-    Write-Ok "Electron empacotado"
 }
 
 Write-Step "Copiando para $env:LOCALAPPDATA\PokedexChatbot..."
 $AppInstallDir = Join-Path $env:LOCALAPPDATA 'PokedexChatbot\app'
 New-Item -ItemType Directory -Path $AppInstallDir -Force | Out-Null
 
-# Copiar arquivos do Electron (exceto resources)
+# Arquivos Electron (exceto resources — tratados separadamente)
 Get-ChildItem $BuiltRuntime | Where-Object { $_.Name -ne 'resources' } | ForEach-Object {
     $dst = Join-Path $AppInstallDir "win-unpacked\$($_.Name)"
     Copy-Item $_.FullName $dst -Recurse -Force
 }
 
-# Copiar resources
+# Resources: app.asar e default_app.asar
 $BuiltResources = Join-Path $BuiltRuntime 'resources'
 New-Item -ItemType Directory -Path $InstallBase -Force | Out-Null
 Copy-Item (Join-Path $BuiltResources 'app.asar')         (Join-Path $InstallBase 'app.asar')         -Force
 Copy-Item (Join-Path $BuiltResources 'default_app.asar') (Join-Path $InstallBase 'default_app.asar') -Force -ErrorAction SilentlyContinue
 
-# Runtime: copiar tudo exceto .local_cache se ja existir (preserva dados do usuario)
+# Runtime: copiar tudo exceto .local_cache (preserva dados do usuário)
 $BuiltRuntimeRes = Join-Path $BuiltResources 'runtime'
 $LocalCache      = Join-Path $InstallBase 'runtime\.local_cache'
 
@@ -224,6 +431,47 @@ if (Test-Path $BuiltRuntimeRes) {
     } elseif (Test-Path $LocalCache) {
         Write-Ok ".local_cache mantido (dados do usuario preservados)"
     }
+}
+
+# Modulos nativos: copiar do npm install em tools/nn (compativel com o Node local)
+Write-Step "Sincronizando modulos nativos Node (better-sqlite3)..."
+$nativeDeps = @('better-sqlite3', 'bindings', 'file-uri-to-path')
+foreach ($dep in $nativeDeps) {
+    $srcDep = Join-Path $ProjectRoot "tools\nn\node_modules\$dep"
+    $dstDep = Join-Path $InstallBase "runtime\tools\nn\node_modules\$dep"
+    if (Test-Path $srcDep) {
+        Copy-Dir $srcDep $dstDep
+    }
+}
+Write-Ok "Modulos nativos sincronizados"
+
+# SQLite — copiar se disponivel no projeto
+Write-Step "Verificando banco de dados SQLite..."
+$srcSqlite = Join-Path $ProjectRoot '.local_cache\nn_export\pokefiles_nn.sqlite3'
+$dstSqlite = Join-Path $InstallBase 'runtime\.local_cache\nn_export\pokefiles_nn.sqlite3'
+if (Test-Path $srcSqlite) {
+    New-Item -ItemType Directory -Path (Split-Path $dstSqlite) -Force | Out-Null
+    Copy-Item $srcSqlite $dstSqlite -Force
+    $sizeMB = [math]::Round((Get-Item $dstSqlite).Length / 1MB, 1)
+    Write-Ok "SQLite instalado ($sizeMB MB)"
+} elseif (Test-Path $dstSqlite) {
+    Write-Ok "SQLite existente mantido"
+} else {
+    Write-Warn "SQLite nao encontrado — o app iniciara sem dados"
+    Write-Warn "Copie pokefiles_nn.sqlite3 para: $dstSqlite"
+}
+
+# Modelos treinados — copiar se disponivel no projeto
+Write-Step "Verificando modelos treinados..."
+$srcModels = Join-Path $ProjectRoot '.local_cache\nn_models'
+$dstModels = Join-Path $InstallBase 'runtime\.local_cache\nn_models'
+if (Test-Path $srcModels) {
+    Copy-Dir $srcModels $dstModels
+    Write-Ok "Modelos instalados"
+} elseif (Test-Path $dstModels) {
+    Write-Ok "Modelos existentes mantidos"
+} else {
+    Write-Ok "Sem modelos — app usa respostas de regras"
 }
 
 Write-Host ""

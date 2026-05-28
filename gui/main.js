@@ -13,6 +13,7 @@ let spriteSyncPromise = null;
 let bootStatusMessage = 'Inicializando...';
 let cachedSpriteSignature = null;
 let cachedSprites = null;
+let lastBridgeError = null;   // last error/warning line from bridge stderr before it died
 
 const MIN_SPRITE_FILE_COUNT = 20;
 
@@ -215,8 +216,12 @@ function handleBridgeStdout(chunk) {
 function handleBridgeStderr(chunk) {
   const text = chunk.toString('utf8').trim();
   if (!text) return;
-  // Informational stderr from the bridge (startup logs, index sizes, model load) — not errors
-  const isInfo = /^\[bridge\]|\[infer_nlu\]|\[infer_strategy\]|\[infer\]|\[nlu\]|\[nn\]/.test(text);
+  // Separate ERROR lines (always captured) from info lines (startup logs, model load)
+  const isError = /^\[bridge\].*ERROR|Error:|Cannot find module|MODULE_NOT_FOUND|ENOENT|was compiled against/i.test(text);
+  const isInfo  = !isError && /^\[bridge\]|\[infer_nlu\]|\[infer_strategy\]|\[infer\]|\[nlu\]|\[nn\]/.test(text);
+  if (isError) {
+    lastBridgeError = text;
+  }
   if (isInfo) return;
   if (responseQueue.length > 0) {
     rejectNextResponse(new Error(text));
@@ -274,15 +279,19 @@ function startBridge() {
   bridgeProcess.stderr.on('data', handleBridgeStderr);
 
   bridgeProcess.on('error', (error) => {
+    lastBridgeError = error.message;
     while (responseQueue.length > 0) {
       rejectNextResponse(error);
     }
   });
 
-  bridgeProcess.on('exit', () => {
+  bridgeProcess.on('exit', (code) => {
     bridgeProcess = null;
+    const reason = lastBridgeError
+      ? `Bridge encerrado (código ${code}): ${lastBridgeError}`
+      : `Processo bridge foi encerrado (código ${code}).`;
     while (responseQueue.length > 0) {
-      rejectNextResponse(new Error('Processo bridge foi encerrado.'));
+      rejectNextResponse(new Error(reason));
     }
   });
 }
@@ -290,7 +299,8 @@ function startBridge() {
 function sendBridgeCommand(command, timeoutMs = 20000) {
   return new Promise((resolve, reject) => {
     if (!bridgeProcess || !bridgeProcess.stdin.writable) {
-      reject(new Error('Bridge não está disponível.'));
+      const detail = lastBridgeError ? ` — ${lastBridgeError}` : '';
+      reject(new Error(`Bridge não está disponível.${detail}`));
       return;
     }
 

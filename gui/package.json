@@ -61,13 +61,9 @@
         "filter": ["*.py", "*.json"]
       },
       {
-        "from": "../.local_cache/nn_models",
-        "to": "runtime/.local_cache/nn_models",
-        "filter": ["**/*"]
-      },
-      {
-        "from": "../.local_cache/nn_export/pokefiles_nn.sqlite3",
-        "to": "runtime/.local_cache/nn_export/pokefiles_nn.sqlite3"
+        "from": "../tools/nn/train/shared",
+        "to": "runtime/tools/nn/train/shared",
+        "filter": ["*.py", "*.json"]
       },
       {
         "from": "../tools/pipeline/sync_home_sprites.js",
