@@ -609,8 +609,12 @@ if (Test-Path $srcModels) {
 # Auto-treinar se classifier.pt ausente e SQLite disponivel
 $classifierPt = Join-Path $dstModels 'nlu\classifier.pt'
 if (-not (Test-Path $classifierPt) -and (Test-Path $dstSqlite)) {
-    $pyCmd = (Get-Command python -ErrorAction SilentlyContinue)?.Source
-    if (-not $pyCmd) { $pyCmd = (Get-Command python3 -ErrorAction SilentlyContinue)?.Source }
+    $pyCmdObj = Get-Command python -ErrorAction SilentlyContinue
+    $pyCmd = if ($pyCmdObj) { $pyCmdObj.Source } else { $null }
+    if (-not $pyCmd) {
+        $pyCmdObj = Get-Command python3 -ErrorAction SilentlyContinue
+        $pyCmd = if ($pyCmdObj) { $pyCmdObj.Source } else { $null }
+    }
     if ($pyCmd) {
         Write-Step "Modelos ausentes - treinando (primeira vez, pode demorar ~20 min)..."
         $trainRt = Join-Path $InstallBase 'runtime\tools\nn\train'
