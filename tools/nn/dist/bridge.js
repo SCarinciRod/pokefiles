@@ -644,7 +644,75 @@ function buildListEntry(p) {
         type_labels: p.types.map(typeLabel),
     };
 }
-function buildDetailEntry(p, typeChart) {
+function buildEvolutionData(pokemonId, pokemonIdentifier, engine) {
+    const allEdges = engine.queryAll('SELECT from_id, to_id, trigger, min_level, condition FROM pokemon_evolution');
+    if (allEdges.length === 0)
+        return { members: [], transitions: [] };
+    const connectedIds = new Set([pokemonId]);
+    let changed = true;
+    while (changed) {
+        changed = false;
+        for (const edge of allEdges) {
+            if (connectedIds.has(edge.from_id) && !connectedIds.has(edge.to_id)) {
+                connectedIds.add(edge.to_id);
+                changed = true;
+            }
+            if (connectedIds.has(edge.to_id) && !connectedIds.has(edge.from_id)) {
+                connectedIds.add(edge.from_id);
+                changed = true;
+            }
+        }
+    }
+    const chainEdges = allEdges.filter((e) => connectedIds.has(e.from_id) && connectedIds.has(e.to_id));
+    if (chainEdges.length === 0)
+        return { members: [], transitions: [] };
+    const toIds = new Set(chainEdges.map((e) => e.to_id));
+    const stages = new Map();
+    const queue = [];
+    for (const id of connectedIds) {
+        if (!toIds.has(id)) {
+            stages.set(id, 1);
+            queue.push(id);
+        }
+    }
+    while (queue.length > 0) {
+        const cur = queue.shift();
+        const curStage = stages.get(cur);
+        for (const edge of chainEdges) {
+            if (edge.from_id === cur && !stages.has(edge.to_id)) {
+                stages.set(edge.to_id, curStage + 1);
+                queue.push(edge.to_id);
+            }
+        }
+    }
+    const members = [...connectedIds].map((id) => {
+        const row = engine.queryAll('SELECT id, identifier FROM pokemon WHERE id = ?', [id])[0];
+        if (!row)
+            return null;
+        const types = engine.queryAll('SELECT type_id FROM pokemon_types WHERE pokemon_id = ? ORDER BY slot', [id]).map((r) => r.type_id);
+        return { id: row.id, identifier: row.identifier, display_name: displayName(row.identifier), types, stage: stages.get(id) ?? 1, current: id === pokemonId };
+    }).filter(Boolean);
+    const transitions = chainEdges.map((e) => {
+        const fromRow = engine.queryAll('SELECT identifier FROM pokemon WHERE id = ?', [e.from_id])[0];
+        const toRow = engine.queryAll('SELECT identifier FROM pokemon WHERE id = ?', [e.to_id])[0];
+        if (!fromRow || !toRow)
+            return null;
+        let condition = e.condition ?? e.trigger;
+        if (e.trigger === 'level_up')
+            condition = e.min_level ? `Nível ${e.min_level}` : 'Level up';
+        else if (e.trigger === 'use_item')
+            condition = e.condition ? `Usar ${displayName(e.condition)}` : 'Usar item';
+        else if (e.trigger === 'trade')
+            condition = e.condition ? `Troca com ${displayName(e.condition)}` : 'Troca';
+        else if (e.trigger === 'shed')
+            condition = 'Level up (slot vazio)';
+        else if (e.trigger === 'friendship')
+            condition = e.min_level ? `Amizade (nível ${e.min_level})` : 'Amizade';
+        return { from_identifier: fromRow.identifier, to_identifier: toRow.identifier, from_label: displayName(fromRow.identifier), to_label: displayName(toRow.identifier), condition };
+    }).filter(Boolean);
+    return { members, transitions };
+}
+function buildDetailEntry(p, typeChart, engine) {
     const stats = p.baseStats;
     const statEntries = [
         { key: 'hp', label: 'HP', value: stats.hp },
@@ -674,6 +742,37 @@ function buildDetailEntry(p, typeChart) {
         else if (mult < 1.0)
             resistances.push({ type: atkType, type_label: typeLabel(atkType), multiplier: `×${mult}`, multiplier_value: mult });
     }
+    const typeRelations = { weaknesses, resistances, immunities };
+    const loreRows = engine.queryAll('SELECT slot, entry FROM pokemon_lore WHERE pokemon_id = ? ORDER BY slot', [p.id]);
+    const description = loreRows.find((r) => r.slot === 1)?.entry ?? null;
+    const lore = loreRows.filter((r) => r.slot > 1).map((r) => r.entry).join(' ') || null;
+    const moveRows = engine.queryAll('SELECT move_id FROM pokemon_moves WHERE pokemon_identifier = ? ORDER BY move_id', [p.identifier]);
+    const moves_details = moveRows.map((r) => {
+        const m = engine.getMove(r.move_id);
+        if (!m)
+            return { identifier: r.move_id, label: displayName(r.move_id), type: '', type_label: '-', category_label: '-', power: '-', accuracy: '-', pp: '-', priority: '0', effect: '-', effect_chance: null, ailment: null, effect_category: null };
+        return {
+            identifier: m.id, label: displayName(m.id),
+            type: m.type_id, type_label: typeLabel(m.type_id),
+            category_label: m.category === 'physical' ? 'Físico' : m.category === 'special' ? 'Especial' : 'Status',
+            power: m.base_power > 0 ? String(m.base_power) : '—',
+            accuracy: m.accuracy > 0 ? String(m.accuracy) : '—',
+            pp: String(m.pp), priority: '0',
+            effect: m.description,
+            effect_chance: m.effect_chance !== null ? String(m.effect_chance) : null,
+            ailment: m.ailment, effect_category: m.effect_category,
+        };
+    });
+    const ability_options = p.abilities.map((abilityId) => {
+        const a = engine.getAbility(abilityId);
+        return {
+            identifier: abilityId, label: displayName(abilityId),
+            short_effect: a?.short_effect ?? '',
+            effect: a?.effect ?? '',
+            type_relations: typeRelations,
+        };
+    });
+    const evolution = buildEvolutionData(p.id, p.identifier, engine);
     return {
         id: p.id, identifier: p.identifier, display_name: displayName(p.identifier),
         height_dm: p.height_dm, height_m: p.height_dm / 10,
@@ -682,7 +781,10 @@ function buildDetailEntry(p, typeChart) {
         abilities: p.abilities.map(displayName), ability_identifiers: p.abilities,
         selected_ability: p.abilities[0] ?? '', source_generation: p.source_generation,
         stats: statEntries, max_stat: maxStat,
-        type_relations: { weaknesses, resistances, immunities },
+        type_relations: typeRelations,
+        description, lore,
+        moves_count: moveRows.length, moves_source: 'exact', moves_details,
+        ability_options, evolution,
     };
 }
 // ---------------------------------------------------------------------------
@@ -4610,7 +4712,7 @@ async function handleCommand(input, engine) {
             const p = engine.getPokemonContext(identifier, { includeMoves: true });
             if (!p)
                 return JSON.stringify({ ok: false, error: 'Pokémon não encontrado.' });
-            return JSON.stringify({ ok: true, detail: buildDetailEntry(p, engine.getTypeChart()) });
+            return JSON.stringify({ ok: true, detail: buildDetailEntry(p, engine.getTypeChart(), engine) });
         }
         catch (e) {
             return JSON.stringify({ ok: false, error: String(e) });
