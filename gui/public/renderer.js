@@ -1208,6 +1208,52 @@ const VGC_ITEMS = [
   { id: 'never-melt_ice', name: 'Never-Melt Ice' },
   { id: 'expert_belt', name: 'Expert Belt' },
   { id: 'red_card', name: 'Red Card' },
+  // Mega Stones
+  { id: 'kangaskhanite', name: 'Kangaskhanite' },
+  { id: 'salamencite', name: 'Salamencite' },
+  { id: 'charizardite-x', name: 'Charizardite X' },
+  { id: 'charizardite-y', name: 'Charizardite Y' },
+  { id: 'mewtwonite-x', name: 'Mewtwonite X' },
+  { id: 'mewtwonite-y', name: 'Mewtwonite Y' },
+  { id: 'gengarite', name: 'Gengarite' },
+  { id: 'lucarionite', name: 'Lucarionite' },
+  { id: 'garchompite', name: 'Garchompite' },
+  { id: 'lopunnite', name: 'Lopunnite' },
+  { id: 'cameruptite', name: 'Cameruptite' },
+  { id: 'diancite', name: 'Diancite' },
+  { id: 'swampertite', name: 'Swampertite' },
+  { id: 'sceptilite', name: 'Sceptilite' },
+  { id: 'blazikenite', name: 'Blazikenite' },
+  { id: 'galladite', name: 'Galladite' },
+  { id: 'gardevoirite', name: 'Gardevoirite' },
+  { id: 'beedrillite', name: 'Beedrillite' },
+  { id: 'aerodactylite', name: 'Aerodactylite' },
+  { id: 'tyranitarite', name: 'Tyranitarite' },
+  { id: 'scizorite', name: 'Scizorite' },
+  { id: 'gyaradosite', name: 'Gyaradosite' },
+  { id: 'pinsirite', name: 'Pinsirite' },
+  { id: 'absolite', name: 'Absolite' },
+  { id: 'mawilite', name: 'Mawilite' },
+  { id: 'manectite', name: 'Manectite' },
+  { id: 'houndoominite', name: 'Houndoominite' },
+  { id: 'aggronite', name: 'Aggronite' },
+  { id: 'ampharosite', name: 'Ampharosite' },
+  { id: 'banettite', name: 'Banettite' },
+  { id: 'heracronite', name: 'Heracronite' },
+  { id: 'medichamite', name: 'Medichamite' },
+  { id: 'altarianite', name: 'Altarianite' },
+  { id: 'sharpedonite', name: 'Sharpedonite' },
+  { id: 'slowbronite', name: 'Slowbronite' },
+  { id: 'steelixite', name: 'Steelixite' },
+  { id: 'sablenite', name: 'Sablenite' },
+  { id: 'audinite', name: 'Audinite' },
+  { id: 'venusaurite', name: 'Venusaurite' },
+  { id: 'blastoisinite', name: 'Blastoisinite' },
+  { id: 'alakazite', name: 'Alakazite' },
+  { id: 'latiasite', name: 'Latiasite' },
+  { id: 'latiosite', name: 'Latiosite' },
+  { id: 'feraligatrite', name: 'Feraligatrite' },
+  { id: 'meganiumite', name: 'Meganiumite' },
 ];
 
 // ── DOM refs ────────────────────────────────────────────────────────────────
@@ -1289,8 +1335,10 @@ function openBattlePanel() {
   battlePanelEl.classList.remove('hidden');
   battlePanelEl.setAttribute('aria-hidden', 'false');
   bpShowView('builder');
-  bpRenderAllSlots();
-  bpSelectSlot('user', 0);
+  requestAnimationFrame(() => {
+    bpRenderAllSlots();
+    bpSelectSlot('user', 0);
+  });
 }
 
 function closeBattlePanel() {
@@ -1404,7 +1452,7 @@ function bpSaveCurrentSlot() {
 function bpUpdateEditorFromSlot() {
   const cfg = bpCurrentSlots()[bp.editingSlot];
   bp.detail = cfg ? bp.detailCache.get(cfg.identifier) : null;
-  bp.availableMoves = [];
+  bp.availableMoves = (bp.detail && bp.detail.moves_details) ? bp.detail.moves_details : [];
 
   if (cfg) {
     // Sprite
@@ -1512,8 +1560,23 @@ bpPokeInput.addEventListener('input', () => {
 });
 
 bpPokeInput.addEventListener('blur', () => {
-  setTimeout(() => bpPokeSugg.classList.add('hidden'), 150);
+  // Closed via global mousedown listener instead
 });
+
+function deriveMegaStoneId(identifier) {
+  const EXPLICIT = {
+    'charizard-mega-x': 'charizardite-x', 'charizard-mega-y': 'charizardite-y',
+    'mewtwo-mega-x': 'mewtwonite-x',      'mewtwo-mega-y': 'mewtwonite-y',
+    'lopunny-mega': 'lopunnite',           'audino-mega': 'audinite',
+    'blastoise-mega': 'blastoisinite',     'alakazam-mega': 'alakazite',
+    'kangaskhan-mega': 'kangaskhanite',
+  };
+  if (EXPLICIT[identifier]) return EXPLICIT[identifier];
+  const m = identifier.match(/^(.+)-mega(?:-(.+))?$/);
+  if (!m) return null;
+  const stoneName = m[1] + 'ite';
+  return m[2] ? `${stoneName}-${m[2]}` : stoneName;
+}
 
 async function bpSelectPokemon(identifier, displayName) {
   bpPokeInput.value = displayName;
@@ -1544,6 +1607,13 @@ async function bpSelectPokemon(identifier, displayName) {
   // Set ability to first available
   if (detail && detail.ability_options && detail.ability_options.length > 0) {
     slots[bp.editingSlot].ability = detail.ability_options[0].id;
+  }
+
+  // Auto-fill mega stone when selecting a mega evolution
+  if (identifier.includes('-mega')) {
+    const stoneId = deriveMegaStoneId(identifier);
+    const stoneItem = stoneId ? VGC_ITEMS.find((it) => it.id === stoneId) : null;
+    if (stoneItem) slots[bp.editingSlot].item = stoneItem.id;
   }
 
   // Build available moves list
@@ -1607,7 +1677,7 @@ bpItemInput.addEventListener('input', () => {
   bpItemSugg.classList.remove('hidden');
 });
 bpItemInput.addEventListener('blur', () => {
-  setTimeout(() => bpItemSugg.classList.add('hidden'), 150);
+  // Closed via global mousedown listener instead
 });
 
 // ── EVs ──────────────────────────────────────────────────────────────────────
@@ -1699,7 +1769,7 @@ bpMoveInput.addEventListener('input', () => {
   bpMoveSugg.classList.remove('hidden');
 });
 bpMoveInput.addEventListener('blur', () => {
-  setTimeout(() => { bpMoveSugg.classList.add('hidden'); }, 150);
+  // Closed via global mousedown listener instead
 });
 
 // ── Enemy mode toggle ────────────────────────────────────────────────────────
@@ -2092,8 +2162,10 @@ document.getElementById('bp-forfeit-btn').addEventListener('click', () => {
   bpCheckStart();
 });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !battlePanelEl.classList.contains('hidden')) {
-    closeBattlePanel();
+document.addEventListener('mousedown', (e) => {
+  if (!battlePanelEl.classList.contains('hidden')) {
+    if (!bpPokeSugg.contains(e.target) && e.target !== bpPokeInput) bpPokeSugg.classList.add('hidden');
+    if (!bpItemSugg.contains(e.target) && e.target !== bpItemInput) bpItemSugg.classList.add('hidden');
+    if (!bpMoveSugg.contains(e.target) && e.target !== bpMoveInput) bpMoveSugg.classList.add('hidden');
   }
 });
