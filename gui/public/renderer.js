@@ -1513,6 +1513,8 @@ function bpUpdateEditorFromSlot() {
     bpRenderMovesList([]);
   }
 
+  bpPokeSugg.classList.add('hidden');
+  bpItemSugg.classList.add('hidden');
   bpMoveSearchWrap.classList.add('hidden');
   bpMoveInput.value = '';
 }
@@ -1622,6 +1624,8 @@ async function bpSelectPokemon(identifier, displayName) {
   }
 
   bpUpdateEditorFromSlot();
+  bpPokeSugg.classList.add('hidden');
+  bpPokeInput.blur();
   bpRenderTeamSlots(bp.editingTeam);
   bpCheckStart();
 }
@@ -2164,8 +2168,11 @@ document.getElementById('bp-forfeit-btn').addEventListener('click', () => {
 
 document.addEventListener('mousedown', (e) => {
   if (!battlePanelEl.classList.contains('hidden')) {
-    if (!bpPokeSugg.contains(e.target) && e.target !== bpPokeInput) bpPokeSugg.classList.add('hidden');
-    if (!bpItemSugg.contains(e.target) && e.target !== bpItemInput) bpItemSugg.classList.add('hidden');
-    if (!bpMoveSugg.contains(e.target) && e.target !== bpMoveInput) bpMoveSugg.classList.add('hidden');
+    if (e.target !== bpPokeInput && !e.target.closest('#bp-pokemon-suggestions .bp-suggestion-item'))
+      bpPokeSugg.classList.add('hidden');
+    if (e.target !== bpItemInput && !e.target.closest('#bp-item-suggestions .bp-suggestion-item'))
+      bpItemSugg.classList.add('hidden');
+    if (e.target !== bpMoveInput && !e.target.closest('#bp-move-suggestions .bp-suggestion-item'))
+      bpMoveSugg.classList.add('hidden');
   }
 });
