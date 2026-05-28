@@ -6,6 +6,9 @@
 /gui/dist-runtime/
 /gui/dist-runtime-*/
 
+# Compiled TypeScript output — rastreado (necessário para setup.exe atualizar o colega)
+# tools/nn/dist/ é rastreado intencionalmente
+
 # Local runtime cache and logs
 /.local_cache/
 *.log
