@@ -1293,6 +1293,28 @@ const bpActionPanel   = document.getElementById('bp-action-panel');
 const bpUserCount     = document.getElementById('bp-user-count');
 const bpEnemyCount    = document.getElementById('bp-enemy-count');
 
+// ── Suggestion backdrop (closes any open dropdown on outside click) ──────────
+
+const bpSuggBackdrop = (() => {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;display:none;';
+  document.body.appendChild(el);
+  el.addEventListener('mousedown', (e) => { e.preventDefault(); bpHideAllSugg(); });
+  return el;
+})();
+
+function bpShowSugg(sugg) {
+  bpSuggBackdrop.style.display = 'block';
+  sugg.classList.remove('hidden');
+}
+
+function bpHideAllSugg() {
+  bpPokeSugg.classList.add('hidden');
+  bpItemSugg.classList.add('hidden');
+  bpMoveSugg.classList.add('hidden');
+  bpSuggBackdrop.style.display = 'none';
+}
+
 // ── State ───────────────────────────────────────────────────────────────────
 
 const bp = {
@@ -1513,6 +1535,7 @@ function bpUpdateEditorFromSlot() {
     bpRenderMovesList([]);
   }
 
+  bpHideAllSugg();
   bpMoveSearchWrap.classList.add('hidden');
   bpMoveInput.value = '';
 }
@@ -1535,7 +1558,7 @@ async function bpLoadDetail(identifier) {
 
 bpPokeInput.addEventListener('input', () => {
   const q = bpPokeInput.value.trim().toLowerCase();
-  if (!q || q.length < 1) { bpPokeSugg.classList.add('hidden'); return; }
+  if (!q || q.length < 1) { bpHideAllSugg(); return; }
   const matches = allPokemon
     .filter((p) => {
       const id = (p.identifier || '').toLowerCase();
@@ -1544,19 +1567,19 @@ bpPokeInput.addEventListener('input', () => {
     })
     .slice(0, 8);
   bpPokeSugg.innerHTML = '';
-  if (matches.length === 0) { bpPokeSugg.classList.add('hidden'); return; }
+  if (matches.length === 0) { bpHideAllSugg(); return; }
   matches.forEach((p) => {
     const div = document.createElement('div');
     div.className = 'bp-suggestion-item';
     div.textContent = p.display_name || bpDisplayName(p.identifier);
     div.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      bpPokeSugg.classList.add('hidden');
+      bpHideAllSugg();
       bpSelectPokemon(p.identifier, p.display_name || bpDisplayName(p.identifier));
     });
     bpPokeSugg.appendChild(div);
   });
-  bpPokeSugg.classList.remove('hidden');
+  bpShowSugg(bpPokeSugg);
 });
 
 bpPokeInput.addEventListener('blur', () => {
@@ -1622,6 +1645,7 @@ async function bpSelectPokemon(identifier, displayName) {
   }
 
   bpUpdateEditorFromSlot();
+  bpPokeInput.blur();
   bpRenderTeamSlots(bp.editingTeam);
   bpCheckStart();
 }
@@ -1658,9 +1682,9 @@ bpNatureSelect.addEventListener('change', () => {
 bpItemInput.addEventListener('input', () => {
   const q = bpItemInput.value.trim().toLowerCase();
   bpItemSugg.innerHTML = '';
-  if (!q) { bpItemSugg.classList.add('hidden'); return; }
+  if (!q) { bpHideAllSugg(); return; }
   const matches = VGC_ITEMS.filter((it) => it.name.toLowerCase().includes(q)).slice(0, 8);
-  if (matches.length === 0) { bpItemSugg.classList.add('hidden'); return; }
+  if (matches.length === 0) { bpHideAllSugg(); return; }
   matches.forEach((it) => {
     const div = document.createElement('div');
     div.className = 'bp-suggestion-item';
@@ -1668,13 +1692,13 @@ bpItemInput.addEventListener('input', () => {
     div.addEventListener('mousedown', (e) => {
       e.preventDefault();
       bpItemInput.value = it.name;
-      bpItemSugg.classList.add('hidden');
+      bpHideAllSugg();
       const cfg = bpCurrentSlots()[bp.editingSlot];
       if (cfg) cfg.item = it.id;
     });
     bpItemSugg.appendChild(div);
   });
-  bpItemSugg.classList.remove('hidden');
+  bpShowSugg(bpItemSugg);
 });
 bpItemInput.addEventListener('blur', () => {
   // Closed via global mousedown listener instead
@@ -1738,7 +1762,7 @@ bpMoveInput.addEventListener('input', () => {
   const q = bpMoveInput.value.trim().toLowerCase();
   bpMoveSugg.innerHTML = '';
   const source = bp.availableMoves.length > 0 ? bp.availableMoves : [];
-  if (!q) { bpMoveSugg.classList.add('hidden'); return; }
+  if (!q) { bpHideAllSugg(); return; }
   const matches = source
     .filter((m) => {
       const name = (m.name || m.id || '').toLowerCase();
@@ -1746,7 +1770,7 @@ bpMoveInput.addEventListener('input', () => {
       return name.includes(q) || id.includes(q);
     })
     .slice(0, 10);
-  if (matches.length === 0) { bpMoveSugg.classList.add('hidden'); return; }
+  if (matches.length === 0) { bpHideAllSugg(); return; }
   matches.forEach((m) => {
     const div = document.createElement('div');
     div.className = 'bp-suggestion-item';
@@ -1754,7 +1778,7 @@ bpMoveInput.addEventListener('input', () => {
     div.textContent = label + (m.power > 0 ? ` (${m.power})` : '') + (m.type_id ? ` [${m.type_id}]` : '');
     div.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      bpMoveSugg.classList.add('hidden');
+      bpHideAllSugg();
       bpMoveSearchWrap.classList.add('hidden');
       bpMoveInput.value = '';
       const cfg = bpCurrentSlots()[bp.editingSlot];
@@ -1766,7 +1790,7 @@ bpMoveInput.addEventListener('input', () => {
     });
     bpMoveSugg.appendChild(div);
   });
-  bpMoveSugg.classList.remove('hidden');
+  bpShowSugg(bpMoveSugg);
 });
 bpMoveInput.addEventListener('blur', () => {
   // Closed via global mousedown listener instead
@@ -2162,10 +2186,3 @@ document.getElementById('bp-forfeit-btn').addEventListener('click', () => {
   bpCheckStart();
 });
 
-document.addEventListener('mousedown', (e) => {
-  if (!battlePanelEl.classList.contains('hidden')) {
-    if (!bpPokeSugg.contains(e.target) && e.target !== bpPokeInput) bpPokeSugg.classList.add('hidden');
-    if (!bpItemSugg.contains(e.target) && e.target !== bpItemInput) bpItemSugg.classList.add('hidden');
-    if (!bpMoveSugg.contains(e.target) && e.target !== bpMoveInput) bpMoveSugg.classList.add('hidden');
-  }
-});
