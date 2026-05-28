@@ -1297,8 +1297,10 @@ const bpEnemyCount    = document.getElementById('bp-enemy-count');
 
 const bpSuggBackdrop = (() => {
   const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:999;display:none;';
-  document.body.appendChild(el);
+  // Must be inside battlePanelEl (z-index: 500 stacking context) so z-index 999 here
+  // is below the suggestions (z-index 1001) but above everything else in the panel.
+  el.style.cssText = 'position:absolute;inset:0;z-index:999;display:none;';
+  battlePanelEl.appendChild(el);
   el.addEventListener('mousedown', (e) => { e.preventDefault(); bpHideAllSugg(); });
   return el;
 })();
@@ -1765,8 +1767,8 @@ bpMoveInput.addEventListener('input', () => {
   if (!q) { bpHideAllSugg(); return; }
   const matches = source
     .filter((m) => {
-      const name = (m.name || m.id || '').toLowerCase();
-      const id = (m.id || '').toLowerCase();
+      const name = (m.label || m.name || m.identifier || m.id || '').toLowerCase();
+      const id   = (m.identifier || m.id || '').toLowerCase();
       return name.includes(q) || id.includes(q);
     })
     .slice(0, 10);
@@ -1774,16 +1776,19 @@ bpMoveInput.addEventListener('input', () => {
   matches.forEach((m) => {
     const div = document.createElement('div');
     div.className = 'bp-suggestion-item';
-    const label = m.name || bpDisplayName(m.id);
-    div.textContent = label + (m.power > 0 ? ` (${m.power})` : '') + (m.type_id ? ` [${m.type_id}]` : '');
+    const label = m.label || m.name || bpDisplayName(m.identifier || m.id || '');
+    const power = m.power && m.power !== '—' && m.power !== '-' ? ` (${m.power})` : '';
+    const type  = m.type || m.type_id;
+    div.textContent = label + power + (type ? ` [${type}]` : '');
     div.addEventListener('mousedown', (e) => {
       e.preventDefault();
       bpHideAllSugg();
       bpMoveSearchWrap.classList.add('hidden');
       bpMoveInput.value = '';
       const cfg = bpCurrentSlots()[bp.editingSlot];
-      if (cfg && cfg.moves.length < 4 && !cfg.moves.includes(m.id)) {
-        cfg.moves.push(m.id);
+      const moveId = m.identifier || m.id;
+      if (cfg && cfg.moves.length < 4 && !cfg.moves.includes(moveId)) {
+        cfg.moves.push(moveId);
         bpRenderMovesList(cfg.moves);
         bpCheckStart();
       }
