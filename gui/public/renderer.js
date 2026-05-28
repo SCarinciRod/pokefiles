@@ -1293,37 +1293,34 @@ const bpActionPanel   = document.getElementById('bp-action-panel');
 const bpUserCount     = document.getElementById('bp-user-count');
 const bpEnemyCount    = document.getElementById('bp-enemy-count');
 
-// ── Suggestion backdrop (closes any open dropdown on outside click) ──────────
+// ── Suggestion helpers ────────────────────────────────────────────────────────
 
-// Backdrop in document.body, z-index 9999 — above the battle panel (500) and
-// below the suggestions (10000). Captures any click outside the open dropdown.
-const bpSuggBackdrop = (() => {
-  const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;';
-  document.body.appendChild(el);
-  el.addEventListener('mousedown', (e) => { e.preventDefault(); bpHideAllSugg(); });
-  return el;
-})();
-
-// Portal pattern: move suggestions to document.body so they escape
-// battlePanelEl's stacking context (z-index:500). Only elements in the
-// root stacking context can safely layer above/below the backdrop.
+// Portal: move suggestion element to document.body on first show so it escapes
+// battlePanelEl's stacking context. Position is calculated from the input rect.
 function bpShowSugg(sugg, inputEl) {
   if (sugg.parentElement !== document.body) document.body.appendChild(sugg);
   const r = inputEl.getBoundingClientRect();
   sugg.style.top   = (r.bottom + 2) + 'px';
   sugg.style.left  = r.left + 'px';
   sugg.style.width = r.width + 'px';
-  bpSuggBackdrop.style.display = 'block';
-  sugg.classList.remove('hidden');
+  sugg.style.display = 'block';
 }
 
 function bpHideAllSugg() {
-  bpPokeSugg.classList.add('hidden');
-  bpItemSugg.classList.add('hidden');
-  bpMoveSugg.classList.add('hidden');
-  bpSuggBackdrop.style.display = 'none';
+  bpPokeSugg.style.display = 'none';
+  bpItemSugg.style.display = 'none';
+  bpMoveSugg.style.display = 'none';
 }
+
+// Single capture-phase listener: fires before any element's own handler.
+// Closes all open suggestions when the click lands outside an input or item.
+document.addEventListener('mousedown', (e) => {
+  const anyOpen = [bpPokeSugg, bpItemSugg, bpMoveSugg].some(s => s.style.display !== 'none');
+  if (!anyOpen) return;
+  if (e.target === bpPokeInput || e.target === bpItemInput || e.target === bpMoveInput) return;
+  if (e.target.closest && e.target.closest('.bp-suggestion-item')) return;
+  bpHideAllSugg();
+}, true);
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -1338,6 +1335,7 @@ const bp = {
   availableMoves: [],      // moves for the current Pokémon
   battleState: null,       // last VBResponse
   chosen: [null, null],    // chosen actions per slot
+  pendingMoveTarget: null, // { slotIdx, slotInfo, mv } awaiting target pick
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1364,6 +1362,8 @@ function bpTypeThemeColor(type) {
 // ── Open / Close ────────────────────────────────────────────────────────────
 
 function openBattlePanel() {
+  bpHideAllSugg();
+  bpMoveSearchWrap.style.display = 'none';
   battlePanelEl.classList.remove('hidden');
   battlePanelEl.setAttribute('aria-hidden', 'false');
   bpShowView('builder');
@@ -1453,6 +1453,10 @@ function bpSelectSlot(team, idx) {
   bp.editingSlot = idx;
   bpRenderAllSlots();
   bpUpdateEditorFromSlot();
+  // Scroll editor into view when editing enemy team (editor is above the enemy section)
+  if (team === 'enemy') {
+    bpEditorEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function bpSaveCurrentSlot() {
@@ -1485,6 +1489,13 @@ function bpUpdateEditorFromSlot() {
   const cfg = bpCurrentSlots()[bp.editingSlot];
   bp.detail = cfg ? bp.detailCache.get(cfg.identifier) : null;
   bp.availableMoves = (bp.detail && bp.detail.moves_details) ? bp.detail.moves_details : [];
+
+  const ctxEl = document.getElementById('bp-editor-context-label');
+  if (ctxEl) {
+    const teamLabel = bp.editingTeam === 'enemy' ? 'Time Inimigo' : 'Seu Time';
+    ctxEl.textContent = `Editando: ${teamLabel} — Slot ${bp.editingSlot + 1}`;
+    ctxEl.style.color = bp.editingTeam === 'enemy' ? '#c0392b' : '#2980b9';
+  }
 
   if (cfg) {
     // Sprite
@@ -1546,7 +1557,7 @@ function bpUpdateEditorFromSlot() {
   }
 
   bpHideAllSugg();
-  bpMoveSearchWrap.classList.add('hidden');
+  bpMoveSearchWrap.style.display = 'none';
   bpMoveInput.value = '';
 }
 
@@ -1639,7 +1650,8 @@ async function bpSelectPokemon(identifier, displayName) {
 
   // Set ability to first available
   if (detail && detail.ability_options && detail.ability_options.length > 0) {
-    slots[bp.editingSlot].ability = detail.ability_options[0].id;
+    const firstAb = detail.ability_options[0];
+    slots[bp.editingSlot].ability = firstAb.identifier || firstAb.id || '';
   }
 
   // Auto-fill mega stone when selecting a mega evolution
@@ -1670,8 +1682,9 @@ function bpPopulateAbilities(abilityOptions, currentAbility) {
   }
   abilityOptions.forEach((a) => {
     const opt = document.createElement('option');
-    opt.value = a.id;
-    opt.textContent = bpDisplayName(a.id);
+    const id = a.identifier || a.id || '';
+    opt.value = id;
+    opt.textContent = a.label || bpDisplayName(id);
     bpAbilitySelect.appendChild(opt);
   });
   if (currentAbility) bpAbilitySelect.value = currentAbility;
@@ -1725,11 +1738,25 @@ function bpUpdateEvTotal() {
 
 bpEvInputs.forEach((inp) => {
   inp.addEventListener('input', () => {
+    // Snap to nearest valid: below 0 → 0, above 252 → 252
+    let val = parseInt(inp.value, 10) || 0;
+    val = val < 0 ? 0 : val > 252 ? 252 : val;
+
+    // If remaining budget is 0 (others already at 510), force this field to 0
+    let otherTotal = 0;
+    bpEvInputs.forEach((other) => {
+      if (other !== inp) otherTotal += Math.max(0, Math.min(252, parseInt(other.value, 10) || 0));
+    });
+    const remaining = Math.max(0, 510 - otherTotal);
+    if (val > remaining) val = remaining;
+
+    // Write clamped value back so bpUpdateEvTotal reads the correct number
+    inp.value = val;
+
     bpUpdateEvTotal();
     const cfg = bpCurrentSlots()[bp.editingSlot];
     if (cfg) {
       if (!cfg.evs) cfg.evs = {};
-      const val = Math.max(0, Math.min(252, parseInt(inp.value, 10) || 0));
       if (val > 0) cfg.evs[inp.dataset.stat] = val;
       else delete cfg.evs[inp.dataset.stat];
     }
@@ -1761,7 +1788,7 @@ function bpRenderMovesList(moves) {
     addBtn.type = 'button';
     addBtn.textContent = '+ Golpe';
     addBtn.addEventListener('click', () => {
-      bpMoveSearchWrap.classList.remove('hidden');
+      bpMoveSearchWrap.style.display = '';
       bpMoveInput.focus();
     });
     bpMovesList.appendChild(addBtn);
@@ -1791,7 +1818,7 @@ bpMoveInput.addEventListener('input', () => {
     div.addEventListener('mousedown', (e) => {
       e.preventDefault();
       bpHideAllSugg();
-      bpMoveSearchWrap.classList.add('hidden');
+      bpMoveSearchWrap.style.display = 'none';
       bpMoveInput.value = '';
       const cfg = bpCurrentSlots()[bp.editingSlot];
       const moveId = m.identifier || m.id;
@@ -1811,13 +1838,16 @@ bpMoveInput.addEventListener('blur', () => {
 
 // ── Enemy mode toggle ────────────────────────────────────────────────────────
 
+// Initialise: enemy custom section hidden until "custom" radio is selected
+bpEnemyCustom.style.display = 'none';
+
 document.querySelectorAll('input[name="bp-enemy-mode"]').forEach((radio) => {
   radio.addEventListener('change', () => {
     bp.enemyMode = radio.value;
-    bpEnemyCustom.classList.toggle('hidden', radio.value !== 'custom');
-    if (radio.value === 'custom' && bpEnemySlotsEl.children.length === 0) {
-      bpRenderTeamSlots('enemy');
-    }
+    const isCustom = radio.value === 'custom';
+    bpEnemyCustom.style.display = isCustom ? '' : 'none';
+    document.querySelector('.bp-body').classList.toggle('bp-custom-active', isCustom);
+    if (isCustom) bpRenderTeamSlots('enemy');
     bpCheckStart();
   });
 });
@@ -2018,6 +2048,48 @@ function bpRenderActionPanel(state) {
     return;
   }
 
+  // Target picker: shown when a single-target move needs a destination
+  if (bp.pendingMoveTarget) {
+    const { slotIdx, slotInfo, mv } = bp.pendingMoveTarget;
+    const enemyActives = (state.teams[1]?.active || []).filter(Boolean);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'bp-target-picker';
+    const lbl = document.createElement('div');
+    lbl.className = 'bp-target-picker-label';
+    lbl.textContent = `${mv.name} → escolha o alvo:`;
+    wrap.appendChild(lbl);
+
+    const row = document.createElement('div');
+    row.className = 'bp-target-picker-row';
+    enemyActives.forEach((enemy) => {
+      if (enemy.fainted) return;
+      const pct = enemy.maxHp > 0 ? Math.round(enemy.currentHp / enemy.maxHp * 100) : 0;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bp-target-btn';
+      btn.innerHTML = `<strong>${enemy.name}</strong><br><small>${pct}% HP</small>`;
+      btn.addEventListener('click', () => {
+        bp.pendingMoveTarget = null;
+        bp.chosen[slotIdx] = { kind: 'move', actorUid: slotInfo.actorUid, moveId: mv.moveId, targetUid: enemy.uid };
+        bpRenderActionPanel(state);
+      });
+      row.appendChild(btn);
+    });
+
+    // Cancel button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'bp-target-cancel-btn';
+    cancelBtn.textContent = '← Cancelar';
+    cancelBtn.addEventListener('click', () => { bp.pendingMoveTarget = null; bpRenderActionPanel(state); });
+    row.appendChild(cancelBtn);
+
+    wrap.appendChild(row);
+    bpActionPanel.appendChild(wrap);
+    return;
+  }
+
   // Normal turn: one section per active slot
   const pending = state.pendingActions || [];
   pending.forEach((slotInfo, idx) => {
@@ -2096,10 +2168,29 @@ function bpSwitchChosen(slotIdx, sw) {
 }
 
 function bpChooseMove(slotIdx, slotInfo, mv) {
-  const targetUid = mv.isSpread || mv.isSelf
-    ? (bp.battleState?.teams[0]?.active[slotIdx]?.uid || slotInfo.actorUid)
-    : (mv.defaultTargetUid || slotInfo.actorUid);
-  bp.chosen[slotIdx] = { kind: 'move', actorUid: slotInfo.actorUid, moveId: mv.moveId, targetUid };
+  // Spread moves hit both opponents — no target choice needed
+  if (mv.isSpread) {
+    const targetUid = bp.battleState?.teams[1]?.active[0]?.uid || null;
+    bp.chosen[slotIdx] = { kind: 'move', actorUid: slotInfo.actorUid, moveId: mv.moveId, targetUid };
+    bpRenderActionPanel(bp.battleState);
+    return;
+  }
+  // Self-targeting moves (recovery, boosts to self, etc.)
+  if (mv.isSelf) {
+    bp.chosen[slotIdx] = { kind: 'move', actorUid: slotInfo.actorUid, moveId: mv.moveId, targetUid: slotInfo.actorUid };
+    bpRenderActionPanel(bp.battleState);
+    return;
+  }
+  // Ally-targeting moves
+  if (mv.isAlly) {
+    const allySlot = slotIdx === 0 ? 1 : 0;
+    const allyUid = bp.battleState?.teams[0]?.active[allySlot]?.uid || slotInfo.actorUid;
+    bp.chosen[slotIdx] = { kind: 'move', actorUid: slotInfo.actorUid, moveId: mv.moveId, targetUid: allyUid };
+    bpRenderActionPanel(bp.battleState);
+    return;
+  }
+  // Single-target offensive move: show target picker inline
+  bp.pendingMoveTarget = { slotIdx, slotInfo, mv };
   bpRenderActionPanel(bp.battleState);
 }
 
@@ -2125,6 +2216,7 @@ async function bpExecuteTurn() {
     }
     bp.battleState = state;
     bp.chosen = [null, null];
+    bp.pendingMoveTarget = null;
     bpRenderArena(state);
   } catch (e) {
     bpBattleLog.textContent = `Erro: ${e.message}`;
@@ -2134,16 +2226,16 @@ async function bpExecuteTurn() {
 function bpRenderSwitchPanel(state) {
   bpActionPanel.innerHTML = '';
 
-  // Find fainted slots
+  // Find empty active slots (Pokémon fainted → slot set to null by battle sim)
   const userTeam = state.teams[0];
   userTeam.active.forEach((p, slot) => {
-    if (!p || !p.fainted) return;
+    if (p && !p.fainted) return;  // skip slots with a live Pokémon
     const bench = state.teams[0].bench.filter((b) => !b.fainted);
     if (bench.length === 0) return;
 
     const lbl = document.createElement('div');
     lbl.className = 'bp-switch-required-label';
-    lbl.textContent = `${p.name} desmaiou! Escolha um substituto:`;
+    lbl.textContent = `Slot ${slot + 1} ficou vazio! Escolha um substituto:`;
     bpActionPanel.appendChild(lbl);
 
     const opts = document.createElement('div');
@@ -2153,7 +2245,7 @@ function bpRenderSwitchPanel(state) {
       btn.type = 'button';
       btn.className = 'bp-switch-option-btn';
       const pct = b.maxHp > 0 ? Math.round(b.hp / b.maxHp * 100) : 0;
-      btn.textContent = `${b.name} ${pct}%`;
+      btn.textContent = `${b.name} (${pct}% HP)`;
       btn.addEventListener('click', () => bpDoForcedSwitch(0, slot, b.uid, state));
       opts.appendChild(btn);
     });
