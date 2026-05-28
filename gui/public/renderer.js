@@ -240,7 +240,6 @@ function renderTextSegment(container, segment) {
     foundLink = true;
   }
   appendTextNode(container, segment.slice(lastIndex));
-  if (!foundLink) container.textContent += segment;
 }
 
 function renderBattleStatus(container, innerText) {
