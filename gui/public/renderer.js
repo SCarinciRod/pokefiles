@@ -1295,17 +1295,23 @@ const bpEnemyCount    = document.getElementById('bp-enemy-count');
 
 // ── Suggestion backdrop (closes any open dropdown on outside click) ──────────
 
+// Backdrop in document.body, z-index 9999 — above the battle panel (500) and
+// below the suggestions (10000). Captures any click outside the open dropdown.
 const bpSuggBackdrop = (() => {
   const el = document.createElement('div');
-  // Must be inside battlePanelEl (z-index: 500 stacking context) so z-index 999 here
-  // is below the suggestions (z-index 1001) but above everything else in the panel.
-  el.style.cssText = 'position:absolute;inset:0;z-index:999;display:none;';
-  battlePanelEl.appendChild(el);
+  el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:none;';
+  document.body.appendChild(el);
   el.addEventListener('mousedown', (e) => { e.preventDefault(); bpHideAllSugg(); });
   return el;
 })();
 
-function bpShowSugg(sugg) {
+// Suggestions use position:fixed so they escape all nested stacking contexts.
+// Position and width are set here to align with the triggering input element.
+function bpShowSugg(sugg, inputEl) {
+  const r = inputEl.getBoundingClientRect();
+  sugg.style.top   = (r.bottom + 2) + 'px';
+  sugg.style.left  = r.left + 'px';
+  sugg.style.width = r.width + 'px';
   bpSuggBackdrop.style.display = 'block';
   sugg.classList.remove('hidden');
 }
@@ -1581,7 +1587,7 @@ bpPokeInput.addEventListener('input', () => {
     });
     bpPokeSugg.appendChild(div);
   });
-  bpShowSugg(bpPokeSugg);
+  bpShowSugg(bpPokeSugg, bpPokeInput);
 });
 
 bpPokeInput.addEventListener('blur', () => {
@@ -1700,7 +1706,7 @@ bpItemInput.addEventListener('input', () => {
     });
     bpItemSugg.appendChild(div);
   });
-  bpShowSugg(bpItemSugg);
+  bpShowSugg(bpItemSugg, bpItemInput);
 });
 bpItemInput.addEventListener('blur', () => {
   // Closed via global mousedown listener instead
@@ -1795,7 +1801,7 @@ bpMoveInput.addEventListener('input', () => {
     });
     bpMoveSugg.appendChild(div);
   });
-  bpShowSugg(bpMoveSugg);
+  bpShowSugg(bpMoveSugg, bpMoveInput);
 });
 bpMoveInput.addEventListener('blur', () => {
   // Closed via global mousedown listener instead
