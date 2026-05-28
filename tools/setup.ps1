@@ -272,6 +272,26 @@ if ($IsInstalled) {
         Write-Ok "better_sqlite3.node - sem acao necessaria"
     }
 
+    # Validar se o binario carrega com o Node.js local; rebuildar se ABI nao bater
+    if ((Test-Path $dstNode) -and $nodeCmd) {
+        $slashNode = $dstNode.Replace('\','/')
+        & $nodeCmd -e "require('$slashNode')" 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Step "ABI incompativel - reconstruindo better-sqlite3 para Node.js local..."
+            $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
+            $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
+            if (Test-Path $pkgSrc) { Copy-Item $pkgSrc $nnRt -Force }
+            $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
+            if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
+            Push-Location $nnRt
+            & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error
+            $rebuildOk = $LASTEXITCODE -eq 0
+            Pop-Location
+            if ($rebuildOk) { Write-Ok "better-sqlite3 reconstruido para ABI local" }
+            else { Write-Warn "Falha ao reconstruir better-sqlite3 - verifique conexao com internet" }
+        }
+    }
+
     # 2c. Banco de dados SQLite
     Write-Step "Verificando banco de dados SQLite..."
     $srcSqlite = Join-Path $ProjectRoot '.local_cache\nn_export\pokefiles_nn.sqlite3'
@@ -285,8 +305,35 @@ if ($IsInstalled) {
         Write-Ok "SQLite mantido (nao ha novo no projeto)"
     } else {
         Write-Warn "SQLite nao encontrado em .local_cache\nn_export\pokefiles_nn.sqlite3"
-        Write-Warn "O app iniciara sem dados - execute tools/pipeline para gerar o banco"
-        Write-Warn "Ou copie manualmente o arquivo pokefiles_nn.sqlite3 para o local acima"
+        if ($nodeCmd) {
+            Write-Step "Gerando SQLite via pipeline (requer internet)..."
+            $pDir = Join-Path $ProjectRoot 'tools\pipeline'
+            $pipelineScripts = @(
+                'generate_type_chart','generate_generation_db','generate_moves_db',
+                'generate_abilities_items_db','generate_move_data_auto','generate_move_markers',
+                'generate_ability_data_auto','generate_ability_markers',
+                'generate_held_item_data_auto','generate_item_markers'
+            )
+            $pipelineOk = $true
+            foreach ($s in $pipelineScripts) {
+                $sPath = Join-Path $pDir "$s.js"
+                if (Test-Path $sPath) {
+                    & $nodeCmd $sPath 2>$null | Out-Null
+                    if ($LASTEXITCODE -ne 0) { $pipelineOk = $false; break }
+                }
+            }
+            if ($pipelineOk -and (Test-Path $srcSqlite)) {
+                New-Item -ItemType Directory -Path (Split-Path $dstSqlite) -Force | Out-Null
+                Copy-Item $srcSqlite $dstSqlite -Force
+                $sizeMB = [math]::Round((Get-Item $dstSqlite).Length / 1MB, 1)
+                Write-Ok "SQLite gerado e instalado ($sizeMB MB)"
+            } else {
+                Write-Warn "Pipeline falhou - verifique conexao e re-execute setup"
+                Write-Warn "Ou copie manualmente pokefiles_nn.sqlite3 para: $dstSqlite"
+            }
+        } else {
+            Write-Warn "O app iniciara sem dados - instale Node.js e re-execute setup"
+        }
     }
 
     # 3. app.asar - repack somente se fontes GUI mudaram
@@ -345,6 +392,33 @@ if ($IsInstalled) {
         Write-Ok "Modelos sincronizados"
     } else {
         Write-Ok "Modelos mantidos (nenhum novo modelo no projeto)"
+    }
+
+    # Auto-treinar se classifier.pt ausente e SQLite disponivel
+    $classifierPt = Join-Path $dstModels 'nlu\classifier.pt'
+    if (-not (Test-Path $classifierPt) -and (Test-Path $dstSqlite)) {
+        $pyCmdObj = Get-Command python -ErrorAction SilentlyContinue
+        $pyCmd = if ($pyCmdObj) { $pyCmdObj.Source } else { $null }
+        if (-not $pyCmd) {
+            $pyCmdObj = Get-Command python3 -ErrorAction SilentlyContinue
+            $pyCmd = if ($pyCmdObj) { $pyCmdObj.Source } else { $null }
+        }
+        if ($pyCmd) {
+            Write-Step "Modelos ausentes - treinando (primeira vez, pode demorar ~20 min)..."
+            $trainRt = Join-Path $InstallBase 'runtime\tools\nn\train'
+            $nluReq  = Join-Path $trainRt 'nlu\requirements.txt'
+            if (Test-Path $nluReq) {
+                & $pyCmd -m pip install -r $nluReq -q 2>$null | Out-Null
+            }
+            $nluTrain = Join-Path $trainRt 'nlu\train_nlu.py'
+            $strTrain = Join-Path $trainRt 'strategy\train_strategy.py'
+            if (Test-Path $nluTrain) { & $pyCmd $nluTrain }
+            if (Test-Path $strTrain)  { & $pyCmd $strTrain }
+            if (Test-Path $classifierPt) { Write-Ok "Treinamento concluido" }
+            else { Write-Warn "Treinamento falhou - o app usara respostas de regras ate treinar" }
+        } else {
+            Write-Warn "Python nao encontrado - instale Python 3.10+ e re-execute setup para treinar modelos"
+        }
     }
 
     Write-Host ""
@@ -455,6 +529,26 @@ if ((Test-Path $srcNode) -and (Test-Path (Split-Path $dstNode))) {
     Write-Ok "better_sqlite3.node - modulo ja esta no pacote Electron"
 }
 
+# Validar se o binario carrega com o Node.js local; rebuildar se ABI nao bater
+if ((Test-Path $dstNode) -and $nodeCmd) {
+    $slashNode = $dstNode.Replace('\','/')
+    & $nodeCmd -e "require('$slashNode')" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Step "ABI incompativel - reconstruindo better-sqlite3 para Node.js local..."
+        $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
+        $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
+        if (Test-Path $pkgSrc) { Copy-Item $pkgSrc $nnRt -Force }
+        $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
+        if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
+        Push-Location $nnRt
+        & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error
+        $rebuildOk = $LASTEXITCODE -eq 0
+        Pop-Location
+        if ($rebuildOk) { Write-Ok "better-sqlite3 reconstruido para ABI local" }
+        else { Write-Warn "Falha ao reconstruir better-sqlite3 - verifique conexao com internet" }
+    }
+}
+
 # SQLite - copiar se disponivel no projeto
 Write-Step "Verificando banco de dados SQLite..."
 $srcSqlite = Join-Path $ProjectRoot '.local_cache\nn_export\pokefiles_nn.sqlite3'
@@ -468,7 +562,35 @@ if (Test-Path $srcSqlite) {
     Write-Ok "SQLite existente mantido"
 } else {
     Write-Warn "SQLite nao encontrado - o app iniciara sem dados"
-    Write-Warn "Copie pokefiles_nn.sqlite3 para: $dstSqlite"
+    if ($nodeCmd) {
+        Write-Step "Gerando SQLite via pipeline (requer internet)..."
+        $pDir = Join-Path $ProjectRoot 'tools\pipeline'
+        $pipelineScripts = @(
+            'generate_type_chart','generate_generation_db','generate_moves_db',
+            'generate_abilities_items_db','generate_move_data_auto','generate_move_markers',
+            'generate_ability_data_auto','generate_ability_markers',
+            'generate_held_item_data_auto','generate_item_markers'
+        )
+        $pipelineOk = $true
+        foreach ($s in $pipelineScripts) {
+            $sPath = Join-Path $pDir "$s.js"
+            if (Test-Path $sPath) {
+                & $nodeCmd $sPath 2>$null | Out-Null
+                if ($LASTEXITCODE -ne 0) { $pipelineOk = $false; break }
+            }
+        }
+        if ($pipelineOk -and (Test-Path $srcSqlite)) {
+            New-Item -ItemType Directory -Path (Split-Path $dstSqlite) -Force | Out-Null
+            Copy-Item $srcSqlite $dstSqlite -Force
+            $sizeMB = [math]::Round((Get-Item $dstSqlite).Length / 1MB, 1)
+            Write-Ok "SQLite gerado e instalado ($sizeMB MB)"
+        } else {
+            Write-Warn "Pipeline falhou - verifique conexao e re-execute setup"
+            Write-Warn "Ou copie manualmente pokefiles_nn.sqlite3 para: $dstSqlite"
+        }
+    } else {
+        Write-Warn "Instale Node.js e re-execute setup para gerar o banco automaticamente"
+    }
 }
 
 # Modelos treinados - copiar se disponivel no projeto
@@ -482,6 +604,29 @@ if (Test-Path $srcModels) {
     Write-Ok "Modelos existentes mantidos"
 } else {
     Write-Ok "Sem modelos - app usa respostas de regras"
+}
+
+# Auto-treinar se classifier.pt ausente e SQLite disponivel
+$classifierPt = Join-Path $dstModels 'nlu\classifier.pt'
+if (-not (Test-Path $classifierPt) -and (Test-Path $dstSqlite)) {
+    $pyCmd = (Get-Command python -ErrorAction SilentlyContinue)?.Source
+    if (-not $pyCmd) { $pyCmd = (Get-Command python3 -ErrorAction SilentlyContinue)?.Source }
+    if ($pyCmd) {
+        Write-Step "Modelos ausentes - treinando (primeira vez, pode demorar ~20 min)..."
+        $trainRt = Join-Path $InstallBase 'runtime\tools\nn\train'
+        $nluReq  = Join-Path $trainRt 'nlu\requirements.txt'
+        if (Test-Path $nluReq) {
+            & $pyCmd -m pip install -r $nluReq -q 2>$null | Out-Null
+        }
+        $nluTrain = Join-Path $trainRt 'nlu\train_nlu.py'
+        $strTrain = Join-Path $trainRt 'strategy\train_strategy.py'
+        if (Test-Path $nluTrain) { & $pyCmd $nluTrain }
+        if (Test-Path $strTrain)  { & $pyCmd $strTrain }
+        if (Test-Path $classifierPt) { Write-Ok "Treinamento concluido" }
+        else { Write-Warn "Treinamento falhou - o app usara respostas de regras ate treinar" }
+    } else {
+        Write-Warn "Python nao encontrado - instale Python 3.10+ e re-execute setup para treinar modelos"
+    }
 }
 
 Write-Host ""

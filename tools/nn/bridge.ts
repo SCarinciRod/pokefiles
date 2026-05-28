@@ -4387,8 +4387,8 @@ function vbPendingActions(state: BattleState, engine: DeterministicEngine) {
 
 function vbSerialize(state: BattleState, sim: BattleSimulator, engine: DeterministicEngine) {
   const winner = sim.checkWin(state);
-  const req0 = state.teams[0].active.some((p) => p?.fainted) && state.teams[0].party.some((p) => !p.fainted && !state.teams[0].active.includes(p));
-  const req1 = state.teams[1].active.some((p) => p?.fainted) && state.teams[1].party.some((p) => !p.fainted && !state.teams[1].active.includes(p));
+  const req0 = state.teams[0].active.some((p) => p === null) && state.teams[0].party.some((p) => !p.fainted && !state.teams[0].active.includes(p));
+  const req1 = state.teams[1].active.some((p) => p === null) && state.teams[1].party.some((p) => !p.fainted && !state.teams[1].active.includes(p));
   const requiresSwitch: [boolean, boolean] = [req0, req1];
   const type = winner !== null ? 'battle_end' : req0 ? 'requires_switch' : 'battle_state';
 
