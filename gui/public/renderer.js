@@ -1305,9 +1305,11 @@ const bpSuggBackdrop = (() => {
   return el;
 })();
 
-// Suggestions use position:fixed so they escape all nested stacking contexts.
-// Position and width are set here to align with the triggering input element.
+// Portal pattern: move suggestions to document.body so they escape
+// battlePanelEl's stacking context (z-index:500). Only elements in the
+// root stacking context can safely layer above/below the backdrop.
 function bpShowSugg(sugg, inputEl) {
+  if (sugg.parentElement !== document.body) document.body.appendChild(sugg);
   const r = inputEl.getBoundingClientRect();
   sugg.style.top   = (r.bottom + 2) + 'px';
   sugg.style.left  = r.left + 'px';
