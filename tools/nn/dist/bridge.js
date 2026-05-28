@@ -331,6 +331,26 @@ const TYPE_LABELS = {
     steel: 'Aço', fairy: 'Fada',
 };
 // ---------------------------------------------------------------------------
+// Ability-based type chart modifiers (mult applied on top of base type matchup)
+// ---------------------------------------------------------------------------
+const ABILITY_TYPE_MODIFIERS = {
+    levitate: [{ type: 'ground', mult: 0 }],
+    lightning_rod: [{ type: 'electric', mult: 0 }],
+    motor_drive: [{ type: 'electric', mult: 0 }],
+    volt_absorb: [{ type: 'electric', mult: 0 }],
+    water_absorb: [{ type: 'water', mult: 0 }],
+    dry_skin: [{ type: 'water', mult: 0 }],
+    flash_fire: [{ type: 'fire', mult: 0 }],
+    well_baked_body: [{ type: 'fire', mult: 0 }],
+    sap_sipper: [{ type: 'grass', mult: 0 }],
+    storm_drain: [{ type: 'water', mult: 0 }],
+    earth_eater: [{ type: 'ground', mult: 0 }],
+    thick_fat: [{ type: 'fire', mult: 0.5 }, { type: 'ice', mult: 0.5 }],
+    heatproof: [{ type: 'fire', mult: 0.5 }],
+    purifying_salt: [{ type: 'ghost', mult: 0.5 }],
+    water_bubble: [{ type: 'fire', mult: 0.5 }],
+};
+// ---------------------------------------------------------------------------
 // Competitive stat calculation — Level 50, 31 IVs, standard EV spreads
 // ---------------------------------------------------------------------------
 // stat = floor((floor((2*base + IV + floor(EV/4)) * level/100) + 5) * nature)
@@ -646,8 +666,6 @@ function buildListEntry(p) {
 }
 function buildEvolutionData(pokemonId, pokemonIdentifier, engine) {
     const allEdges = engine.queryAll('SELECT from_id, to_id, trigger, min_level, condition FROM pokemon_evolution');
-    if (allEdges.length === 0)
-        return { members: [], transitions: [] };
     const connectedIds = new Set([pokemonId]);
     let changed = true;
     while (changed) {
@@ -664,26 +682,39 @@ function buildEvolutionData(pokemonId, pokemonIdentifier, engine) {
         }
     }
     const chainEdges = allEdges.filter((e) => connectedIds.has(e.from_id) && connectedIds.has(e.to_id));
-    if (chainEdges.length === 0)
+    // Find mega forms for every pokemon in the chain
+    const idsArray = [...connectedIds].join(',');
+    const megaForms = engine.queryAll(`SELECT form_id, base_id FROM pokemon_forms WHERE form_type = 'mega' AND base_id IN (${idsArray})`);
+    if (chainEdges.length === 0 && megaForms.length === 0)
         return { members: [], transitions: [] };
-    const toIds = new Set(chainEdges.map((e) => e.to_id));
     const stages = new Map();
     const queue = [];
-    for (const id of connectedIds) {
-        if (!toIds.has(id)) {
-            stages.set(id, 1);
-            queue.push(id);
-        }
-    }
-    while (queue.length > 0) {
-        const cur = queue.shift();
-        const curStage = stages.get(cur);
-        for (const edge of chainEdges) {
-            if (edge.from_id === cur && !stages.has(edge.to_id)) {
-                stages.set(edge.to_id, curStage + 1);
-                queue.push(edge.to_id);
+    if (chainEdges.length > 0) {
+        const toIds = new Set(chainEdges.map((e) => e.to_id));
+        for (const id of connectedIds) {
+            if (!toIds.has(id)) {
+                stages.set(id, 1);
+                queue.push(id);
             }
         }
+        while (queue.length > 0) {
+            const cur = queue.shift();
+            const curStage = stages.get(cur);
+            for (const edge of chainEdges) {
+                if (edge.from_id === cur && !stages.has(edge.to_id)) {
+                    stages.set(edge.to_id, curStage + 1);
+                    queue.push(edge.to_id);
+                }
+            }
+        }
+    }
+    else {
+        stages.set(pokemonId, 1);
+    }
+    const maxStage = Math.max(...stages.values(), 0);
+    for (const mega of megaForms) {
+        stages.set(mega.form_id, maxStage + 1);
+        connectedIds.add(mega.form_id);
     }
     const members = [...connectedIds].map((id) => {
         const row = engine.queryAll('SELECT id, identifier FROM pokemon WHERE id = ?', [id])[0];
@@ -710,6 +741,14 @@ function buildEvolutionData(pokemonId, pokemonIdentifier, engine) {
             condition = e.min_level ? `Amizade (nível ${e.min_level})` : 'Amizade';
         return { from_identifier: fromRow.identifier, to_identifier: toRow.identifier, from_label: displayName(fromRow.identifier), to_label: displayName(toRow.identifier), condition };
     }).filter(Boolean);
+    // Add mega transitions
+    for (const mega of megaForms) {
+        const baseRow = engine.queryAll('SELECT identifier FROM pokemon WHERE id = ?', [mega.base_id])[0];
+        const formRow = engine.queryAll('SELECT identifier FROM pokemon WHERE id = ?', [mega.form_id])[0];
+        if (baseRow && formRow) {
+            transitions.push({ from_identifier: baseRow.identifier, to_identifier: formRow.identifier, from_label: displayName(baseRow.identifier), to_label: displayName(formRow.identifier), condition: 'Mega Evolução' });
+        }
+    }
     return { members, transitions };
 }
 function buildDetailEntry(p, typeChart, engine) {
@@ -765,11 +804,37 @@ function buildDetailEntry(p, typeChart, engine) {
     });
     const ability_options = p.abilities.map((abilityId) => {
         const a = engine.getAbility(abilityId);
+        const mods = ABILITY_TYPE_MODIFIERS[abilityId] ?? [];
+        let abilityTypeRelations = typeRelations;
+        if (mods.length > 0) {
+            const aw = [];
+            const ar = [];
+            const ai = [];
+            for (const atkType of ALL_ATTACK_TYPES) {
+                const byAtk = typeChart.get(atkType);
+                let mult = 1.0;
+                for (const defType of p.types) {
+                    const v = byAtk?.get(defType);
+                    if (v !== undefined)
+                        mult *= v;
+                }
+                const mod = mods.find((m) => m.type === atkType);
+                if (mod)
+                    mult *= mod.mult;
+                if (mult > 1.0)
+                    aw.push({ type: atkType, type_label: typeLabel(atkType), multiplier: `×${mult}`, multiplier_value: mult });
+                else if (mult === 0.0)
+                    ai.push({ type: atkType, type_label: typeLabel(atkType) });
+                else if (mult < 1.0)
+                    ar.push({ type: atkType, type_label: typeLabel(atkType), multiplier: `×${mult}`, multiplier_value: mult });
+            }
+            abilityTypeRelations = { weaknesses: aw, resistances: ar, immunities: ai };
+        }
         return {
             identifier: abilityId, label: displayName(abilityId),
             short_effect: a?.short_effect ?? '',
             effect: a?.effect ?? '',
-            type_relations: typeRelations,
+            type_relations: abilityTypeRelations,
         };
     });
     const evolution = buildEvolutionData(p.id, p.identifier, engine);
