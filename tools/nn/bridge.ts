@@ -3750,6 +3750,29 @@ interface BattleSessionData {
 
 let battleSession: BattleSessionData | null = null;
 
+// ---------------------------------------------------------------------------
+// Visual Battle Session — used by the GUI battle panel (separate from chat)
+// ---------------------------------------------------------------------------
+
+interface VBCtx { sim: BattleSimulator; ai: BattleAI; state: BattleState; }
+let visualBattleSession: VBCtx | null = null;
+
+const VB_SPREAD_MOVES = new Set([
+  'earthquake','discharge','heat_wave','muddy_water','icy_wind','blizzard',
+  'rock_slide','dazzling_gleam','surf','lava_plume','sludge_wave','eruption',
+  'water_spout','hyper_voice','boomburst','bulldoze','magnitude','razor_leaf',
+  'petal_blizzard','electroweb','powder_snow','swift','twister','dragon_breath',
+  'incinerate','glaciate','snarl','breaking_swipe','noble_roar',
+  'burning_jealousy','scale_shot',
+]);
+const VB_SELF_MOVES = new Set([
+  'protect','detect','baneful_bunker','spiky_shield','tailwind','trick_room',
+  'follow_me','rage_powder','helping_hand','wide_guard','quick_guard',
+  'swords_dance','nasty_plot','dragon_dance','bulk_up','calm_mind','agility',
+  'iron_defense','amnesia','shell_smash','quiver_dance','shift_gear','coil',
+  'hone_claws','autotomize',
+]);
+
 function battleDisplayName(id: string): string {
   return id.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
@@ -4290,6 +4313,168 @@ function endBattleSession(winner: 0 | 1 | null, _engine: DeterministicEngine): s
 
   lines.push('', 'Digite "simulador" para batalhar novamente!');
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// Visual battle helpers
+// ---------------------------------------------------------------------------
+
+function vbPoke(p: BattlePokemon) {
+  return {
+    uid: p.uid,
+    name: battleDisplayName(p.identifier),
+    identifier: p.identifier,
+    hp: p.currentHp,
+    maxHp: p.maxHp,
+    status: p.status,
+    fainted: p.fainted,
+    types: p.currentTypes,
+    item: p.config.item,
+  };
+}
+
+function vbPendingActions(state: BattleState, engine: DeterministicEngine) {
+  const result: Array<{
+    slot: 0 | 1; actorUid: string; actorName: string;
+    moves: Array<{ moveId: string; name: string; type: string; category: string;
+                   power: number; pp: number; isSpread: boolean; isSelf: boolean;
+                   defaultTargetUid: string | null }>;
+    switches: Array<{ partyIdx: number; name: string; identifier: string; hp: number; maxHp: number }>;
+  }> = [];
+  const userTeam = state.teams[0];
+  const oppTeam = state.teams[1];
+  const firstOpp = (oppTeam.active as (BattlePokemon | null)[]).find((p) => p && !p.fainted);
+
+  for (let s = 0; s < 2; s++) {
+    const poke = userTeam.active[s as 0 | 1];
+    if (!poke || poke.fainted) continue;
+
+    const moves = poke.config.moves
+      .filter((mid) => {
+        if (poke.choiceLocked && poke.choiceLocked !== mid) return false;
+        if ((poke.ppRemaining[mid] ?? 1) <= 0) return false;
+        return true;
+      })
+      .map((mid) => {
+        const mv = engine.getMove(mid);
+        return {
+          moveId: mid,
+          name: mid.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+          type: mv?.type_id ?? 'normal',
+          category: mv?.category ?? 'physical',
+          power: mv?.base_power ?? 0,
+          pp: poke.ppRemaining[mid] ?? 0,
+          isSpread: VB_SPREAD_MOVES.has(mid),
+          isSelf: VB_SELF_MOVES.has(mid),
+          defaultTargetUid: firstOpp?.uid ?? null,
+        };
+      });
+
+    const bench = userTeam.party
+      .filter((p) => !p.fainted && !userTeam.active.includes(p))
+      .map((p) => ({
+        partyIdx: userTeam.party.indexOf(p),
+        name: battleDisplayName(p.identifier),
+        identifier: p.identifier,
+        hp: p.currentHp,
+        maxHp: p.maxHp,
+      }));
+
+    result.push({ slot: s as 0 | 1, actorUid: poke.uid, actorName: battleDisplayName(poke.identifier), moves, switches: bench });
+  }
+  return result;
+}
+
+function vbSerialize(state: BattleState, sim: BattleSimulator, engine: DeterministicEngine) {
+  const winner = sim.checkWin(state);
+  const req0 = state.teams[0].active.some((p) => p?.fainted) && state.teams[0].party.some((p) => !p.fainted && !state.teams[0].active.includes(p));
+  const req1 = state.teams[1].active.some((p) => p?.fainted) && state.teams[1].party.some((p) => !p.fainted && !state.teams[1].active.includes(p));
+  const requiresSwitch: [boolean, boolean] = [req0, req1];
+  const type = winner !== null ? 'battle_end' : req0 ? 'requires_switch' : 'battle_state';
+
+  return {
+    type, turn: state.turn, winner,
+    log: [...state.log],
+    requiresSwitch,
+    teams: state.teams.map((team) => ({
+      active: team.active.map((p) => (p ? vbPoke(p) : null)),
+      bench: team.party
+        .map((p, idx) => ({ p, idx }))
+        .filter(({ p }) => !team.active.includes(p))
+        .map(({ p, idx }) => ({ ...vbPoke(p), partyIdx: idx })),
+      tailwindTurns: team.tailwindTurns,
+    })),
+    field: {
+      weather: state.field.weather, weatherTurns: state.field.weatherTurns,
+      terrain: state.field.terrain, terrainTurns: state.field.terrainTurns,
+      trickRoom: state.field.trickRoom, trickRoomTurns: state.field.trickRoomTurns,
+    },
+    pendingActions: (winner === null && !req0) ? vbPendingActions(state, engine) : [],
+  };
+}
+
+function handleBattleInitJson(jsonStr: string, engine: DeterministicEngine): string {
+  try {
+    const req = JSON.parse(jsonStr) as { user: BattleTeamConfig; mode: 'random' | 'custom'; enemy?: BattleTeamConfig };
+    const aiPokemon = (req.mode === 'custom' && req.enemy) ? req.enemy.pokemon : buildAITeam(engine);
+    if (aiPokemon.length < 4) return JSON.stringify({ type: 'error', message: 'Não foi possível montar o time da IA.' });
+    const aiCfg: BattleTeamConfig = { pokemon: aiPokemon };
+    const sim = new BattleSimulator(engine);
+    const ai = new BattleAI(sim, engine);
+    const state = sim.initBattle(req.user, aiCfg);
+    visualBattleSession = { sim, ai, state };
+    return JSON.stringify(vbSerialize(state, sim, engine));
+  } catch (e) { return JSON.stringify({ type: 'error', message: String(e) }); }
+}
+
+function handleBattleActJson(jsonStr: string, engine: DeterministicEngine): string {
+  if (!visualBattleSession) return JSON.stringify({ type: 'error', message: 'Nenhuma batalha ativa.' });
+  try {
+    const req = JSON.parse(jsonStr) as { actions: BattleAction[] };
+    const { sim, ai, state } = visualBattleSession;
+    const aiActions = ai.chooseActions(state, 1);
+    state.log = [];
+    const result = sim.executeTurn(state, [...req.actions, ...aiActions]);
+    visualBattleSession.state = result.state;
+
+    // Auto-resolve AI forced switches
+    if (result.requiresSwitch[1]) {
+      for (let s = 0; s < 2; s++) {
+        const aiTeam = result.state.teams[1];
+        const slot = aiTeam.active[s as 0 | 1];
+        if (!slot || slot.fainted) {
+          const hasBench = aiTeam.party.some((p) => !p.fainted && !aiTeam.active.includes(p));
+          if (hasBench) {
+            const pi = ai.chooseForcedSwitch(result.state, 1);
+            if (pi >= 0) sim.forceSwitch(result.state, 1, s as 0 | 1, pi);
+          }
+        }
+      }
+    }
+    return JSON.stringify(vbSerialize(result.state, sim, engine));
+  } catch (e) { return JSON.stringify({ type: 'error', message: String(e) }); }
+}
+
+function handleBattleSwitchJson(jsonStr: string, engine: DeterministicEngine): string {
+  if (!visualBattleSession) return JSON.stringify({ type: 'error', message: 'Nenhuma batalha ativa.' });
+  try {
+    const req = JSON.parse(jsonStr) as { teamIdx: 0 | 1; activeSlot: 0 | 1; partyIdx: number };
+    const { sim, ai, state } = visualBattleSession;
+    sim.forceSwitch(state, req.teamIdx, req.activeSlot, req.partyIdx);
+    // Auto-switch AI if it also needs to
+    for (let s = 0; s < 2; s++) {
+      const aiTeam = state.teams[1];
+      const slot = aiTeam.active[s as 0 | 1];
+      if (!slot || slot.fainted) {
+        const hasBench = aiTeam.party.some((p) => !p.fainted && !aiTeam.active.includes(p));
+        if (hasBench) {
+          const pi = ai.chooseForcedSwitch(state, 1);
+          if (pi >= 0) sim.forceSwitch(state, 1, s as 0 | 1, pi);
+        }
+      }
+    }
+    return JSON.stringify(vbSerialize(state, sim, engine));
+  } catch (e) { return JSON.stringify({ type: 'error', message: String(e) }); }
 }
 
 // Study mode — static educational content
@@ -4835,6 +5020,10 @@ async function handleCommand(input: string, engine: DeterministicEngine): Promis
       return JSON.stringify({ ok: false, error: String(e) });
     }
   }
+
+  if (raw.startsWith('__BATTLE_INIT_JSON__:'))   return handleBattleInitJson(raw.slice('__BATTLE_INIT_JSON__:'.length), engine);
+  if (raw.startsWith('__BATTLE_ACT_JSON__:'))    return handleBattleActJson(raw.slice('__BATTLE_ACT_JSON__:'.length), engine);
+  if (raw.startsWith('__BATTLE_SWITCH_JSON__:')) return handleBattleSwitchJson(raw.slice('__BATTLE_SWITCH_JSON__:'.length), engine);
 
   if (raw === '') return 'Bot: Digite uma pergunta para continuar.';
   return await handleNLText(raw, engine);

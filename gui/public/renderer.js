@@ -1151,3 +1151,949 @@ document.addEventListener('keydown', (event) => {
 });
 
 boot();
+
+// ============================================================================
+// BATTLE PANEL
+// ============================================================================
+
+// ── Constants ──────────────────────────────────────────────────────────────
+
+const VGC_ITEMS = [
+  { id: 'life_orb', name: 'Life Orb' },
+  { id: 'choice_band', name: 'Choice Band' },
+  { id: 'choice_specs', name: 'Choice Specs' },
+  { id: 'choice_scarf', name: 'Choice Scarf' },
+  { id: 'assault_vest', name: 'Assault Vest' },
+  { id: 'leftovers', name: 'Leftovers' },
+  { id: 'rocky_helmet', name: 'Rocky Helmet' },
+  { id: 'focus_sash', name: 'Focus Sash' },
+  { id: 'sitrus_berry', name: 'Sitrus Berry' },
+  { id: 'lum_berry', name: 'Lum Berry' },
+  { id: 'weakness_policy', name: 'Weakness Policy' },
+  { id: 'clear_amulet', name: 'Clear Amulet' },
+  { id: 'safety_goggles', name: 'Safety Goggles' },
+  { id: 'covert_cloak', name: 'Covert Cloak' },
+  { id: 'booster_energy', name: 'Booster Energy' },
+  { id: 'throat_spray', name: 'Throat Spray' },
+  { id: 'eviolite', name: 'Eviolite' },
+  { id: 'occa_berry', name: 'Occa Berry' },
+  { id: 'passho_berry', name: 'Passho Berry' },
+  { id: 'wacan_berry', name: 'Wacan Berry' },
+  { id: 'yache_berry', name: 'Yache Berry' },
+  { id: 'chople_berry', name: 'Chople Berry' },
+  { id: 'rindo_berry', name: 'Rindo Berry' },
+  { id: 'shuca_berry', name: 'Shuca Berry' },
+  { id: 'coba_berry', name: 'Coba Berry' },
+  { id: 'payapa_berry', name: 'Payapa Berry' },
+  { id: 'haban_berry', name: 'Haban Berry' },
+  { id: 'kasib_berry', name: 'Kasib Berry' },
+  { id: 'roseli_berry', name: 'Roseli Berry' },
+  { id: 'charcoal', name: 'Charcoal' },
+  { id: 'mystic_water', name: 'Mystic Water' },
+  { id: 'magnet', name: 'Magnet' },
+  { id: 'miracle_seed', name: 'Miracle Seed' },
+  { id: 'twisted_spoon', name: 'Twisted Spoon' },
+  { id: 'silk_scarf', name: 'Silk Scarf' },
+  { id: 'dragon_fang', name: 'Dragon Fang' },
+  { id: 'black_glasses', name: 'Black Glasses' },
+  { id: 'metal_coat', name: 'Metal Coat' },
+  { id: 'sharp_beak', name: 'Sharp Beak' },
+  { id: 'spell_tag', name: 'Spell Tag' },
+  { id: 'fairy_feather', name: 'Fairy Feather' },
+  { id: 'hard_stone', name: 'Hard Stone' },
+  { id: 'black_belt', name: 'Black Belt' },
+  { id: 'soft_sand', name: 'Soft Sand' },
+  { id: 'poison_barb', name: 'Poison Barb' },
+  { id: 'silver_powder', name: 'Silver Powder' },
+  { id: 'never-melt_ice', name: 'Never-Melt Ice' },
+  { id: 'expert_belt', name: 'Expert Belt' },
+  { id: 'red_card', name: 'Red Card' },
+];
+
+// ── DOM refs ────────────────────────────────────────────────────────────────
+
+const battlePanelEl   = document.getElementById('battle-panel');
+const bpBuilderEl     = document.getElementById('bp-builder');
+const bpArenaEl       = document.getElementById('bp-arena');
+const bpUserSlotsEl   = document.getElementById('bp-user-slots');
+const bpEnemySlotsEl  = document.getElementById('bp-enemy-slots');
+const bpEditorEl      = document.getElementById('bp-editor');
+const bpEditorSprite  = document.getElementById('bp-editor-sprite');
+const bpEditorName    = document.getElementById('bp-editor-poke-name');
+const bpEditorTypes   = document.getElementById('bp-editor-poke-types');
+const bpPokeInput     = document.getElementById('bp-pokemon-input');
+const bpPokeSugg      = document.getElementById('bp-pokemon-suggestions');
+const bpAbilitySelect = document.getElementById('bp-ability-select');
+const bpNatureSelect  = document.getElementById('bp-nature-select');
+const bpItemInput     = document.getElementById('bp-item-input');
+const bpItemSugg      = document.getElementById('bp-item-suggestions');
+const bpEvTotal       = document.getElementById('bp-ev-total');
+const bpEvInputs      = document.querySelectorAll('.bp-ev-input');
+const bpMovesList     = document.getElementById('bp-moves-list');
+const bpMoveSearchWrap = document.getElementById('bp-move-search-wrap');
+const bpMoveInput     = document.getElementById('bp-move-input');
+const bpMoveSugg      = document.getElementById('bp-move-suggestions');
+const bpEnemyCustom   = document.getElementById('bp-enemy-custom');
+const bpValidationMsg = document.getElementById('bp-validation-msg');
+const bpStartBtn      = document.getElementById('bp-start-btn');
+const bpTurnBadge     = document.getElementById('bp-turn-badge');
+const bpFieldBadges   = document.getElementById('bp-field-badges');
+const bpEnemyActive   = document.getElementById('bp-enemy-active');
+const bpEnemyBench    = document.getElementById('bp-enemy-bench');
+const bpPlayerActive  = document.getElementById('bp-player-active');
+const bpPlayerBench   = document.getElementById('bp-player-bench');
+const bpBattleLog     = document.getElementById('bp-battle-log');
+const bpActionPanel   = document.getElementById('bp-action-panel');
+const bpUserCount     = document.getElementById('bp-user-count');
+const bpEnemyCount    = document.getElementById('bp-enemy-count');
+
+// ── State ───────────────────────────────────────────────────────────────────
+
+const bp = {
+  editingTeam: 'user',     // 'user' | 'enemy'
+  editingSlot: 0,
+  userSlots: [null, null, null, null],     // Array<config|null>
+  enemySlots: [null, null, null, null],
+  enemyMode: 'random',
+  detail: null,            // loaded detail for the current editing slot
+  detailCache: new Map(),  // identifier -> detail
+  availableMoves: [],      // moves for the current Pokémon
+  battleState: null,       // last VBResponse
+  chosen: [null, null],    // chosen actions per slot
+};
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function bpDisplayName(id) {
+  return String(id || '').split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+function bpCurrentSlots() {
+  return bp.editingTeam === 'user' ? bp.userSlots : bp.enemySlots;
+}
+
+function bpSpriteUrl(identifier) {
+  if (!identifier) return null;
+  const entry = spriteMap.get(identifier);
+  return entry ? entry.normal : null;
+}
+
+function bpTypeThemeColor(type) {
+  const t = typeThemeFor(type);
+  return t ? t.bg : '#f0f0f0';
+}
+
+// ── Open / Close ────────────────────────────────────────────────────────────
+
+function openBattlePanel() {
+  battlePanelEl.classList.remove('hidden');
+  battlePanelEl.setAttribute('aria-hidden', 'false');
+  bpShowView('builder');
+  bpRenderAllSlots();
+  bpSelectSlot('user', 0);
+}
+
+function closeBattlePanel() {
+  battlePanelEl.classList.add('hidden');
+  battlePanelEl.setAttribute('aria-hidden', 'true');
+}
+
+function bpShowView(which) {
+  bpBuilderEl.classList.toggle('hidden', which !== 'builder');
+  bpArenaEl.classList.toggle('hidden', which !== 'arena');
+}
+
+// ── Team slot rendering ──────────────────────────────────────────────────────
+
+function bpRenderAllSlots() {
+  bpRenderTeamSlots('user');
+  bpRenderTeamSlots('enemy');
+}
+
+function bpRenderTeamSlots(team) {
+  const container = team === 'user' ? bpUserSlotsEl : bpEnemySlotsEl;
+  const slots = team === 'user' ? bp.userSlots : bp.enemySlots;
+  container.innerHTML = '';
+  slots.forEach((cfg, i) => {
+    const card = document.createElement('div');
+    card.className = 'bp-slot-card' +
+      (cfg ? ' filled' : '') +
+      (bp.editingTeam === team && bp.editingSlot === i ? ' selected' : '');
+    card.dataset.team = team;
+    card.dataset.slot = i;
+
+    if (cfg) {
+      const url = bpSpriteUrl(cfg.identifier);
+      if (url) {
+        const img = document.createElement('img');
+        img.className = 'bp-slot-sprite';
+        img.src = url;
+        img.alt = cfg.identifier;
+        card.appendChild(img);
+      } else {
+        const ph = document.createElement('div');
+        ph.className = 'bp-slot-sprite-placeholder';
+        ph.textContent = '?';
+        card.appendChild(ph);
+      }
+      const nm = document.createElement('div');
+      nm.className = 'bp-slot-name';
+      nm.textContent = bpDisplayName(cfg.identifier);
+      card.appendChild(nm);
+      const det = document.createElement('div');
+      det.className = 'bp-slot-detail';
+      det.textContent = cfg.ability ? bpDisplayName(cfg.ability) : '';
+      card.appendChild(det);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'bp-slot-sprite-placeholder';
+      ph.textContent = '+';
+      card.appendChild(ph);
+      const num = document.createElement('div');
+      num.className = 'bp-slot-number';
+      num.textContent = `Slot ${i + 1}`;
+      card.appendChild(num);
+    }
+
+    card.addEventListener('click', () => bpSelectSlot(team, i));
+    container.appendChild(card);
+  });
+
+  // Update count badges
+  const count = slots.filter(Boolean).length;
+  if (team === 'user') bpUserCount.textContent = `${count} / 4`;
+  if (team === 'enemy' && bpEnemyCount) bpEnemyCount.textContent = `${count} / 4`;
+}
+
+// ── Select slot to edit ──────────────────────────────────────────────────────
+
+function bpSelectSlot(team, idx) {
+  bpSaveCurrentSlot();
+  bp.editingTeam = team;
+  bp.editingSlot = idx;
+  bpRenderAllSlots();
+  bpUpdateEditorFromSlot();
+}
+
+function bpSaveCurrentSlot() {
+  const slots = bpCurrentSlots();
+  const existing = slots[bp.editingSlot];
+  if (!existing) return;
+
+  // Read EV values
+  const evs = {};
+  bpEvInputs.forEach((inp) => {
+    const stat = inp.dataset.stat;
+    const val = Math.max(0, Math.min(252, parseInt(inp.value, 10) || 0));
+    if (val > 0) evs[stat] = val;
+  });
+
+  slots[bp.editingSlot] = {
+    ...existing,
+    ability: bpAbilitySelect.value || existing.ability,
+    nature: bpNatureSelect.value || existing.nature || 'hardy',
+    item: bpItemInput.value.trim()
+      ? (VGC_ITEMS.find((it) => it.name.toLowerCase() === bpItemInput.value.trim().toLowerCase())?.id
+         || bpItemInput.value.trim().toLowerCase().replace(/\s+/g, '_'))
+      : null,
+    evs,
+    moves: existing.moves || [],
+  };
+}
+
+function bpUpdateEditorFromSlot() {
+  const cfg = bpCurrentSlots()[bp.editingSlot];
+  bp.detail = cfg ? bp.detailCache.get(cfg.identifier) : null;
+  bp.availableMoves = [];
+
+  if (cfg) {
+    // Sprite
+    const url = bpSpriteUrl(cfg.identifier);
+    bpEditorSprite.src = url || '';
+    bpEditorSprite.style.display = url ? '' : 'none';
+    bpEditorName.textContent = bpDisplayName(cfg.identifier);
+
+    // Types
+    bpEditorTypes.innerHTML = '';
+    const detail = bp.detail;
+    const types = detail ? detail.types : [];
+    types.forEach((t) => {
+      const badge = document.createElement('span');
+      badge.className = 'type-badge';
+      badge.textContent = t;
+      applyTypeTheme(badge, t);
+      bpEditorTypes.appendChild(badge);
+    });
+
+    // Pokémon input
+    bpPokeInput.value = bpDisplayName(cfg.identifier);
+
+    // Ability
+    bpPopulateAbilities(detail ? detail.ability_options : null, cfg.ability);
+
+    // Nature
+    bpNatureSelect.value = cfg.nature || 'hardy';
+
+    // Item
+    const itemObj = cfg.item ? VGC_ITEMS.find((it) => it.id === cfg.item) : null;
+    bpItemInput.value = itemObj ? itemObj.name : (cfg.item ? bpDisplayName(cfg.item) : '');
+
+    // EVs
+    bpEvInputs.forEach((inp) => {
+      inp.value = (cfg.evs && cfg.evs[inp.dataset.stat]) || 0;
+    });
+    bpUpdateEvTotal();
+
+    // Moves
+    bpRenderMovesList(cfg.moves || []);
+
+    // Load full detail if not cached
+    if (!bp.detail) {
+      bpLoadDetail(cfg.identifier).then(() => bpUpdateEditorFromSlot());
+    }
+  } else {
+    bpEditorSprite.src = '';
+    bpEditorSprite.style.display = 'none';
+    bpEditorName.textContent = '—';
+    bpEditorTypes.innerHTML = '';
+    bpPokeInput.value = '';
+    bpAbilitySelect.innerHTML = '<option value="">— selecione um Pokémon —</option>';
+    bpNatureSelect.value = 'hardy';
+    bpItemInput.value = '';
+    bpEvInputs.forEach((inp) => { inp.value = 0; });
+    bpEvTotal.textContent = '0 / 510';
+    bpRenderMovesList([]);
+  }
+
+  bpMoveSearchWrap.classList.add('hidden');
+  bpMoveInput.value = '';
+}
+
+async function bpLoadDetail(identifier) {
+  if (bp.detailCache.has(identifier)) {
+    bp.detail = bp.detailCache.get(identifier);
+    return;
+  }
+  try {
+    const result = await pokedexApi.getPokemonDetail(identifier);
+    if (result && result.ok) {
+      bp.detailCache.set(identifier, result.detail);
+      bp.detail = result.detail;
+    }
+  } catch { /* ignore */ }
+}
+
+// ── Pokémon picker autocomplete ──────────────────────────────────────────────
+
+bpPokeInput.addEventListener('input', () => {
+  const q = bpPokeInput.value.trim().toLowerCase();
+  if (!q || q.length < 1) { bpPokeSugg.classList.add('hidden'); return; }
+  const matches = allPokemon
+    .filter((p) => {
+      const id = (p.identifier || '').toLowerCase();
+      const name = (p.display_name || '').toLowerCase();
+      return id.includes(q) || name.includes(q);
+    })
+    .slice(0, 8);
+  bpPokeSugg.innerHTML = '';
+  if (matches.length === 0) { bpPokeSugg.classList.add('hidden'); return; }
+  matches.forEach((p) => {
+    const div = document.createElement('div');
+    div.className = 'bp-suggestion-item';
+    div.textContent = p.display_name || bpDisplayName(p.identifier);
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      bpPokeSugg.classList.add('hidden');
+      bpSelectPokemon(p.identifier, p.display_name || bpDisplayName(p.identifier));
+    });
+    bpPokeSugg.appendChild(div);
+  });
+  bpPokeSugg.classList.remove('hidden');
+});
+
+bpPokeInput.addEventListener('blur', () => {
+  setTimeout(() => bpPokeSugg.classList.add('hidden'), 150);
+});
+
+async function bpSelectPokemon(identifier, displayName) {
+  bpPokeInput.value = displayName;
+  const slots = bpCurrentSlots();
+
+  // Check duplicate
+  const alreadyIn = slots.some((s, i) => s && s.identifier === identifier && i !== bp.editingSlot);
+  if (alreadyIn) {
+    bpValidationMsg.textContent = `${displayName} já está no time.`;
+    setTimeout(() => { bpValidationMsg.textContent = ''; }, 2000);
+    return;
+  }
+
+  // Init slot config
+  slots[bp.editingSlot] = {
+    identifier,
+    ability: '',
+    nature: 'hardy',
+    item: null,
+    moves: [],
+    evs: { special_attack: 0, attack: 0, speed: 0, hp: 0 },
+  };
+
+  // Load detail
+  await bpLoadDetail(identifier);
+  const detail = bp.detail;
+
+  // Set ability to first available
+  if (detail && detail.ability_options && detail.ability_options.length > 0) {
+    slots[bp.editingSlot].ability = detail.ability_options[0].id;
+  }
+
+  // Build available moves list
+  if (detail && detail.moves_details) {
+    bp.availableMoves = detail.moves_details;
+  }
+
+  bpUpdateEditorFromSlot();
+  bpRenderTeamSlots(bp.editingTeam);
+  bpCheckStart();
+}
+
+// ── Ability ──────────────────────────────────────────────────────────────────
+
+function bpPopulateAbilities(abilityOptions, currentAbility) {
+  bpAbilitySelect.innerHTML = '';
+  if (!abilityOptions || abilityOptions.length === 0) {
+    bpAbilitySelect.innerHTML = '<option value="">—</option>';
+    return;
+  }
+  abilityOptions.forEach((a) => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = bpDisplayName(a.id);
+    bpAbilitySelect.appendChild(opt);
+  });
+  if (currentAbility) bpAbilitySelect.value = currentAbility;
+}
+
+bpAbilitySelect.addEventListener('change', () => {
+  const cfg = bpCurrentSlots()[bp.editingSlot];
+  if (cfg) { cfg.ability = bpAbilitySelect.value; bpRenderTeamSlots(bp.editingTeam); }
+});
+
+bpNatureSelect.addEventListener('change', () => {
+  const cfg = bpCurrentSlots()[bp.editingSlot];
+  if (cfg) cfg.nature = bpNatureSelect.value;
+});
+
+// ── Item autocomplete ────────────────────────────────────────────────────────
+
+bpItemInput.addEventListener('input', () => {
+  const q = bpItemInput.value.trim().toLowerCase();
+  bpItemSugg.innerHTML = '';
+  if (!q) { bpItemSugg.classList.add('hidden'); return; }
+  const matches = VGC_ITEMS.filter((it) => it.name.toLowerCase().includes(q)).slice(0, 8);
+  if (matches.length === 0) { bpItemSugg.classList.add('hidden'); return; }
+  matches.forEach((it) => {
+    const div = document.createElement('div');
+    div.className = 'bp-suggestion-item';
+    div.textContent = it.name;
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      bpItemInput.value = it.name;
+      bpItemSugg.classList.add('hidden');
+      const cfg = bpCurrentSlots()[bp.editingSlot];
+      if (cfg) cfg.item = it.id;
+    });
+    bpItemSugg.appendChild(div);
+  });
+  bpItemSugg.classList.remove('hidden');
+});
+bpItemInput.addEventListener('blur', () => {
+  setTimeout(() => bpItemSugg.classList.add('hidden'), 150);
+});
+
+// ── EVs ──────────────────────────────────────────────────────────────────────
+
+function bpUpdateEvTotal() {
+  let total = 0;
+  bpEvInputs.forEach((inp) => { total += Math.max(0, parseInt(inp.value, 10) || 0); });
+  bpEvTotal.textContent = `${total} / 510`;
+  bpEvTotal.classList.toggle('over', total > 510);
+}
+
+bpEvInputs.forEach((inp) => {
+  inp.addEventListener('input', () => {
+    bpUpdateEvTotal();
+    const cfg = bpCurrentSlots()[bp.editingSlot];
+    if (cfg) {
+      if (!cfg.evs) cfg.evs = {};
+      const val = Math.max(0, Math.min(252, parseInt(inp.value, 10) || 0));
+      if (val > 0) cfg.evs[inp.dataset.stat] = val;
+      else delete cfg.evs[inp.dataset.stat];
+    }
+  });
+});
+
+// ── Moves ────────────────────────────────────────────────────────────────────
+
+function bpRenderMovesList(moves) {
+  bpMovesList.innerHTML = '';
+  moves.forEach((moveId, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'bp-move-chip';
+    chip.textContent = bpDisplayName(moveId);
+    const rmBtn = document.createElement('button');
+    rmBtn.className = 'bp-move-chip-remove';
+    rmBtn.textContent = '×';
+    rmBtn.type = 'button';
+    rmBtn.addEventListener('click', () => {
+      const cfg = bpCurrentSlots()[bp.editingSlot];
+      if (cfg) { cfg.moves.splice(i, 1); bpRenderMovesList(cfg.moves); bpCheckStart(); }
+    });
+    chip.appendChild(rmBtn);
+    bpMovesList.appendChild(chip);
+  });
+  if (moves.length < 4) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'bp-add-move-btn';
+    addBtn.type = 'button';
+    addBtn.textContent = '+ Golpe';
+    addBtn.addEventListener('click', () => {
+      bpMoveSearchWrap.classList.remove('hidden');
+      bpMoveInput.focus();
+    });
+    bpMovesList.appendChild(addBtn);
+  }
+}
+
+bpMoveInput.addEventListener('input', () => {
+  const q = bpMoveInput.value.trim().toLowerCase();
+  bpMoveSugg.innerHTML = '';
+  const source = bp.availableMoves.length > 0 ? bp.availableMoves : [];
+  if (!q) { bpMoveSugg.classList.add('hidden'); return; }
+  const matches = source
+    .filter((m) => {
+      const name = (m.name || m.id || '').toLowerCase();
+      const id = (m.id || '').toLowerCase();
+      return name.includes(q) || id.includes(q);
+    })
+    .slice(0, 10);
+  if (matches.length === 0) { bpMoveSugg.classList.add('hidden'); return; }
+  matches.forEach((m) => {
+    const div = document.createElement('div');
+    div.className = 'bp-suggestion-item';
+    const label = m.name || bpDisplayName(m.id);
+    div.textContent = label + (m.power > 0 ? ` (${m.power})` : '') + (m.type_id ? ` [${m.type_id}]` : '');
+    div.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      bpMoveSugg.classList.add('hidden');
+      bpMoveSearchWrap.classList.add('hidden');
+      bpMoveInput.value = '';
+      const cfg = bpCurrentSlots()[bp.editingSlot];
+      if (cfg && cfg.moves.length < 4 && !cfg.moves.includes(m.id)) {
+        cfg.moves.push(m.id);
+        bpRenderMovesList(cfg.moves);
+        bpCheckStart();
+      }
+    });
+    bpMoveSugg.appendChild(div);
+  });
+  bpMoveSugg.classList.remove('hidden');
+});
+bpMoveInput.addEventListener('blur', () => {
+  setTimeout(() => { bpMoveSugg.classList.add('hidden'); }, 150);
+});
+
+// ── Enemy mode toggle ────────────────────────────────────────────────────────
+
+document.querySelectorAll('input[name="bp-enemy-mode"]').forEach((radio) => {
+  radio.addEventListener('change', () => {
+    bp.enemyMode = radio.value;
+    bpEnemyCustom.classList.toggle('hidden', radio.value !== 'custom');
+    if (radio.value === 'custom' && bpEnemySlotsEl.children.length === 0) {
+      bpRenderTeamSlots('enemy');
+    }
+    bpCheckStart();
+  });
+});
+
+// ── Validation ───────────────────────────────────────────────────────────────
+
+function bpCheckStart() {
+  bpSaveCurrentSlot();
+  const filled = bp.userSlots.filter(Boolean).length;
+  const enemyOk = bp.enemyMode === 'random' || bp.enemySlots.filter(Boolean).length === 4;
+  const evOk = bp.userSlots.every((s) => {
+    if (!s) return true;
+    const total = Object.values(s.evs || {}).reduce((a, b) => a + b, 0);
+    return total <= 510;
+  });
+  const hasAbility = bp.userSlots.every((s) => !s || s.ability);
+  const hasMoves = bp.userSlots.every((s) => !s || (s.moves && s.moves.length >= 1));
+
+  bpStartBtn.disabled = !(filled === 4 && enemyOk && evOk && hasAbility && hasMoves);
+  if (!evOk) bpValidationMsg.textContent = 'EVs acima de 510 em um Pokémon.';
+  else if (!hasMoves) bpValidationMsg.textContent = 'Cada Pokémon precisa de ao menos 1 golpe.';
+  else bpValidationMsg.textContent = '';
+}
+
+// ── Start battle ─────────────────────────────────────────────────────────────
+
+async function bpStartBattle() {
+  bpSaveCurrentSlot();
+  bpStartBtn.disabled = true;
+  bpValidationMsg.textContent = 'Iniciando batalha…';
+
+  const userTeam = {
+    pokemon: bp.userSlots.map((s) => ({
+      identifier: s.identifier,
+      ability: s.ability || 'pressure',
+      item: s.item || null,
+      moves: s.moves || [],
+      evs: s.evs || {},
+      nature: s.nature || 'hardy',
+    })),
+  };
+
+  const payload = { user: userTeam, mode: bp.enemyMode };
+  if (bp.enemyMode === 'custom') {
+    payload.enemy = {
+      pokemon: bp.enemySlots.map((s) => ({
+        identifier: s.identifier,
+        ability: s.ability || 'pressure',
+        item: s.item || null,
+        moves: s.moves || [],
+        evs: s.evs || {},
+        nature: s.nature || 'hardy',
+      })),
+    };
+  }
+
+  try {
+    const raw = await pokedexApi.ask(`__BATTLE_INIT_JSON__:${JSON.stringify(payload)}`);
+    const state = JSON.parse(raw);
+    if (state.type === 'error') {
+      bpValidationMsg.textContent = `Erro: ${state.message}`;
+      bpStartBtn.disabled = false;
+      return;
+    }
+    bp.battleState = state;
+    bp.chosen = [null, null];
+    bpShowView('arena');
+    bpRenderArena(state);
+  } catch (e) {
+    bpValidationMsg.textContent = `Erro: ${e.message}`;
+    bpStartBtn.disabled = false;
+  }
+}
+
+// ── Arena rendering ───────────────────────────────────────────────────────────
+
+function bpRenderArena(state) {
+  bpTurnBadge.textContent = `Turno ${state.turn + 1}`;
+
+  // Field conditions
+  bpFieldBadges.innerHTML = '';
+  const { weather, weatherTurns, terrain, terrainTurns, trickRoom, trickRoomTurns } = state.field;
+  const tw0 = state.teams[0]?.tailwindTurns || 0;
+  const tw1 = state.teams[1]?.tailwindTurns || 0;
+
+  if (weather !== 'none') {
+    const wLabel = { sun:'☀ Sol', rain:'🌧 Chuva', sandstorm:'🌪 Areia', hail:'❄ Granizo', harsh_sun:'☀☀ Sol intenso', heavy_rain:'🌧🌧 Chuva intensa' }[weather] || weather;
+    bpFieldBadges.appendChild(bpBadge(wLabel + (weatherTurns > 0 ? ` (${weatherTurns})` : ''), `weather-${weather.replace('_','-').split('-')[0]}`));
+  }
+  if (terrain !== 'none') {
+    const tLabel = { electric:'⚡ Elétrico', psychic:'🔮 Psíquico', grassy:'🌿 Gramado', misty:'🌫 Névoa' }[terrain] || terrain;
+    bpFieldBadges.appendChild(bpBadge(tLabel + (terrainTurns > 0 ? ` (${terrainTurns})` : ''), `terrain-${terrain}`));
+  }
+  if (trickRoom) bpFieldBadges.appendChild(bpBadge(`🕐 Trick Room (${trickRoomTurns})`, 'trick-room'));
+  if (tw0 > 0) bpFieldBadges.appendChild(bpBadge(`💨 Tailwind ×2 (${tw0})`, 'tailwind'));
+  if (tw1 > 0) bpFieldBadges.appendChild(bpBadge(`💨 TW inimigo (${tw1})`, 'tailwind'));
+
+  // Enemy team (index 1)
+  bpRenderActiveSlots(bpEnemyActive, state.teams[1]?.active || []);
+  bpRenderBench(bpEnemyBench, state.teams[1]?.bench || []);
+
+  // Player team (index 0)
+  bpRenderActiveSlots(bpPlayerActive, state.teams[0]?.active || []);
+  bpRenderBench(bpPlayerBench, state.teams[0]?.bench || []);
+
+  // Battle log
+  if (state.log && state.log.length > 0) {
+    bpBattleLog.innerHTML = '';
+    state.log.forEach((line) => {
+      const div = document.createElement('div');
+      div.className = 'bp-log-line' + (/desmaiou|vitória|derrot/i.test(line) ? ' emphasis' : '');
+      div.textContent = line;
+      bpBattleLog.appendChild(div);
+    });
+    bpBattleLog.scrollTop = bpBattleLog.scrollHeight;
+  }
+
+  // Action panel
+  bp.chosen = [null, null];
+  bpRenderActionPanel(state);
+}
+
+function bpBadge(label, cssClass) {
+  const span = document.createElement('span');
+  span.className = `bp-field-badge ${cssClass}`;
+  span.textContent = label;
+  return span;
+}
+
+function bpRenderActiveSlots(container, active) {
+  container.innerHTML = '';
+  active.forEach((p) => {
+    const card = document.createElement('div');
+    card.className = 'bp-arena-poke-card' + (!p || p.fainted ? ' fainted' : '');
+
+    if (!p) {
+      card.innerHTML = '<div class="bp-arena-poke-name" style="color:#aaa">(vazio)</div>';
+      container.appendChild(card);
+      return;
+    }
+
+    const pct = p.maxHp > 0 ? (p.hp / p.maxHp) : 0;
+    const colorClass = pct > 0.5 ? 'green' : pct > 0.2 ? 'yellow' : 'red';
+
+    const nm = document.createElement('div');
+    nm.className = 'bp-arena-poke-name';
+    nm.textContent = p.name;
+    card.appendChild(nm);
+
+    const hpText = document.createElement('div');
+    hpText.className = 'bp-arena-hp-text';
+    hpText.textContent = p.fainted ? 'KO' : `${p.hp}/${p.maxHp}`;
+    card.appendChild(hpText);
+
+    const track = document.createElement('div');
+    track.className = 'bp-hp-bar-track';
+    const fill = document.createElement('div');
+    fill.className = `bp-hp-bar-fill ${colorClass}`;
+    fill.style.width = `${Math.max(0, Math.min(100, pct * 100)).toFixed(1)}%`;
+    track.appendChild(fill);
+    card.appendChild(track);
+
+    if (p.status && p.status !== 'healthy') {
+      const sb = document.createElement('span');
+      sb.className = 'bp-arena-status-badge';
+      const abbr = { burned:'BRN', paralyzed:'PAR', poisoned:'PSN', badly_poisoned:'TOX', frozen:'FRZ', asleep:'SLP' };
+      sb.textContent = abbr[p.status] || p.status.slice(0,3).toUpperCase();
+      card.appendChild(sb);
+    }
+
+    container.appendChild(card);
+  });
+}
+
+function bpRenderBench(container, bench) {
+  container.innerHTML = '';
+  bench.forEach((p) => {
+    const pill = document.createElement('span');
+    pill.className = 'bp-bench-pill' + (p.fainted ? ' fainted' : '');
+    const pct = p.maxHp > 0 ? Math.round(p.hp / p.maxHp * 100) : 0;
+    pill.textContent = `${p.name} ${p.fainted ? 'KO' : pct + '%'}`;
+    container.appendChild(pill);
+  });
+}
+
+// ── Action panel ──────────────────────────────────────────────────────────────
+
+function bpRenderActionPanel(state) {
+  bpActionPanel.innerHTML = '';
+
+  if (state.type === 'battle_end') {
+    bpShowEndBanner(state);
+    return;
+  }
+
+  if (state.type === 'requires_switch') {
+    bpRenderSwitchPanel(state);
+    return;
+  }
+
+  // Normal turn: one section per active slot
+  const pending = state.pendingActions || [];
+  pending.forEach((slotInfo, idx) => {
+    if (!slotInfo) return;
+
+    const section = document.createElement('div');
+
+    const lbl = document.createElement('div');
+    lbl.className = 'bp-action-slot-label' + (bp.chosen[idx] ? ' done' : '');
+    lbl.id = `bp-slot-lbl-${idx}`;
+    lbl.textContent = `${slotInfo.actorName} — escolha uma ação:`;
+    if (bp.chosen[idx]) lbl.textContent += ' ✓';
+    section.appendChild(lbl);
+
+    // Move buttons
+    const grid = document.createElement('div');
+    grid.className = 'bp-move-btns';
+    slotInfo.moves.forEach((mv) => {
+      const btn = document.createElement('button');
+      btn.className = 'bp-arena-move-btn' + (bpActionChosen(idx, mv) ? ' selected' : '');
+      btn.type = 'button';
+      const typePip = `[${mv.type}]`;
+      const pwrPip = mv.power > 0 ? ` ${mv.power}` : '';
+      btn.innerHTML = `<strong>${mv.name}</strong><br><small>${typePip}${pwrPip} ${mv.category}</small>`;
+      btn.addEventListener('click', () => bpChooseMove(idx, slotInfo, mv));
+      grid.appendChild(btn);
+    });
+    section.appendChild(grid);
+
+    // Switch options
+    if (slotInfo.switches.length > 0) {
+      const swRow = document.createElement('div');
+      swRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-top:4px';
+      slotInfo.switches.forEach((sw) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bp-arena-switch-btn' + (bpSwitchChosen(idx, sw) ? ' selected' : '');
+        const pct = sw.maxHp > 0 ? Math.round(sw.hp / sw.maxHp * 100) : 0;
+        btn.textContent = `↔ ${sw.name} (${pct}%)`;
+        btn.addEventListener('click', () => bpChooseSwitch(idx, slotInfo, sw));
+        swRow.appendChild(btn);
+      });
+      section.appendChild(swRow);
+    }
+
+    if (idx < pending.length - 1) {
+      const div = document.createElement('div');
+      div.className = 'bp-action-divider';
+      section.appendChild(div);
+    }
+
+    bpActionPanel.appendChild(section);
+  });
+
+  // Execute button (shown when both active slots have chosen)
+  const activeCount = (state.pendingActions || []).length;
+  const chosenCount = bp.chosen.slice(0, activeCount).filter(Boolean).length;
+  if (activeCount > 0 && chosenCount === activeCount) {
+    const execBtn = document.createElement('button');
+    execBtn.className = 'bp-execute-btn';
+    execBtn.type = 'button';
+    execBtn.textContent = '▶ Executar Turno';
+    execBtn.addEventListener('click', bpExecuteTurn);
+    bpActionPanel.appendChild(execBtn);
+  }
+}
+
+function bpActionChosen(slotIdx, mv) {
+  const c = bp.chosen[slotIdx];
+  return c && c.kind === 'move' && c.moveId === mv.moveId;
+}
+
+function bpSwitchChosen(slotIdx, sw) {
+  const c = bp.chosen[slotIdx];
+  return c && c.kind === 'switch' && c.partyIdx === sw.partyIdx;
+}
+
+function bpChooseMove(slotIdx, slotInfo, mv) {
+  const targetUid = mv.isSpread || mv.isSelf
+    ? (bp.battleState?.teams[0]?.active[slotIdx]?.uid || slotInfo.actorUid)
+    : (mv.defaultTargetUid || slotInfo.actorUid);
+  bp.chosen[slotIdx] = { kind: 'move', actorUid: slotInfo.actorUid, moveId: mv.moveId, targetUid };
+  bpRenderActionPanel(bp.battleState);
+}
+
+function bpChooseSwitch(slotIdx, slotInfo, sw) {
+  const userTeam = bp.battleState?.teams[0];
+  const teamIdx = 0;
+  bp.chosen[slotIdx] = {
+    kind: 'switch', teamIdx, activeSlot: slotInfo.slot, partyIdx: sw.partyIdx,
+  };
+  bpRenderActionPanel(bp.battleState);
+}
+
+async function bpExecuteTurn() {
+  const actions = bp.chosen.filter(Boolean);
+  if (actions.length === 0) return;
+
+  try {
+    const raw = await pokedexApi.ask(`__BATTLE_ACT_JSON__:${JSON.stringify({ actions })}`);
+    const state = JSON.parse(raw);
+    if (state.type === 'error') {
+      bpBattleLog.textContent = `Erro: ${state.message}`;
+      return;
+    }
+    bp.battleState = state;
+    bp.chosen = [null, null];
+    bpRenderArena(state);
+  } catch (e) {
+    bpBattleLog.textContent = `Erro: ${e.message}`;
+  }
+}
+
+function bpRenderSwitchPanel(state) {
+  bpActionPanel.innerHTML = '';
+
+  // Find fainted slots
+  const userTeam = state.teams[0];
+  userTeam.active.forEach((p, slot) => {
+    if (!p || !p.fainted) return;
+    const bench = state.teams[0].bench.filter((b) => !b.fainted);
+    if (bench.length === 0) return;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'bp-switch-required-label';
+    lbl.textContent = `${p.name} desmaiou! Escolha um substituto:`;
+    bpActionPanel.appendChild(lbl);
+
+    const opts = document.createElement('div');
+    opts.className = 'bp-switch-options';
+    bench.forEach((b) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bp-switch-option-btn';
+      const pct = b.maxHp > 0 ? Math.round(b.hp / b.maxHp * 100) : 0;
+      btn.textContent = `${b.name} ${pct}%`;
+      btn.addEventListener('click', () => bpDoForcedSwitch(0, slot, b.uid, state));
+      opts.appendChild(btn);
+    });
+    bpActionPanel.appendChild(opts);
+  });
+}
+
+async function bpDoForcedSwitch(teamIdx, activeSlot, benchUid, state) {
+  const team = state.teams[teamIdx];
+  const benchEntry = (team.bench || []).find((b) => b && b.uid === benchUid);
+  if (!benchEntry) return;
+  const partyIdx = benchEntry.partyIdx;
+
+  try {
+    const raw = await pokedexApi.ask(`__BATTLE_SWITCH_JSON__:${JSON.stringify({ teamIdx, activeSlot, partyIdx })}`);
+    const newState = JSON.parse(raw);
+    if (newState.type === 'error') { bpBattleLog.textContent = `Erro: ${newState.message}`; return; }
+    bp.battleState = newState;
+    bp.chosen = [null, null];
+    bpRenderArena(newState);
+  } catch (e) { bpBattleLog.textContent = `Erro: ${e.message}`; }
+}
+
+function bpShowEndBanner(state) {
+  bpActionPanel.innerHTML = '';
+  const won = state.winner === 0;
+  const banner = document.createElement('div');
+  banner.className = `bp-end-banner ${won ? 'win' : 'lose'}`;
+  banner.innerHTML = `<div class="bp-end-banner-title">${won ? '🏆 Vitória!' : '💀 Derrota!'}</div>
+    <div class="bp-end-banner-sub">Turno ${state.turn} — pressione "Desistir" para voltar ao builder.</div>`;
+  bpActionPanel.appendChild(banner);
+}
+
+// ── Event listeners ──────────────────────────────────────────────────────────
+
+document.getElementById('battle-panel-open').addEventListener('click', openBattlePanel);
+document.getElementById('bp-close').addEventListener('click', closeBattlePanel);
+document.getElementById('bp-start-btn').addEventListener('click', bpStartBattle);
+document.getElementById('bp-forfeit-btn').addEventListener('click', () => {
+  bpShowView('builder');
+  bpStartBtn.disabled = false;
+  bpValidationMsg.textContent = '';
+  bpCheckStart();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !battlePanelEl.classList.contains('hidden')) {
+    closeBattlePanel();
+  }
+});
