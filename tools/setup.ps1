@@ -275,8 +275,9 @@ if ($IsInstalled) {
     # Validar se o binario carrega com o Node.js local; rebuildar se ABI nao bater
     if ((Test-Path $dstNode) -and $nodeCmd) {
         $slashNode = $dstNode.Replace('\','/')
-        & $nodeCmd -e "require('$slashNode')" 2>$null | Out-Null
-        if ($LASTEXITCODE -ne 0) {
+        $abiOk = $false
+        try { & $nodeCmd -e "require('$slashNode')" 2>&1 | Out-Null; $abiOk = ($LASTEXITCODE -eq 0) } catch { $abiOk = $false }
+        if (-not $abiOk) {
             Write-Step "ABI incompativel - reconstruindo better-sqlite3 para Node.js local..."
             $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
             $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
@@ -284,7 +285,7 @@ if ($IsInstalled) {
             $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
             if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
             Push-Location $nnRt
-            & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error
+            try { & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
             $rebuildOk = $LASTEXITCODE -eq 0
             Pop-Location
             if ($rebuildOk) { Write-Ok "better-sqlite3 reconstruido para ABI local" }
@@ -307,6 +308,18 @@ if ($IsInstalled) {
         Write-Warn "SQLite nao encontrado em .local_cache\nn_export\pokefiles_nn.sqlite3"
         if ($nodeCmd) {
             Write-Step "Gerando SQLite via pipeline (requer internet)..."
+            # Garantir que better-sqlite3 esta instalado no projeto antes de rodar os scripts
+            $nnModulesDir = Join-Path $ProjectRoot 'tools\nn\node_modules\better-sqlite3'
+            if (-not (Test-Path $nnModulesDir)) {
+                Write-Step "Instalando dependencias do projeto (tools/nn)..."
+                $npmExe = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
+                if (-not (Test-Path $npmExe)) { $npmExe = 'npm' }
+                Push-Location (Join-Path $ProjectRoot 'tools\nn')
+                try { & $npmExe install --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
+                Pop-Location
+                if (Test-Path $nnModulesDir) { Write-Ok "Dependencias instaladas" }
+                else { Write-Warn "npm install falhou - pipeline pode nao funcionar sem better-sqlite3" }
+            }
             $pDir = Join-Path $ProjectRoot 'tools\pipeline'
             $pipelineScripts = @(
                 'generate_type_chart','generate_generation_db','generate_moves_db',
@@ -318,7 +331,7 @@ if ($IsInstalled) {
             foreach ($s in $pipelineScripts) {
                 $sPath = Join-Path $pDir "$s.js"
                 if (Test-Path $sPath) {
-                    & $nodeCmd $sPath 2>$null | Out-Null
+                    try { & $nodeCmd $sPath 2>&1 | Out-Null } catch { $pipelineOk = $false; break }
                     if ($LASTEXITCODE -ne 0) { $pipelineOk = $false; break }
                 }
             }
@@ -408,12 +421,12 @@ if ($IsInstalled) {
             $trainRt = Join-Path $InstallBase 'runtime\tools\nn\train'
             $nluReq  = Join-Path $trainRt 'nlu\requirements.txt'
             if (Test-Path $nluReq) {
-                & $pyCmd -m pip install -r $nluReq -q 2>$null | Out-Null
+                try { & $pyCmd -m pip install -r $nluReq -q 2>&1 | Out-Null } catch {}
             }
             $nluTrain = Join-Path $trainRt 'nlu\train_nlu.py'
             $strTrain = Join-Path $trainRt 'strategy\train_strategy.py'
-            if (Test-Path $nluTrain) { & $pyCmd $nluTrain }
-            if (Test-Path $strTrain)  { & $pyCmd $strTrain }
+            if (Test-Path $nluTrain) { try { & $pyCmd $nluTrain 2>&1 | Out-Null } catch {} }
+            if (Test-Path $strTrain)  { try { & $pyCmd $strTrain 2>&1 | Out-Null } catch {} }
             if (Test-Path $classifierPt) { Write-Ok "Treinamento concluido" }
             else { Write-Warn "Treinamento falhou - o app usara respostas de regras ate treinar" }
         } else {
@@ -532,8 +545,9 @@ if ((Test-Path $srcNode) -and (Test-Path (Split-Path $dstNode))) {
 # Validar se o binario carrega com o Node.js local; rebuildar se ABI nao bater
 if ((Test-Path $dstNode) -and $nodeCmd) {
     $slashNode = $dstNode.Replace('\','/')
-    & $nodeCmd -e "require('$slashNode')" 2>$null | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    $abiOk = $false
+    try { & $nodeCmd -e "require('$slashNode')" 2>&1 | Out-Null; $abiOk = ($LASTEXITCODE -eq 0) } catch { $abiOk = $false }
+    if (-not $abiOk) {
         Write-Step "ABI incompativel - reconstruindo better-sqlite3 para Node.js local..."
         $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
         $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
@@ -541,7 +555,7 @@ if ((Test-Path $dstNode) -and $nodeCmd) {
         $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
         if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
         Push-Location $nnRt
-        & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error
+        try { & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
         $rebuildOk = $LASTEXITCODE -eq 0
         Pop-Location
         if ($rebuildOk) { Write-Ok "better-sqlite3 reconstruido para ABI local" }
@@ -564,6 +578,18 @@ if (Test-Path $srcSqlite) {
     Write-Warn "SQLite nao encontrado - o app iniciara sem dados"
     if ($nodeCmd) {
         Write-Step "Gerando SQLite via pipeline (requer internet)..."
+        # Garantir que better-sqlite3 esta instalado no projeto antes de rodar os scripts
+        $nnModulesDir = Join-Path $ProjectRoot 'tools\nn\node_modules\better-sqlite3'
+        if (-not (Test-Path $nnModulesDir)) {
+            Write-Step "Instalando dependencias do projeto (tools/nn)..."
+            $npmExe = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
+            if (-not (Test-Path $npmExe)) { $npmExe = 'npm' }
+            Push-Location (Join-Path $ProjectRoot 'tools\nn')
+            try { & $npmExe install --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
+            Pop-Location
+            if (Test-Path $nnModulesDir) { Write-Ok "Dependencias instaladas" }
+            else { Write-Warn "npm install falhou - pipeline pode nao funcionar sem better-sqlite3" }
+        }
         $pDir = Join-Path $ProjectRoot 'tools\pipeline'
         $pipelineScripts = @(
             'generate_type_chart','generate_generation_db','generate_moves_db',
@@ -575,7 +601,7 @@ if (Test-Path $srcSqlite) {
         foreach ($s in $pipelineScripts) {
             $sPath = Join-Path $pDir "$s.js"
             if (Test-Path $sPath) {
-                & $nodeCmd $sPath 2>$null | Out-Null
+                try { & $nodeCmd $sPath 2>&1 | Out-Null } catch { $pipelineOk = $false; break }
                 if ($LASTEXITCODE -ne 0) { $pipelineOk = $false; break }
             }
         }
@@ -620,12 +646,12 @@ if (-not (Test-Path $classifierPt) -and (Test-Path $dstSqlite)) {
         $trainRt = Join-Path $InstallBase 'runtime\tools\nn\train'
         $nluReq  = Join-Path $trainRt 'nlu\requirements.txt'
         if (Test-Path $nluReq) {
-            & $pyCmd -m pip install -r $nluReq -q 2>$null | Out-Null
+            try { & $pyCmd -m pip install -r $nluReq -q 2>&1 | Out-Null } catch {}
         }
         $nluTrain = Join-Path $trainRt 'nlu\train_nlu.py'
         $strTrain = Join-Path $trainRt 'strategy\train_strategy.py'
-        if (Test-Path $nluTrain) { & $pyCmd $nluTrain }
-        if (Test-Path $strTrain)  { & $pyCmd $strTrain }
+        if (Test-Path $nluTrain) { try { & $pyCmd $nluTrain 2>&1 | Out-Null } catch {} }
+        if (Test-Path $strTrain)  { try { & $pyCmd $strTrain 2>&1 | Out-Null } catch {} }
         if (Test-Path $classifierPt) { Write-Ok "Treinamento concluido" }
         else { Write-Warn "Treinamento falhou - o app usara respostas de regras ate treinar" }
     } else {
