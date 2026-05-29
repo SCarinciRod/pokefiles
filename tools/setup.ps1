@@ -254,43 +254,43 @@ if ($IsInstalled) {
     Copy-Dir $srcDist $dstDist
     Write-Ok "tools/nn/dist/ sincronizado"
 
-    # 2b. Binario nativo Node (better_sqlite3.node) - so o .node compilado, nao o fonte (67 MB)
-    #     Necessario se o Node foi atualizado (ABI mudou). Copia apenas build/Release/.
-    Write-Step "Verificando binario nativo better-sqlite3..."
-    $srcNode = Join-Path $ProjectRoot 'tools\nn\node_modules\better-sqlite3\build\Release\better_sqlite3.node'
-    $dstNode = Join-Path $InstallBase 'runtime\tools\nn\node_modules\better-sqlite3\build\Release\better_sqlite3.node'
-    if ((Test-Path $srcNode) -and (Test-Path (Split-Path $dstNode))) {
-        $srcVer = (Get-Item $srcNode).LastWriteTime
-        $dstVer = if (Test-Path $dstNode) { (Get-Item $dstNode).LastWriteTime } else { [DateTime]::MinValue }
-        if ($srcVer -gt $dstVer) {
-            Copy-Item $srcNode $dstNode -Force
-            Write-Ok "better_sqlite3.node atualizado"
-        } else {
-            Write-Ok "better_sqlite3.node sem mudancas"
-        }
-    } else {
-        Write-Ok "better_sqlite3.node - sem acao necessaria"
-    }
+    # 2b. Modulo better-sqlite3 no runtime
+    #     require('better-sqlite3') precisa do modulo completo (package.json + lib/ + .node).
+    #     Copiar so o .node nao resolve. Verificamos se o modulo completo existe e, se nao,
+    #     instalamos via npm no diretorio runtime (compila para o Node.js do usuario).
+    Write-Step "Verificando modulo better-sqlite3 no runtime..."
+    $dstBsqliteDir  = Join-Path $InstallBase 'runtime\tools\nn\node_modules\better-sqlite3'
+    $dstBsqlitePkg  = Join-Path $dstBsqliteDir 'package.json'
+    $dstBsqliteNode = Join-Path $dstBsqliteDir 'build\Release\better_sqlite3.node'
+    $needsBsqlite   = $false
 
-    # Validar se o binario carrega com o Node.js local; rebuildar se ABI nao bater
-    if ((Test-Path $dstNode) -and $nodeCmd) {
-        $slashNode = $dstNode.Replace('\','/')
+    if (-not (Test-Path $dstBsqlitePkg)) {
+        $needsBsqlite = $true
+        Write-Step "Modulo ausente no runtime - instalando..."
+    } elseif ($nodeCmd) {
+        $slashNode = $dstBsqliteNode.Replace('\','/')
         $abiOk = $false
         try { & $nodeCmd -e "require('$slashNode')" 2>&1 | Out-Null; $abiOk = ($LASTEXITCODE -eq 0) } catch { $abiOk = $false }
-        if (-not $abiOk) {
-            Write-Step "ABI incompativel - reconstruindo better-sqlite3 para Node.js local..."
-            $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
-            $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
-            if (Test-Path $pkgSrc) { Copy-Item $pkgSrc $nnRt -Force }
-            $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
-            if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
-            Push-Location $nnRt
-            try { & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
-            $rebuildOk = $LASTEXITCODE -eq 0
-            Pop-Location
-            if ($rebuildOk) { Write-Ok "better-sqlite3 reconstruido para ABI local" }
-            else { Write-Warn "Falha ao reconstruir better-sqlite3 - verifique conexao com internet" }
-        }
+        if (-not $abiOk) { $needsBsqlite = $true; Write-Step "ABI incompativel - reinstalando..." }
+    }
+
+    if ($needsBsqlite -and $nodeCmd) {
+        $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
+        New-Item -ItemType Directory -Path $nnRt -Force | Out-Null
+        $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
+        if (Test-Path $pkgSrc) { Copy-Item $pkgSrc $nnRt -Force }
+        $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
+        if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
+        Push-Location $nnRt
+        try { & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
+        $bsOk = ($LASTEXITCODE -eq 0) -and (Test-Path $dstBsqlitePkg)
+        Pop-Location
+        if ($bsOk) { Write-Ok "better-sqlite3 instalado para Node.js $($nodeCmd)" }
+        else { Write-Warn "Falha ao instalar better-sqlite3 - verifique conexao com internet" }
+    } elseif (-not $needsBsqlite) {
+        Write-Ok "better-sqlite3 OK"
+    } else {
+        Write-Warn "better-sqlite3 ausente e Node.js nao disponivel - app nao vai iniciar"
     }
 
     # 2c. Banco de dados SQLite
@@ -531,36 +531,40 @@ if (Test-Path $BuiltRuntimeRes) {
     }
 }
 
-# Modulos nativos: so o binario .node (o npm install ja colocou o restante via electron-builder)
-Write-Step "Verificando binario nativo better-sqlite3..."
-$srcNode = Join-Path $ProjectRoot 'tools\nn\node_modules\better-sqlite3\build\Release\better_sqlite3.node'
-$dstNode = Join-Path $InstallBase 'runtime\tools\nn\node_modules\better-sqlite3\build\Release\better_sqlite3.node'
-if ((Test-Path $srcNode) -and (Test-Path (Split-Path $dstNode))) {
-    Copy-Item $srcNode $dstNode -Force
-    Write-Ok "better_sqlite3.node instalado"
-} else {
-    Write-Ok "better_sqlite3.node - modulo ja esta no pacote Electron"
-}
+# Modulo better-sqlite3 no runtime (mesmo que UPDATE — precisa do modulo completo, nao so .node)
+Write-Step "Verificando modulo better-sqlite3 no runtime..."
+$dstBsqliteDir  = Join-Path $InstallBase 'runtime\tools\nn\node_modules\better-sqlite3'
+$dstBsqlitePkg  = Join-Path $dstBsqliteDir 'package.json'
+$dstBsqliteNode = Join-Path $dstBsqliteDir 'build\Release\better_sqlite3.node'
+$needsBsqlite   = $false
 
-# Validar se o binario carrega com o Node.js local; rebuildar se ABI nao bater
-if ((Test-Path $dstNode) -and $nodeCmd) {
-    $slashNode = $dstNode.Replace('\','/')
+if (-not (Test-Path $dstBsqlitePkg)) {
+    $needsBsqlite = $true
+    Write-Step "Modulo ausente no runtime - instalando..."
+} elseif ($nodeCmd) {
+    $slashNode = $dstBsqliteNode.Replace('\','/')
     $abiOk = $false
     try { & $nodeCmd -e "require('$slashNode')" 2>&1 | Out-Null; $abiOk = ($LASTEXITCODE -eq 0) } catch { $abiOk = $false }
-    if (-not $abiOk) {
-        Write-Step "ABI incompativel - reconstruindo better-sqlite3 para Node.js local..."
-        $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
-        $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
-        if (Test-Path $pkgSrc) { Copy-Item $pkgSrc $nnRt -Force }
-        $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
-        if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
-        Push-Location $nnRt
-        try { & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
-        $rebuildOk = $LASTEXITCODE -eq 0
-        Pop-Location
-        if ($rebuildOk) { Write-Ok "better-sqlite3 reconstruido para ABI local" }
-        else { Write-Warn "Falha ao reconstruir better-sqlite3 - verifique conexao com internet" }
-    }
+    if (-not $abiOk) { $needsBsqlite = $true; Write-Step "ABI incompativel - reinstalando..." }
+}
+
+if ($needsBsqlite -and $nodeCmd) {
+    $nnRt   = Join-Path $InstallBase 'runtime\tools\nn'
+    New-Item -ItemType Directory -Path $nnRt -Force | Out-Null
+    $pkgSrc = Join-Path $ProjectRoot 'tools\nn\package.json'
+    if (Test-Path $pkgSrc) { Copy-Item $pkgSrc $nnRt -Force }
+    $npmCmd = Join-Path (Split-Path $nodeCmd) 'npm.cmd'
+    if (-not (Test-Path $npmCmd)) { $npmCmd = 'npm' }
+    Push-Location $nnRt
+    try { & $npmCmd install better-sqlite3 --save=false --no-audit --loglevel=error 2>&1 | Out-Null } catch {}
+    $bsOk = ($LASTEXITCODE -eq 0) -and (Test-Path $dstBsqlitePkg)
+    Pop-Location
+    if ($bsOk) { Write-Ok "better-sqlite3 instalado para Node.js local" }
+    else { Write-Warn "Falha ao instalar better-sqlite3 - verifique conexao com internet" }
+} elseif (-not $needsBsqlite) {
+    Write-Ok "better-sqlite3 OK"
+} else {
+    Write-Warn "better-sqlite3 ausente e Node.js nao disponivel - app nao vai iniciar"
 }
 
 # SQLite - copiar se disponivel no projeto
